@@ -1,21 +1,21 @@
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15
-    container_name: chess-insight-postgres
-    environment:
-      POSTGRES_USER: chessai
-      POSTGRES_PASSWORD: chessai
-      POSTGRES_DB: chessai
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chessai"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # PostgreSQL Database - DISABLED (Using Supabase)
+  # postgres:
+  #   image: postgres:15
+  #   container_name: chess-insight-postgres
+  #   environment:
+  #     POSTGRES_USER: chessai
+  #     POSTGRES_PASSWORD: chessai
+  #     POSTGRES_DB: chessai
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U chessai"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   # Redis Cache
   redis:
@@ -27,31 +27,29 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
 
-  # Backend API
-  backend:
-    build: ./backend
-    container_name: chess-insight-backend
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    environment:
-      - DATABASE_URL=postgresql://chessai:chessai@postgres:5432/chessai
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
-      - STOCKFISH_PATH=/usr/games/stockfish
-      - LOG_LEVEL=INFO
-    volumes:
-      - ./backend:/app
-      - backend_uploads:/app/uploads
-      - backend_reports:/app/reports
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    restart: unless-stopped
+  # Backend API - Run locally (not in Docker) to connect to Supabase
+  # Use: python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  # backend:
+  #   build: ./backend
+  #   container_name: chess-insight-backend
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #     - REDIS_DB=0
+  #     - STOCKFISH_PATH=/usr/games/stockfish
+  #     - LOG_LEVEL=INFO
+  #   volumes:
+  #     - ./backend:/app
+  #     - backend_uploads:/app/uploads
+  #     - backend_reports:/app/reports
+  #   depends_on:
+  #     redis:
+  #       condition: service_started
+  #   restart: unless-stopped
 
   # Frontend (when ready)
   frontend:
@@ -74,12 +72,10 @@ services:
     build: ./backend
     container_name: chess-insight-celery
     command: celery -A app.workers.celery_app worker --loglevel=info
+    env_file:
+      - .env
     environment:
-      - POSTGRES_SERVER=postgres
-      - POSTGRES_USER=chessai
-      - POSTGRES_PASSWORD=chessai
-      - POSTGRES_DB=chessai
-      - POSTGRES_PORT=5432
+      # Database config comes from .env (Supabase)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
@@ -87,8 +83,6 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_started
     restart: unless-stopped

@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 8)))
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
     @field_validator("SECRET_KEY", mode="before")
@@ -73,7 +75,15 @@ class Settings(BaseSettings):
     SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "chess-insight-files")
     
     # Database connection URL
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL", "")
+    
+    # PostgreSQL individual components (for compatibility)
+    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "postgres")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
     
     # Redis
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
@@ -89,6 +99,12 @@ class Settings(BaseSettings):
     STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "/usr/games/stockfish")
     STOCKFISH_DEPTH: int = int(os.getenv("STOCKFISH_DEPTH", "15"))
     STOCKFISH_TIME: float = float(os.getenv("STOCKFISH_TIME", "1.0"))
+    
+    # OpenAI / OpenRouter API
+    OPEN_API_KEY: str = os.getenv("OPEN_API_KEY", "")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", os.getenv("OPEN_API_KEY", ""))
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENAI_API_BASE: str = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
     
     # Background Tasks
     CELERY_BROKER_URL: str = REDIS_URL
@@ -107,7 +123,8 @@ class Settings(BaseSettings):
     
     model_config = {
         "case_sensitive": True,
-        "env_file": ".env"
+        "env_file": "../.env",  # Look in parent directory
+        "env_file_encoding": "utf-8"
     }
 
 

@@ -136,6 +136,7 @@ const Dashboard: React.FC = () => {
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analyzingGamesCount, setAnalyzingGamesCount] = useState(0);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [gamesCollapsed, setGamesCollapsed] = useState(false);
 
   // Fetch user data by username (ensure lowercase for consistency)
   const normalizedUsername = username ? (username as string).toLowerCase() : '';
@@ -165,7 +166,7 @@ const Dashboard: React.FC = () => {
   // Fetch games list
   const { data: games, refetch: refetchGames } = useQuery({
     queryKey: ['games', user?.id],
-    queryFn: () => api.games.getForUser(user!.id, { limit: 20 }),
+    queryFn: () => api.games.getForUser(user!.id, { limit: 100 }),
     enabled: !!user?.id,
   });
 
@@ -273,7 +274,7 @@ const Dashboard: React.FC = () => {
       
       try {
         // Refetch games to check analysis status
-        const updatedGames = await api.games.getForUser(user!.id, { limit: 20 });
+        const updatedGames = await api.games.getForUser(user!.id, { limit: 100 });
         
         if (updatedGames) {
           const analyzedCount = updatedGames.filter(g => g.is_analyzed).length;
@@ -558,15 +559,30 @@ const Dashboard: React.FC = () => {
         {/* Games List */}
         {games && games.length > 0 && (
           <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-2">
-                <Trophy className="w-6 h-6 text-blue-400" />
-                <h3 className="text-xl font-semibold text-white">Recent Games</h3>
-              </div>
-              <span className="text-sm text-gray-400">{games.length} games</span>
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => setGamesCollapsed(!gamesCollapsed)}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              >
+                <Trophy className="w-5 h-5 text-blue-400" />
+                <h2 className="text-xl font-semibold text-white">Fetched Games</h2>
+                <span className="text-sm text-gray-400">{games.length} games</span>
+                <span className="text-gray-400 ml-2">
+                  {gamesCollapsed ? '▼' : '▲'}
+                </span>
+              </button>
+              <button
+                onClick={() => handleAnalyzeGames(games.map(g => g.id))}
+                disabled={isAnalyzing || games.every(g => g.is_analyzed)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <Brain className="w-4 h-4" />
+                {isAnalyzing ? 'Analyzing...' : games.every(g => g.is_analyzed) ? 'All Analyzed' : 'Analyze All Games'}
+              </button>
             </div>
+            {!gamesCollapsed && (
             <div className="space-y-3">
-              {games.slice(0, 10).map((game) => {
+              {games.map((game) => {
                 const userColor = game.white_username?.toLowerCase() === user?.chesscom_username?.toLowerCase() ? 'white' : 'black';
                 const opponentUsername = userColor === 'white' ? game.black_username : game.white_username;
                 const userResult = userColor === 'white' ? game.white_result : game.black_result;
@@ -613,6 +629,7 @@ const Dashboard: React.FC = () => {
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
