@@ -5,7 +5,7 @@
     "type": "code_generation",
     "conditions": {
       "mode": "global",
-      "exclude_contexts": ["comment_updates", "minor_refactors", "trivial edits"]
+      "exclude_contexts": ["comment_updates", "minor_refactors", "trivial edits", "Frontend changes"]
     }
   },
   "actions": [

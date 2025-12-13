@@ -28,7 +28,7 @@ services:
     command: redis-server --appendonly yes
 
   # Backend API - Run locally (not in Docker) to connect to Supabase
-  # Use: python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  # Use: python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
   # backend:
   #   build: ./backend
   #   container_name: chess-insight-backend
@@ -65,7 +65,7 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-    profiles: ["frontend"]  # Optional service, enable with --profile frontend
+    profiles: [ "frontend" ] # Optional service, enable with --profile frontend
 
   # Celery Worker (for background tasks)
   celery-worker:
@@ -86,13 +86,14 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
-    profiles: ["celery"]  # Optional service for background processing
+    profiles: [ "celery" ] # Optional service for background processing
 
 volumes:
   postgres_data:
   redis_data:
   backend_uploads:
   backend_reports:
+
 
 networks:
   default:

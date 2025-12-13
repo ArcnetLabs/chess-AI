@@ -1,6 +1,0 @@
-MCP fix: Upgrade supabase to 2.22.0
-
-Used Playwright MCP to research latest versions.
-Upgraded supabase from 2.3.0 (Dec 2023) to 2.22.0 (Oct 2025).
-Reverted httpx to 0.25.2 (now compatible with new supabase).
-All dependency conflicts resolved.

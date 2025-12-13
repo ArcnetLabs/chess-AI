@@ -1,6 +1,6 @@
 # Chess Insight AI
 
-An AI-powered companion app that analyzes Chess.com users' recent games, identifies why their rating changes, and provides actionable improvement insights.
+An AI-powered companion app that analyzes Chess.com users' recent games, identifies why their rating tanks often, and provides actionable improvement insights.
 
 ## 🎯 Problem Statement
 

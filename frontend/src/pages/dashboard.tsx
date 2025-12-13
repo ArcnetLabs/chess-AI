@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, TrendingDown, Trophy, Target, AlertCircle, CheckCircle2, Brain, Clock, Zap } from 'lucide-react';
-import api from '@/services/api';
+import api from '@/lib/api';
 import { User, Analysis, MoveQualityStats, Game } from '@/types';
 import toast from 'react-hot-toast';
 import { AnalysisProgressModal } from '@/components/AnalysisProgressModal';
@@ -572,7 +572,7 @@ const Dashboard: React.FC = () => {
                 </span>
               </button>
               <button
-                onClick={() => handleAnalyzeGames(games.map(g => g.id))}
+                onClick={() => handleAnalyzeGames(false)}
                 disabled={isAnalyzing || games.every(g => g.is_analyzed)}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
               >

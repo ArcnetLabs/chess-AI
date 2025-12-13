@@ -3,8 +3,6 @@ AI Model Provider Abstraction Layer.
 
 Supports multiple AI providers (OpenAI, OpenRouter) with unified interface.
 Provider selection via MODEL_PROVIDER environment variable.
-
-Note: Also available via app.services.integration.ai_client for consistency.
 """
 import os
 from typing import Optional, Dict, Any, List
@@ -25,7 +23,7 @@ except ImportError:
     HTTPX_AVAILABLE = False
     logger.warning("httpx library not installed")
 
-from .config import settings
+from ...core.config import settings
 
 
 class ModelProvider(str, Enum):
