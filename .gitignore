@@ -16,6 +16,9 @@ eggs/
 .eggs/
 lib/
 lib64/
+
+# Allow frontend lib folder (not Python packaging)
+!frontend/src/lib/
 parts/
 sdist/
 var/
