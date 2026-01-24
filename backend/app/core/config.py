@@ -96,9 +96,11 @@ class Settings(BaseSettings):
     CHESSCOM_API_RATE_LIMIT: int = 100  # requests per minute
     
     # Stockfish Engine
-    STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "/usr/games/stockfish")
+    STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "")  # Auto-detect if empty
     STOCKFISH_DEPTH: int = int(os.getenv("STOCKFISH_DEPTH", "15"))
     STOCKFISH_TIME: float = float(os.getenv("STOCKFISH_TIME", "1.0"))
+    STOCKFISH_THREADS: int = int(os.getenv("STOCKFISH_THREADS", "2"))
+    STOCKFISH_HASH: int = int(os.getenv("STOCKFISH_HASH", "256"))  # MB
     
     # OpenAI / OpenRouter API
     OPEN_API_KEY: str = os.getenv("OPEN_API_KEY", "")

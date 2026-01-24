@@ -174,18 +174,31 @@ async def create_user(
                 detail=f"Unable to verify Chess.com user: {error_message}"
             )
     
-    # Create user
+    # Create user with unique email handling
     db_user = User(
         chesscom_username=user_data.chesscom_username.lower(),
         display_name=profile_data.get("name", user_data.chesscom_username),
-        email=user_data.email,
+        email=user_data.email or f"{user_data.chesscom_username.lower()}@chess.placeholder",
         chesscom_profile=profile_data,
         current_ratings=stats_data
     )
     
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    try:
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating user: {e}")
+        # If duplicate, try to fetch existing user
+        if "UNIQUE constraint" in str(e):
+            existing_user = db.query(User).filter(
+                User.chesscom_username == user_data.chesscom_username.lower()
+            ).first()
+            if existing_user:
+                logger.info(f"User {user_data.chesscom_username} already exists, returning existing user")
+                return existing_user
+        raise HTTPException(status_code=400, detail=f"Error creating user: {str(e)}")
     
     # Add background task to fetch initial games
     background_tasks.add_task(
