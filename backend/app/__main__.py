@@ -11,10 +11,14 @@ if sys.platform == 'win32':
 from .core.config import settings
 from .api import users, games, analysis, insights
 from .core.database import engine, Base
+from .core.logging_config import configure_logging
 
 # Configure logging
 logger.remove()
 logger.add(sys.stderr, level=settings.LOG_LEVEL)
+
+# Apply custom logging filters to reduce HTTP request verbosity
+configure_logging()
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -104,10 +108,16 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    import logging
+    
+    # Reduce uvicorn access log verbosity to WARNING to avoid excessive HTTP request logs
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
         port=8000,
         reload=True,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
+        access_log=False  # Disable default access logs to reduce clutter
     )

@@ -273,7 +273,7 @@ const Dashboard: React.FC = () => {
 
   const startSingleGamePolling = (gameId: number) => {
     let pollCount = 0;
-    const maxPolls = 60; // Poll for max 3 minutes
+    const maxPolls = 45; // Poll for max 6 minutes (45 * 8s)
     
     const pollInterval = setInterval(async () => {
       pollCount++;
@@ -331,7 +331,7 @@ const Dashboard: React.FC = () => {
           return newSet;
         });
       }
-    }, 3000); // Poll every 3 seconds
+    }, 8000); // Poll every 8 seconds
   };
 
   const handleAnalyzeSingleGame = async (gameId: number) => {
@@ -369,7 +369,7 @@ const Dashboard: React.FC = () => {
 
   const startAnalysisPolling = () => {
     let pollCount = 0;
-    const maxPolls = 60; // Poll for max 5 minutes
+    const maxPolls = 50; // Poll for max 6.5 minutes (50 * 8s)
     let lastAnalyzedCount = 0;
     
     const pollInterval = setInterval(async () => {
@@ -412,7 +412,7 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error('Polling error:', error);
       }
-    }, 3000); // Poll every 3 seconds for faster updates
+    }, 8000); // Poll every 8 seconds
   };
 
   const handleAnalysisComplete = () => {

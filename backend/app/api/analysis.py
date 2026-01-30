@@ -63,6 +63,10 @@ async def analyze_game_background(game_id: int, user_id: int):
     # Create new database session for background task
     db = SessionLocal()
     
+    # Track analysis time
+    from datetime import datetime
+    start_time = datetime.now()
+    
     try:
         logger.info(f"🔍 Starting Stockfish analysis for game {game_id}")
         
@@ -151,10 +155,16 @@ async def analyze_game_background(game_id: int, user_id: int):
         game.is_analyzed = True
         
         db.commit()
+        
+        # Calculate analysis duration
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
         logger.info(
             f"✅ Game {game_id} analyzed successfully: "
             f"ACPL={result.user_acpl:.1f}, Accuracy={result.accuracy_percentage:.1f}%, "
-            f"Blunders={result.blunders}, Mistakes={result.mistakes}"
+            f"Blunders={result.blunders}, Mistakes={result.mistakes} | "
+            f"⏱️ Time: {duration:.1f}s"
         )
         
     except Exception as e:

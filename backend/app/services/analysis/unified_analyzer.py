@@ -10,6 +10,7 @@ import chess.pgn
 from loguru import logger
 
 from ..engine.stockfish_engine import StockfishEngine, StockfishEngineError
+from ..engine.engine_pool import get_pooled_engine
 from ...core.config import settings
 
 
@@ -112,21 +113,17 @@ class UnifiedChessAnalyzer:
         'blunder': 300        # Major blunder
     }
     
-    def __init__(self, engine: Optional[StockfishEngine] = None):
+    def __init__(self, engine: Optional[StockfishEngine] = None, use_pool: bool = True):
         """
         Initialize analyzer.
         
         Args:
-            engine: StockfishEngine instance. If None, creates new one.
+            engine: StockfishEngine instance. If None, uses pooled engine.
+            use_pool: If True and engine is None, uses global engine pool (default).
         """
-        self.engine = engine or StockfishEngine(
-            stockfish_path=settings.STOCKFISH_PATH or None,
-            depth=settings.STOCKFISH_DEPTH,
-            threads=settings.STOCKFISH_THREADS,
-            hash_size=settings.STOCKFISH_HASH,
-            time_limit=settings.STOCKFISH_TIME
-        )
-        self._engine_owned = engine is None
+        self.engine = engine
+        self._engine_owned = False
+        self._use_pool = use_pool and engine is None
     
     async def analyze_game(
         self,
@@ -148,8 +145,20 @@ class UnifiedChessAnalyzer:
         start_time = datetime.now()
         
         try:
-            # Initialize engine if needed
-            if not self.engine.is_initialized():
+            # Get engine from pool if needed
+            if self.engine is None and self._use_pool:
+                self.engine = await get_pooled_engine()
+            elif self.engine is None:
+                # Fallback: create new engine if pool disabled
+                self.engine = StockfishEngine(
+                    stockfish_path=settings.STOCKFISH_PATH or None,
+                    depth=settings.STOCKFISH_DEPTH,
+                    threads=settings.STOCKFISH_THREADS,
+                    hash_size=settings.STOCKFISH_HASH,
+                    time_limit=settings.STOCKFISH_TIME
+                )
+                await self.engine.initialize()
+            elif not self.engine.is_initialized():
                 await self.engine.initialize()
             
             # Parse PGN
@@ -211,7 +220,8 @@ class UnifiedChessAnalyzer:
             
             logger.info(
                 f"Game {game_id} analyzed: {user_acpl:.1f} ACPL, "
-                f"{accuracy:.1f}% accuracy, {classifications['blunders']} blunders"
+                f"{accuracy:.1f}% accuracy, {classifications['blunders']} blunders "
+                f"(⏱️ {analysis_duration:.1f}s)"
             )
             
             return result
@@ -390,16 +400,17 @@ class UnifiedChessAnalyzer:
         return opening, middlegame, endgame
     
     async def close(self):
-        """Close the engine if owned by this analyzer."""
+        """Close the engine if owned by this analyzer (not pooled engines)."""
         if self._engine_owned and self.engine:
             await self.engine.close()
     
     async def __aenter__(self):
         """Async context manager entry."""
-        if not self.engine.is_initialized():
-            await self.engine.initialize()
+        # Engine initialization is handled in analyze_game() for pooled engines
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        await self.close()
+        """Async context manager exit - don't close pooled engines."""
+        # Only close if we own the engine (not from pool)
+        if self._engine_owned:
+            await self.close()
