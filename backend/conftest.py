@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import Mock, AsyncMock, MagicMock
 
-from app.main import app
+from app.__main__ import app
 from app.core.database import Base, get_db
 from app.models.user import User
 from app.models.game import Game

@@ -33,13 +33,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # Redis connection (optional for development)
+redis_client = None
 try:
-    redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
-    # Test connection
+    redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1)
+    # Test connection with timeout
     redis_client.ping()
-except (redis.ConnectionError, Exception) as e:
-    # Redis not available - create a mock client for development
-    print(f"⚠️ Redis not available: {e}. Using mock client for development.")
+    print("✅ Redis connected successfully")
+except (redis.ConnectionError, redis.TimeoutError, Exception) as e:
+    # Redis not available - continue without it for development
+    print(f"⚠️ Redis not available: {e}. Continuing without Redis (development mode).")
     redis_client = None
 
 
