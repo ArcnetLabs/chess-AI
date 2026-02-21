@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from ..core.database import get_db
 from ..models import User, Game
-from ..services.chesscom_api import chesscom_api, ChessComAPIError
+from ..services.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExceeded
 from ..services.tier_service import get_tier_service
 from loguru import logger
 
@@ -21,7 +21,7 @@ async def fetch_initial_games_background(user_id: int, username: str):
         logger.info(f"Fetching initial games for user {username} (ID: {user_id})")
         
         # Fetch recent games (last 30 days for new users)
-        raw_games = await chesscom_api.get_recent_games(username, days=30)
+        raw_games = await chesscom_api.get_recent_games(username, days=30, user_id=user_id)
         
         if not raw_games:
             logger.info(f"No recent games found for {username}")

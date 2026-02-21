@@ -14,7 +14,7 @@ from ..core.database import get_db
 
 from ..models import User, Game
 
-from ..services.chesscom_api import chesscom_api, ChessComAPIError
+from ..services.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExceeded
 
 from ..services.filter_service import GameFilter, FilterService, get_filter_service
 
@@ -184,8 +184,23 @@ async def fetch_recent_games(
 
             days=fetch_days,
 
-            count=fetch_count
+            count=fetch_count,
 
+            user_id=user.id
+
+        )
+    
+    except RateLimitExceeded as e:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "Rate limit exceeded",
+                "message": f"You have made {e.current_count}/{e.limit} requests in the last minute. Please try again in {e.retry_after} seconds.",
+                "retry_after": e.retry_after,
+                "limit": e.limit,
+                "window": 60,
+                "user_id": e.user_id
+            }
         )
 
         

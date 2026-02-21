@@ -3,7 +3,14 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 import sys
+from pathlib import Path
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+# Load .env file before importing settings
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent.parent / '.env'
+load_dotenv(env_path)
 
 from app.core.config import settings
 from app.core.database import Base
@@ -29,10 +36,17 @@ target_metadata = Base.metadata
 
 def get_database_url():
     """Get database URL from environment variables or config."""
+    # Try DATABASE_URL first
+    db_url = os.getenv("DATABASE_URL")
+    if db_url:
+        return db_url
+    
+    # Fallback to individual components
     if os.getenv("POSTGRES_SERVER"):
         return f"postgresql://{os.getenv('POSTGRES_USER', 'chessai')}:{os.getenv('POSTGRES_PASSWORD', 'chessai')}@{os.getenv('POSTGRES_SERVER', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'chessai')}"
-    else:
-        return settings.SQLALCHEMY_DATABASE_URI
+    
+    # Last resort: use settings
+    return settings.SQLALCHEMY_DATABASE_URI or settings.DATABASE_URL
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

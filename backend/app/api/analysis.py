@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -8,6 +8,7 @@ from ..models import User, Game, GameAnalysis
 from ..services.analysis.unified_analyzer import UnifiedChessAnalyzer
 from ..services.tier_service import get_tier_service
 from ..core.config import settings
+from ..tasks.analysis_tasks import analyze_game_task, analyze_batch_games_task
 from loguru import logger
 import asyncio
 from datetime import datetime
@@ -51,13 +52,10 @@ class AnalysisRequest(BaseModel):
     mode: str = "auto"  # "auto", "stockfish-only", or "ai-enhanced"
 
 
-def analyze_game_background_wrapper(game_id: int, user_id: int):
-    """Wrapper to run async analysis in background task."""
-    # Event loop policy is set globally in __main__.py for Windows subprocess support
-    asyncio.run(analyze_game_background(game_id, user_id))
+# Background analysis functions removed - now using Celery tasks
+# See app/tasks/analysis_tasks.py for task implementations
 
-
-async def analyze_game_background(game_id: int, user_id: int):
+async def analyze_game_background_DEPRECATED(game_id: int, user_id: int):
     """Background task to analyze a single game with Stockfish using UnifiedChessAnalyzer."""
     
     # Create new database session for background task
@@ -178,7 +176,6 @@ async def analyze_game_background(game_id: int, user_id: int):
 async def analyze_single_game(
     user_id: int,
     game_id: int,
-    background_tasks: BackgroundTasks,
     force_reanalysis: bool = False,
     db: Session = Depends(get_db)
 ):
@@ -210,16 +207,16 @@ async def analyze_single_game(
             "game_id": game_id
         }
     
-    # Queue the analysis
-    background_tasks.add_task(analyze_game_background_wrapper, game_id, user_id)
+    # Queue the analysis with Celery
+    task = analyze_game_task.delay(game_id, user_id)
     
-    logger.info(f"Queued analysis for game {game_id} (user {user_id})")
+    logger.info(f"Queued Celery task {task.id} for game {game_id} (user {user_id})")
     
     return {
         "status": "queued",
         "message": "Analysis started",
         "game_id": game_id,
-        "games_queued": 1
+        "task_id": task.id
     }
 
 
@@ -227,7 +224,6 @@ async def analyze_single_game(
 async def analyze_user_games(
     user_id: int,
     request: AnalysisRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Analyze games for a user with tier-aware logic."""
@@ -303,10 +299,14 @@ async def analyze_user_games(
                 detail="AI analysis limit reached"
             )
     
-    # Queue analysis tasks
-    for game in games_to_analyze:
-        if game.pgn:  # Only analyze games with PGN data
-            background_tasks.add_task(analyze_game_background_wrapper, game.id, user_id)
+    # Queue analysis tasks with Celery
+    game_ids_to_analyze = [game.id for game in games_to_analyze if game.pgn]
+    
+    if game_ids_to_analyze:
+        task = analyze_batch_games_task.delay(game_ids_to_analyze, user_id)
+        task_id = task.id
+    else:
+        task_id = None
     
     # Update user's analyzed_games count
     user.analyzed_games = db.query(Game).filter(
@@ -316,14 +316,11 @@ async def analyze_user_games(
     db.commit()
     
     return {
-        "message": f"Queued {len(games_to_analyze)} games for analysis",
-        "games_queued": len(games_to_analyze),
+        "message": f"Queued {len(game_ids_to_analyze)} games for analysis",
+        "games_queued": len(game_ids_to_analyze),
+        "task_id": task_id,
         "analysis_mode": analysis_mode,
-        "uses_ai": uses_ai,
-        "tier_info": {
-            "tier": user.tier,
-            "remaining_ai_analyses": user.remaining_ai_analyses if not user.is_pro else "unlimited"
-        }
+        "uses_ai": uses_ai
     }
 
 
