@@ -18,6 +18,8 @@ from ..services.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExc
 
 from ..services.filter_service import GameFilter, FilterService, get_filter_service
 
+from .games_filters import GameQueryBuilder
+
 
 
 router = APIRouter()
@@ -138,6 +140,176 @@ class GameFetchRequest(BaseModel):
 
 
 
+class GameFilterRequest(BaseModel):
+
+    """Request model for filtering games from database."""
+
+    time_controls: Optional[List[str]] = None
+
+    rated_only: Optional[bool] = None
+
+    unrated_only: Optional[bool] = None
+
+    start_date: Optional[str] = None
+
+    end_date: Optional[str] = None
+
+    limit: int = 25  # Default to 25 games
+
+    offset: int = 0
+
+    include_statistics: bool = False
+
+
+
+
+
+@router.post("/{user_id}/filter")
+
+async def filter_games(
+
+    user_id: int,
+
+    filter_request: GameFilterRequest,
+
+    db: Session = Depends(get_db)
+
+):
+
+    """Filter games from database with optimized queries."""
+
+    from loguru import logger
+
+    
+
+    # Verify user exists
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+
+        raise HTTPException(status_code=404, detail="User not found")
+
+    
+
+    # Parse dates
+
+    start_date = None
+
+    end_date = None
+
+    if filter_request.start_date:
+
+        start_date = datetime.fromisoformat(filter_request.start_date.replace('Z', '+00:00'))
+
+    if filter_request.end_date:
+
+        end_date = datetime.fromisoformat(filter_request.end_date.replace('Z', '+00:00'))
+
+    
+
+    logger.info(f"🔍 Filtering games for user {user.chesscom_username} - Time controls: {filter_request.time_controls}, Rated: {filter_request.rated_only}, Date range: {filter_request.start_date} to {filter_request.end_date}, Limit: {filter_request.limit}")
+
+    
+
+    # Get filtered games using database query
+
+    games = GameQueryBuilder.get_filtered_games(
+
+        db=db,
+
+        user_id=user_id,
+
+        time_controls=filter_request.time_controls,
+
+        rated_only=filter_request.rated_only,
+
+        unrated_only=filter_request.unrated_only,
+
+        start_date=start_date,
+
+        end_date=end_date,
+
+        limit=filter_request.limit,
+
+        offset=filter_request.offset
+
+    )
+
+    
+
+    # Get total count
+
+    total_count = GameQueryBuilder.count_filtered_games(
+
+        db=db,
+
+        user_id=user_id,
+
+        time_controls=filter_request.time_controls,
+
+        rated_only=filter_request.rated_only,
+
+        unrated_only=filter_request.unrated_only,
+
+        start_date=start_date,
+
+        end_date=end_date
+
+    )
+
+    
+
+    logger.info(f"✅ Found {len(games)} games out of {total_count} total matching games (limited to {filter_request.limit})")
+
+    
+
+    response = {
+
+        "games": [GameResponse.model_validate(game) for game in games],
+
+        "total_count": total_count,
+
+        "page": (filter_request.offset // filter_request.limit) + 1 if filter_request.limit > 0 else 1,
+
+        "per_page": filter_request.limit,
+
+        "has_more": (filter_request.offset + len(games)) < total_count
+
+    }
+
+    
+
+    # Include statistics if requested
+
+    if filter_request.include_statistics:
+
+        stats = GameQueryBuilder.get_game_statistics(
+
+            db=db,
+
+            user_id=user_id,
+
+            time_controls=filter_request.time_controls,
+
+            start_date=start_date,
+
+            end_date=end_date
+
+        )
+
+        response["statistics"] = stats
+
+        logger.info(f"📊 Statistics - Total matching: {stats['total_games']}, Returned: {len(games)}, Win rate: {stats['win_rate']:.1f}%")
+
+    
+
+    return response
+
+
+
+
+
 @router.post("/{user_id}/fetch")
 
 async def fetch_recent_games(
@@ -215,7 +387,45 @@ async def fetch_recent_games(
 
         if not raw_games:
 
+            logger.info(f"📭 No games found for user {user.chesscom_username}")
+
             return {"message": "No recent games found", "games_fetched": 0}
+
+        
+
+        # Log initial fetch statistics
+
+        logger.info(f"📥 Fetched {len(raw_games)} games from Chess.com for user {user.chesscom_username}")
+
+        
+
+        # Analyze game types before filtering
+
+        time_control_breakdown = {}
+
+        rated_count = 0
+
+        unrated_count = 0
+
+        for game in raw_games:
+
+            tc = game.get('time_class', 'unknown')
+
+            time_control_breakdown[tc] = time_control_breakdown.get(tc, 0) + 1
+
+            if game.get('rated', False):
+
+                rated_count += 1
+
+            else:
+
+                unrated_count += 1
+
+        
+
+        logger.info(f"📊 Game breakdown - Time controls: {time_control_breakdown}")
+
+        logger.info(f"📊 Game breakdown - Rated: {rated_count}, Unrated: {unrated_count}")
 
         
 
@@ -226,6 +436,10 @@ async def fetch_recent_games(
             fetch_request.time_controls or fetch_request.rated_only is not None or 
 
             fetch_request.unrated_only is not None):
+
+            
+
+            logger.info(f"🔍 Applying filters - Time controls: {fetch_request.time_controls}, Rated only: {fetch_request.rated_only}, Date range: {fetch_request.start_date} to {fetch_request.end_date}")
 
             
 
@@ -249,7 +463,11 @@ async def fetch_recent_games(
 
             filter_service = get_filter_service()
 
-            raw_games = filter_service.apply_filters(raw_games, game_filter)
+            filtered_games = filter_service.apply_filters(raw_games, game_filter)
+
+            logger.info(f"✅ Filtered {len(raw_games)} games down to {len(filtered_games)} games")
+
+            raw_games = filtered_games
 
         
 

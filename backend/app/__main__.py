@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import sys
 import asyncio
+import warnings
+
+# Suppress Pydantic V1 compatibility warnings for Python 3.14
+warnings.filterwarnings("ignore", message=".*Pydantic V1.*")
 
 # Fix for Windows subprocess support with Stockfish
 if sys.platform == 'win32':

@@ -42,8 +42,10 @@ def analyze_game_task(self, game_id: int, user_id: int):
         - Exponential backoff with jitter
         - Max delay: 600 seconds (10 minutes)
     """
+    import time
     task_id = self.request.id
     db = SessionLocal()
+    start_time = time.time()
     
     try:
         logger.info(f"🔍 [Task {task_id}] Starting Stockfish analysis for game {game_id}")
@@ -63,8 +65,13 @@ def analyze_game_task(self, game_id: int, user_id: int):
         # Determine user's color
         user_color = "white" if game.white_username and game.white_username.lower() == user.chesscom_username.lower() else "black"
         
+        # Log game details
+        opponent = game.black_username if user_color == "white" else game.white_username
+        logger.info(f"🎮 [Task {task_id}] Game details - vs {opponent}, {game.time_class}, Result: {game.winner or 'draw'}")
+        
         # Analyze game with UnifiedChessAnalyzer
         logger.info(f"🧠 [Task {task_id}] Analyzing game {game_id} with UnifiedChessAnalyzer (depth={settings.STOCKFISH_DEPTH})...")
+        analysis_start = time.time()
         
         # Run async analysis in sync context
         loop = asyncio.new_event_loop()
@@ -81,6 +88,9 @@ def analyze_game_task(self, game_id: int, user_id: int):
             result = loop.run_until_complete(run_analysis())
         finally:
             loop.close()
+        
+        analysis_time = time.time() - analysis_start
+        logger.info(f"⏱️ [Task {task_id}] Analysis completed in {analysis_time:.2f} seconds")
         
         if not result:
             logger.warning(f"❌ [Task {task_id}] Analysis failed for game {game_id}")
@@ -143,10 +153,11 @@ def analyze_game_task(self, game_id: int, user_id: int):
         
         db.commit()
         
+        total_time = time.time() - start_time
         logger.info(
-            f"✅ [Task {task_id}] Game {game_id} analyzed successfully: "
+            f"✅ [Task {task_id}] Game {game_id} analyzed successfully in {total_time:.2f}s: "
             f"ACPL={result.user_acpl:.1f}, Accuracy={result.accuracy_percentage:.1f}%, "
-            f"Blunders={result.blunders}, Mistakes={result.mistakes}"
+            f"Blunders={result.blunders}, Mistakes={result.mistakes}, Inaccuracies={result.inaccuracies}"
         )
         
         return {
@@ -155,7 +166,8 @@ def analyze_game_task(self, game_id: int, user_id: int):
             "user_acpl": result.user_acpl,
             "accuracy": result.accuracy_percentage,
             "blunders": result.blunders,
-            "mistakes": result.mistakes
+            "mistakes": result.mistakes,
+            "analysis_time": total_time
         }
         
     except Exception as e:

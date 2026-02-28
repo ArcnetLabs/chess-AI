@@ -1,7 +1,13 @@
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from pydantic import AnyHttpUrl, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+# Load .env file explicitly
+env_path = Path(__file__).parent.parent.parent / '.env'
+load_dotenv(env_path)
 
 
 class Settings(BaseSettings):
@@ -75,8 +81,12 @@ class Settings(BaseSettings):
     SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "chess-insight-files")
     
     # Database connection URL
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
-    SQLALCHEMY_DATABASE_URI: str = os.getenv("DATABASE_URL", "")
+    DATABASE_URL: str = ""
+    
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        """Get database URI from DATABASE_URL."""
+        return self.DATABASE_URL or ""
     
     # PostgreSQL individual components (for compatibility)
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
@@ -125,8 +135,9 @@ class Settings(BaseSettings):
     
     model_config = {
         "case_sensitive": True,
-        "env_file": "../.env",  # Look in parent directory
-        "env_file_encoding": "utf-8"
+        "env_file": ".env",  # Look in current directory (backend/.env)
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
     }
 
 
