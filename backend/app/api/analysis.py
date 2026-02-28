@@ -1,15 +1,17 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..core.database import get_db, SessionLocal
 from ..models import User, Game, GameAnalysis
-from ..services.chess_analysis import ChessAnalysisService
+from ..services.analysis.unified_analyzer import UnifiedChessAnalyzer
 from ..services.tier_service import get_tier_service
 from ..core.config import settings
+from ..tasks.analysis_tasks import analyze_game_task, analyze_batch_games_task
 from loguru import logger
 import asyncio
+from datetime import datetime
 
 router = APIRouter()
 
@@ -50,19 +52,21 @@ class AnalysisRequest(BaseModel):
     mode: str = "auto"  # "auto", "stockfish-only", or "ai-enhanced"
 
 
-def analyze_game_background_wrapper(game_id: int, user_id: int):
-    """Wrapper to run async analysis in background task."""
-    asyncio.run(analyze_game_background(game_id, user_id))
+# Background analysis functions removed - now using Celery tasks
+# See app/tasks/analysis_tasks.py for task implementations
 
-
-async def analyze_game_background(game_id: int, user_id: int):
-    """Background task to analyze a single game with Stockfish."""
+async def analyze_game_background_DEPRECATED(game_id: int, user_id: int):
+    """Background task to analyze a single game with Stockfish using UnifiedChessAnalyzer."""
     
     # Create new database session for background task
     db = SessionLocal()
     
+    # Track analysis time
+    from datetime import datetime
+    start_time = datetime.now()
+    
     try:
-        logger.info(f"Starting analysis for game {game_id}")
+        logger.info(f"🔍 Starting Stockfish analysis for game {game_id}")
         
         # Get the game
         game = db.query(Game).filter(Game.id == game_id).first()
@@ -77,82 +81,149 @@ async def analyze_game_background(game_id: int, user_id: int):
             return
         
         # Determine user's color
-        user_color = "white" if game.white_username and game.white_username.lower() == user.chesscom_username else "black"
+        user_color = "white" if game.white_username and game.white_username.lower() == user.chesscom_username.lower() else "black"
         
-        # Initialize analysis service
-        analyzer = ChessAnalysisService(stockfish_path=settings.STOCKFISH_PATH)
+        # Analyze game with UnifiedChessAnalyzer
+        logger.info(f"🧠 Analyzing game {game_id} with UnifiedChessAnalyzer (depth={settings.STOCKFISH_DEPTH})...")
+        async with UnifiedChessAnalyzer() as analyzer:
+            result = await analyzer.analyze_game(
+                pgn_string=game.pgn,
+                user_color=user_color,
+                game_id=str(game_id)
+            )
         
-        # Run analysis
-        logger.info(f"Analyzing game {game_id} with Stockfish...")
-        analysis_result = await analyzer.analyze_game(
-            game.pgn,
-            depth=settings.STOCKFISH_DEPTH,
-            time_limit=settings.STOCKFISH_TIME
-        )
-        
-        if not analysis_result:
-            logger.warning(f"Analysis failed for game {game_id}")
+        if not result:
+            logger.warning(f"❌ Analysis failed for game {game_id}")
             return
         
         # Check if analysis already exists
         existing_analysis = db.query(GameAnalysis).filter(GameAnalysis.game_id == game_id).first()
         
         if existing_analysis:
-            # Update existing analysis
-            existing_analysis.analysis_depth = settings.STOCKFISH_DEPTH
-            existing_analysis.user_color = user_color
-            existing_analysis.user_acpl = analysis_result["average_centipawn_loss"]
-            existing_analysis.brilliant_moves = analysis_result["move_classifications"]["brilliant"]
-            existing_analysis.great_moves = analysis_result["move_classifications"]["great"]
-            existing_analysis.best_moves = analysis_result["move_classifications"]["best"]
-            existing_analysis.excellent_moves = analysis_result["move_classifications"]["excellent"]
-            existing_analysis.good_moves = analysis_result["move_classifications"]["good"]
-            existing_analysis.inaccuracies = analysis_result["move_classifications"]["inaccuracy"]
-            existing_analysis.mistakes = analysis_result["move_classifications"]["mistake"]
-            existing_analysis.blunders = analysis_result["move_classifications"]["blunder"]
-            existing_analysis.evaluations = analysis_result["moves"]
-            
-            logger.info(f"Updated existing analysis for game {game_id}")
+            # Update existing analysis with new UnifiedChessAnalyzer results
+            logger.info(f"Updating existing analysis for game {game_id}")
+            existing_analysis.engine_version = result.engine_version
+            existing_analysis.analysis_depth = result.analysis_depth
+            existing_analysis.user_color = result.user_color
+            existing_analysis.user_acpl = result.user_acpl
+            existing_analysis.opponent_acpl = result.opponent_acpl
+            existing_analysis.accuracy_percentage = result.accuracy_percentage
+            existing_analysis.brilliant_moves = result.brilliant_moves
+            existing_analysis.great_moves = result.great_moves
+            existing_analysis.best_moves = result.best_moves
+            existing_analysis.excellent_moves = result.excellent_moves
+            existing_analysis.good_moves = result.good_moves
+            existing_analysis.inaccuracies = result.inaccuracies
+            existing_analysis.mistakes = result.mistakes
+            existing_analysis.blunders = result.blunders
+            existing_analysis.opening_name = result.opening_name
+            existing_analysis.opening_eco = result.opening_eco
+            existing_analysis.opening_acpl = result.opening_phase.average_acpl if result.opening_phase else None
+            existing_analysis.middlegame_acpl = result.middlegame_phase.average_acpl if result.middlegame_phase else None
+            existing_analysis.endgame_acpl = result.endgame_phase.average_acpl if result.endgame_phase else None
         else:
-            # Create new analysis
+            # Create new analysis with UnifiedChessAnalyzer results
+            logger.info(f"Creating new analysis for game {game_id}")
             analysis = GameAnalysis(
                 game_id=game_id,
-                engine_version="Stockfish",
-                analysis_depth=settings.STOCKFISH_DEPTH,
-                user_color=user_color,
-                user_acpl=analysis_result["average_centipawn_loss"],
-                brilliant_moves=analysis_result["move_classifications"]["brilliant"],
-                great_moves=analysis_result["move_classifications"]["great"],
-                best_moves=analysis_result["move_classifications"]["best"],
-                excellent_moves=analysis_result["move_classifications"]["excellent"],
-                good_moves=analysis_result["move_classifications"]["good"],
-                inaccuracies=analysis_result["move_classifications"]["inaccuracy"],
-                mistakes=analysis_result["move_classifications"]["mistake"],
-                blunders=analysis_result["move_classifications"]["blunder"],
-                evaluations=analysis_result["moves"]
+                engine_version=result.engine_version,
+                analysis_depth=result.analysis_depth,
+                user_color=result.user_color,
+                user_acpl=result.user_acpl,
+                opponent_acpl=result.opponent_acpl,
+                accuracy_percentage=result.accuracy_percentage,
+                brilliant_moves=result.brilliant_moves,
+                great_moves=result.great_moves,
+                best_moves=result.best_moves,
+                excellent_moves=result.excellent_moves,
+                good_moves=result.good_moves,
+                inaccuracies=result.inaccuracies,
+                mistakes=result.mistakes,
+                blunders=result.blunders,
+                opening_name=result.opening_name,
+                opening_eco=result.opening_eco,
+                opening_acpl=result.opening_phase.average_acpl if result.opening_phase else None,
+                middlegame_acpl=result.middlegame_phase.average_acpl if result.middlegame_phase else None,
+                endgame_acpl=result.endgame_phase.average_acpl if result.endgame_phase else None
             )
             
             db.add(analysis)
-            logger.info(f"Created new analysis for game {game_id}")
         
         # Mark game as analyzed
         game.is_analyzed = True
         
         db.commit()
-        logger.info(f"Successfully completed analysis for game {game_id}")
+        
+        # Calculate analysis duration
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        logger.info(
+            f"✅ Game {game_id} analyzed successfully: "
+            f"ACPL={result.user_acpl:.1f}, Accuracy={result.accuracy_percentage:.1f}%, "
+            f"Blunders={result.blunders}, Mistakes={result.mistakes} | "
+            f"⏱️ Time: {duration:.1f}s"
+        )
         
     except Exception as e:
-        logger.error(f"Error analyzing game {game_id}: {e}")
+        logger.error(f"❌ Error analyzing game {game_id}: {e}", exc_info=True)
         db.rollback()
     finally:
         db.close()
+
+
+@router.post("/{user_id}/analyze/{game_id}")
+async def analyze_single_game(
+    user_id: int,
+    game_id: int,
+    force_reanalysis: bool = False,
+    db: Session = Depends(get_db)
+):
+    """Analyze a single game."""
+    
+    # Verify user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify game exists and belongs to user
+    game = db.query(Game).filter(
+        Game.id == game_id,
+        Game.user_id == user_id
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check if already analyzed
+    existing_analysis = db.query(GameAnalysis).filter(
+        GameAnalysis.game_id == game_id
+    ).first()
+    
+    if existing_analysis and not force_reanalysis:
+        return {
+            "status": "already_analyzed",
+            "message": "Game already analyzed",
+            "game_id": game_id
+        }
+    
+    # Queue the analysis with Celery
+    task = analyze_game_task.delay(game_id, user_id)
+    
+    logger.info(f"Queued Celery task {task.id} for game {game_id} (user {user_id})")
+    
+    return {
+        "status": "queued",
+        "message": "Analysis started",
+        "game_id": game_id,
+        "task_id": task.id
+    }
 
 
 @router.post("/{user_id}/analyze")
 async def analyze_user_games(
     user_id: int,
     request: AnalysisRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """Analyze games for a user with tier-aware logic."""
@@ -199,13 +270,10 @@ async def analyze_user_games(
             Game.id.in_(request.game_ids)
         )
     else:
-        # Analyze recent games
-        from datetime import datetime, timedelta
-        cutoff_date = datetime.utcnow() - timedelta(days=request.days)
-        
+        # Analyze ALL games for the user (not just recent ones)
+        logger.info(f"Analyzing all games for user {user_id}")
         games_query = db.query(Game).filter(
-            Game.user_id == user_id,
-            Game.end_time >= cutoff_date
+            Game.user_id == user_id
         )
         
         if request.time_classes:
@@ -231,10 +299,14 @@ async def analyze_user_games(
                 detail="AI analysis limit reached"
             )
     
-    # Queue analysis tasks
-    for game in games_to_analyze:
-        if game.pgn:  # Only analyze games with PGN data
-            background_tasks.add_task(analyze_game_background_wrapper, game.id, user_id)
+    # Queue analysis tasks with Celery
+    game_ids_to_analyze = [game.id for game in games_to_analyze if game.pgn]
+    
+    if game_ids_to_analyze:
+        task = analyze_batch_games_task.delay(game_ids_to_analyze, user_id)
+        task_id = task.id
+    else:
+        task_id = None
     
     # Update user's analyzed_games count
     user.analyzed_games = db.query(Game).filter(
@@ -244,14 +316,11 @@ async def analyze_user_games(
     db.commit()
     
     return {
-        "message": f"Queued {len(games_to_analyze)} games for analysis",
-        "games_queued": len(games_to_analyze),
+        "message": f"Queued {len(game_ids_to_analyze)} games for analysis",
+        "games_queued": len(game_ids_to_analyze),
+        "task_id": task_id,
         "analysis_mode": analysis_mode,
-        "uses_ai": uses_ai,
-        "tier_info": {
-            "tier": user.tier,
-            "remaining_ai_analyses": user.remaining_ai_analyses if not user.is_pro else "unlimited"
-        }
+        "uses_ai": uses_ai
     }
 
 
@@ -301,11 +370,20 @@ async def get_analysis_summary(user_id: int, days: int = 7, db: Session = Depend
     from datetime import datetime, timedelta
     cutoff_date = datetime.utcnow() - timedelta(days=days)
     
+    # Get all analyzed games (don't filter by date if no games found in period)
     analyses = db.query(GameAnalysis).join(Game).filter(
         Game.user_id == user_id,
-        Game.end_time >= cutoff_date,
         Game.is_analyzed == True
     ).all()
+    
+    # If we have analyses, filter by date for the summary
+    if analyses:
+        recent_analyses = [a for a in analyses if a.game.end_time and a.game.end_time >= cutoff_date]
+        # If no recent analyses, use all analyses
+        if not recent_analyses:
+            recent_analyses = analyses
+            logger.info(f"No analyses in last {days} days, using all {len(analyses)} analyzed games")
+        analyses = recent_analyses
     
     if not analyses:
         return {
@@ -380,4 +458,5 @@ async def delete_game_analysis(game_id: int, db: Session = Depends(get_db)):
     db.delete(analysis)
     db.commit()
     
+    return {"message": "Analysis deleted successfully"}
     return {"message": "Analysis deleted successfully"}

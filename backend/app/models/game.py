@@ -68,6 +68,7 @@ class GameAnalysis(Base):
     user_color = Column(String)  # "white" or "black"
     user_acpl = Column(Float)  # Average Centipawn Loss
     opponent_acpl = Column(Float)
+    accuracy_percentage = Column(Float)  # Accuracy percentage (0-100)
     
     # Move classifications
     brilliant_moves = Column(Integer, default=0)

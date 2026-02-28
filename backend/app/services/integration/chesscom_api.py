@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 import httpx
+import redis.asyncio as redis
 from loguru import logger
 
 from ...core.config import settings
@@ -14,8 +15,22 @@ class ChessComAPIError(Exception):
     pass
 
 
+class RateLimitExceeded(Exception):
+    """Exception for rate limit violations."""
+    def __init__(self, user_id: int, retry_after: int, current_count: int, limit: int):
+        self.user_id = user_id
+        self.retry_after = retry_after
+        self.current_count = current_count
+        self.limit = limit
+        super().__init__(
+            f"Rate limit exceeded for user {user_id}. "
+            f"Made {current_count}/{limit} requests. "
+            f"Please try again in {retry_after} seconds."
+        )
+
+
 class ChessComAPI:
-    """Chess.com API client with rate limiting and caching."""
+    """Chess.com API client with rate limiting and Redis caching."""
     
     def __init__(self):
         self.base_url = settings.CHESSCOM_API_BASE_URL
@@ -32,6 +47,17 @@ class ChessComAPI:
                 "Accept": "application/json"
             }
         )
+        
+        # Redis client for caching and rate limiting
+        self.redis_client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True
+        )
+        self.cache_ttl = 3600  # 1 hour TTL for cached responses
+        
+        # Rate limiting configuration
+        self.rate_limit_max = 50  # Maximum requests per user per minute
+        self.rate_limit_window = 60  # Time window in seconds
     
     async def _make_request(self, endpoint: str, headers: Optional[Dict] = None) -> Tuple[Dict, Dict]:
         """Make rate-limited request to Chess.com API."""
@@ -116,9 +142,109 @@ class ChessComAPI:
         data, headers = await self._make_request(endpoint)
         return data.get("archives", [])
     
+    def _get_cache_key(self, username: str, year: int, month: int) -> str:
+        """Generate Redis cache key for game archives.
+        
+        Format: chesscom:archives:{username}:{year}:{month}
+        """
+        return f"chesscom:archives:{username.lower()}:{year:04d}:{month:02d}"
+    
+    def _get_rate_limit_key(self, user_id: int) -> str:
+        """Generate Redis key for rate limiting.
+        
+        Format: ratelimit:user:{user_id}
+        """
+        return f"ratelimit:user:{user_id}"
+    
+    async def _check_rate_limit(self, user_id: int) -> None:
+        """Check if user has exceeded rate limit.
+        
+        Args:
+            user_id: User ID to check rate limit for
+            
+        Raises:
+            RateLimitExceeded: If user has exceeded rate limit
+            
+        Rate Limit: 50 requests per minute per user
+        """
+        rate_limit_key = self._get_rate_limit_key(user_id)
+        
+        try:
+            # Get current count
+            current_count = await self.redis_client.get(rate_limit_key)
+            
+            if current_count is None:
+                # First request in window - set counter to 1 with TTL
+                await self.redis_client.setex(
+                    rate_limit_key,
+                    self.rate_limit_window,
+                    1
+                )
+                logger.debug(f"Rate limit initialized for user {user_id}: 1/{self.rate_limit_max}")
+                return
+            
+            current_count = int(current_count)
+            
+            if current_count >= self.rate_limit_max:
+                # Rate limit exceeded
+                ttl = await self.redis_client.ttl(rate_limit_key)
+                logger.warning(
+                    f"⚠️ Rate limit exceeded for user {user_id}: "
+                    f"{current_count}/{self.rate_limit_max} requests. "
+                    f"Retry after {ttl}s"
+                )
+                raise RateLimitExceeded(user_id, ttl, current_count, self.rate_limit_max)
+            
+            # Increment counter
+            new_count = await self.redis_client.incr(rate_limit_key)
+            logger.debug(f"Rate limit check for user {user_id}: {new_count}/{self.rate_limit_max}")
+            
+        except RateLimitExceeded:
+            # Re-raise rate limit exceptions
+            raise
+        except redis.RedisError as e:
+            logger.warning(f"Redis rate limit check error for user {user_id}: {e}")
+            # On Redis error, allow request (graceful degradation)
+            return
+    
     async def get_player_games_by_month(self, username: str, year: int, month: int, 
-                                       etag: Optional[str] = None) -> Tuple[Dict, Dict]:
-        """Get player games for a specific month with caching support."""
+                                       etag: Optional[str] = None,
+                                       user_id: Optional[int] = None) -> Tuple[Dict, Dict]:
+        """Get player games for a specific month with Redis caching and rate limiting.
+        
+        Cache key format: chesscom:archives:{username}:{year}:{month}
+        TTL: 1 hour (3600 seconds)
+        Rate Limit: 50 requests per minute per user
+        
+        Args:
+            username: Chess.com username
+            year: Year of games
+            month: Month of games
+            etag: Optional ETag for HTTP caching
+            user_id: Optional user ID for rate limiting
+            
+        Raises:
+            RateLimitExceeded: If user exceeds 50 requests per minute
+        """
+        # Check rate limit if user_id provided
+        if user_id:
+            await self._check_rate_limit(user_id)
+        
+        cache_key = self._get_cache_key(username, year, month)
+        
+        # Check Redis cache first
+        try:
+            cached_data = await self.redis_client.get(cache_key)
+            if cached_data:
+                logger.debug(f"Cache HIT: {cache_key}")
+                data = json.loads(cached_data)
+                return data, {}  # Return cached data with empty headers
+        except redis.RedisError as e:
+            logger.warning(f"Redis cache read error for {cache_key}: {e}")
+            # Continue to API call on cache error - graceful degradation
+        
+        # Cache miss - fetch from Chess.com API
+        logger.debug(f"Cache MISS: {cache_key}")
         endpoint = f"/player/{username.lower()}/games/{year:04d}/{month:02d}"
         
         headers = {}
@@ -127,7 +253,21 @@ class ChessComAPI:
         
         try:
             data, response_headers = await self._make_request(endpoint, headers)
+            
+            # Store successful response in Redis cache
+            try:
+                await self.redis_client.setex(
+                    cache_key,
+                    self.cache_ttl,
+                    json.dumps(data)
+                )
+                logger.debug(f"Cached response for {cache_key} (TTL: {self.cache_ttl}s)")
+            except redis.RedisError as e:
+                logger.warning(f"Redis cache write error for {cache_key}: {e}")
+                # Don't fail if cache write fails - graceful degradation
+            
             return data, response_headers
+            
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 304:  # Not Modified
                 return None, dict(e.response.headers)
@@ -137,14 +277,16 @@ class ChessComAPI:
         self, 
         username: str, 
         days: Optional[int] = None,
-        count: Optional[int] = None
+        count: Optional[int] = None,
+        user_id: Optional[int] = None
     ) -> List[Dict]:
-        """Get recent games for a player.
+        """Get recent games for a player with rate limiting.
         
         Args:
             username: Chess.com username
             days: Get games from last N days (mutually exclusive with count)
             count: Get last N games (mutually exclusive with days)
+            user_id: Optional user ID for rate limiting
         
         Returns:
             List of game dictionaries sorted by most recent first
@@ -152,6 +294,7 @@ class ChessComAPI:
         Raises:
             ValueError: If both days and count are specified
             ChessComAPIError: If API request fails
+            RateLimitExceeded: If user exceeds 50 requests per minute
         """
         if days and count:
             raise ValueError("Specify either 'days' or 'count', not both")
@@ -180,7 +323,7 @@ class ChessComAPI:
                     parts = archive_url.split('/')
                     year, month = int(parts[-2]), int(parts[-1])
                     
-                    games_data, _ = await self.get_player_games_by_month(username, year, month)
+                    games_data, _ = await self.get_player_games_by_month(username, year, month, user_id=user_id)
                     
                     if games_data and "games" in games_data:
                         games = games_data["games"]
@@ -209,7 +352,7 @@ class ChessComAPI:
                     parts = archive_url.split('/')
                     year, month = int(parts[-2]), int(parts[-1])
                     
-                    games_data, _ = await self.get_player_games_by_month(username, year, month)
+                    games_data, _ = await self.get_player_games_by_month(username, year, month, user_id=user_id)
                     
                     if games_data and "games" in games_data:
                         all_games.extend(games_data["games"])
@@ -297,8 +440,9 @@ class ChessComAPI:
         }
     
     async def close(self):
-        """Close the HTTP client."""
+        """Close the HTTP client and Redis connection."""
         await self.client.aclose()
+        await self.redis_client.close()
 
 
 # Global API client instance

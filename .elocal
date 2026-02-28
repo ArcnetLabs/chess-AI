@@ -1,0 +1,63 @@
+# # Database Configuration
+# # SWITCHED TO SUPABASE (Managed PostgreSQL)
+# # Get your password from: https://supabase.com/dashboard/project/kkgdxjypcvvrnqtocazc/settings/database
+# DATABASE_URL=postgresql://postgres:2Klbylr8qz48O7ci@db.kkgdxjypcvvrnqtocazc.supabase.co:5432/postgres?sslmode=require
+# POSTGRES_SERVER=db.kkgdxjypcvvrnqtocazc.supabase.co
+# POSTGRES_USER=postgres
+# POSTGRES_PASSWORD=2Klbylr8qz48O7ci
+# POSTGRES_DB=postgres
+# POSTGRES_PORT=5432
+
+# # Local PostgreSQL (Docker) - BACKUP (uncomment to switch back)
+# # DATABASE_URL=postgresql://chessai:chessai@postgres:5432/chessai
+# # POSTGRES_SERVER=postgres
+# # POSTGRES_USER=chessai
+# # POSTGRES_PASSWORD=chessai
+# # POSTGRES_DB=chessai
+# # POSTGRES_PORT=5432
+
+# # Supabase Configuration (for future migration)
+# SUPABASE_URL=https://kkgdxjypcvvrnqtocazc.supabase.co
+# SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZ2R4anlwY3Z2cm5xdG9jYXpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NzA1MzcsImV4cCI6MjA3NjU0NjUzN30.RFzTmiwYrJbiYHY7GiMy-f5cUy6FygMQJ-wu_vEoNj4
+# SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZ2R4anlwY3Z2cm5xdG9jYXpjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDk3MDUzNywiZXhwIjoyMDc2NTQ2NTM3fQ.SSy8IxyrjlJls7KGx1mMPq41O7DUdgGZIAf-bZk6wyE
+
+# # Redis Configuration (for caching and Celery)
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+# REDIS_DB=0
+
+# # Application Security
+# SECRET_KEY=your-very-secret-key-change-in-production
+# JWT_SECRET_KEY=ReCBou3jmA8Iw/JUTDRVTDBxvFgSlEH0TyAUsSIhxcq0WfadcomCgCQg2BJefxcJTeoxMTygiLSsonBWYOYhCA==
+# JWT_ALGORITHM=HS256
+# ACCESS_TOKEN_EXPIRE_MINUTES=3600
+
+# # OpenAI API (for MCP GPT-5 server)
+# OPEN_API_KEY="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"
+
+# OPENROUTER_API_KEY="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"
+# OPENAI_API_BASE=https://openrouter.ai/api/v1
+
+# # Stockfish Configuration
+# STOCKFISH_PATH=/usr/games/stockfish
+# STOCKFISH_DEPTH=15
+# STOCKFISH_TIME=1.0
+
+# # File Storage (Supabase Storage buckets)
+# SUPABASE_STORAGE_BUCKET=chess-insight-files
+# UPLOAD_DIR=./uploads
+# REPORTS_DIR=./reports
+
+# # Logging
+# LOG_LEVEL=INFO
+
+# # CORS Origins (comma-separated)
+# BACKEND_CORS_ORIGINS=["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"]
+
+# # Chess.com API
+# CHESSCOM_API_BASE_URL=https://api.chess.com/pub
+# CHESSCOM_API_RATE_LIMIT=100
+
+# # Analysis Settings
+# MAX_GAMES_PER_ANALYSIS=50
+# ANALYSIS_CACHE_EXPIRE_HOURS=24

@@ -9,10 +9,10 @@ supabase==2.22.0
 # Removed explicit versions to let supabase manage sub-dependencies
 
 # Database (SQLAlchemy still used for ORM)
-sqlalchemy==2.0.23
-alembic==1.13.0
-psycopg2-binary==2.9.9
-asyncpg==0.29.0
+sqlalchemy>=2.0.23
+alembic>=1.13.0
+psycopg2-binary==2.9.11
+asyncpg>=0.31.0
 
 # Redis for caching and task queue
 redis==5.0.1
@@ -30,12 +30,12 @@ requests==2.31.0
 openai==1.12.0  # Optional: for OpenAI provider
 
 # Data processing
-pandas==2.1.4
-numpy==1.26.2
+pandas>=2.1.4
+numpy>=1.26.2
 
 # Configuration and environment
-pydantic==2.5.1
-pydantic-settings==2.1.0
+pydantic>=2.5.1
+pydantic-settings>=2.1.0
 python-dotenv==1.0.0
 
 # Date/time handling
@@ -60,5 +60,5 @@ dramatiq[redis]==1.15.0
 
 # PDF generation for reports
 reportlab==4.0.7
-matplotlib==3.8.2
+matplotlib>=3.8.2
 seaborn==0.13.0

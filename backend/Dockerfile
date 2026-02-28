@@ -28,12 +28,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     ENVIRONMENT=production
 
-# Install only runtime dependencies
+# Install only runtime dependencies and download Stockfish
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
-        stockfish \
+        wget \
+        unzip \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -u 1000 appuser
+    && useradd -m -u 1000 appuser \
+    && mkdir -p /app/stockfish \
+    && cd /app/stockfish \
+    && wget https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar \
+    && tar -xf stockfish-ubuntu-x86-64-avx2.tar \
+    && mv stockfish/stockfish-ubuntu-x86-64-avx2 stockfish \
+    && chmod +x stockfish \
+    && rm -rf stockfish-ubuntu-x86-64-avx2.tar stockfish \
+    && chown -R appuser:appuser /app/stockfish
 
 # Set work directory
 WORKDIR /app
@@ -48,8 +57,8 @@ COPY --chown=appuser:appuser . .
 # Create directories for uploads and reports
 RUN mkdir -p /app/uploads /app/reports && chown -R appuser:appuser /app
 
-# Set default Stockfish path
-ENV STOCKFISH_PATH=/usr/games/stockfish
+# Set default Stockfish path (will auto-detect if not set)
+ENV STOCKFISH_PATH=/app/stockfish/stockfish
 
 # Switch to non-root user
 USER appuser
