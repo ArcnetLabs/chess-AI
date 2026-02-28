@@ -247,7 +247,7 @@ const HomePage: React.FC = () => {
 
               {showAdvancedFilters && (
                 <div className="space-y-4 mb-4 animate-in slide-in-from-top">
-                  {/* Game Count */}
+                  {/* Game Count - Commented out for now
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-2">
                       Number of Games
@@ -263,6 +263,7 @@ const HomePage: React.FC = () => {
                       <option value={100}>100 games</option>
                     </select>
                   </div>
+                  */}
 
                   {/* Time Controls */}
                   <div>
@@ -335,12 +336,18 @@ const HomePage: React.FC = () => {
                   {/* Filter Summary */}
                   <div className="p-3 bg-gray-700/50 rounded-lg">
                     <p className="text-xs text-gray-400">
-                      Will fetch: <span className="text-white font-medium">{filters.game_count} games</span>
+                      <span className="text-white font-medium">Active Filters:</span>
                       {filters.time_controls.length > 0 && (
-                        <>, <span className="text-white font-medium">{filters.time_controls.join(', ')}</span> only</>
+                        <> <span className="text-blue-400">{filters.time_controls.join(', ')}</span></>
                       )}
                       {filters.rated_filter !== 'all' && (
-                        <>, <span className="text-white font-medium">{filters.rated_filter}</span> games</>
+                        <> • <span className="text-blue-400">{filters.rated_filter}</span> games</>
+                      )}
+                      {(filters.start_date || filters.end_date) && (
+                        <> • <span className="text-blue-400">Date range</span></>
+                      )}
+                      {filters.time_controls.length === 0 && filters.rated_filter === 'all' && !filters.start_date && !filters.end_date && (
+                        <span className="text-gray-500"> None (will fetch all recent games)</span>
                       )}
                     </p>
                   </div>

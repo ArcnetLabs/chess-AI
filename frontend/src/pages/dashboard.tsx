@@ -136,6 +136,13 @@ const Dashboard: React.FC = () => {
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analyzingGamesCount, setAnalyzingGamesCount] = useState(0);
   const [currentAnalyzedCount, setCurrentAnalyzedCount] = useState(0);
+  const [currentAnalyzingGame, setCurrentAnalyzingGame] = useState<{
+    id: number;
+    opponent: string;
+    result: string;
+    timeClass: string;
+    date?: string;
+  } | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [gamesCollapsed, setGamesCollapsed] = useState(false);
   const [analysisPollingInterval, setAnalysisPollingInterval] = useState<NodeJS.Timeout | null>(null);
@@ -298,46 +305,49 @@ const Dashboard: React.FC = () => {
           // Refetch all data to update dashboard - force refresh
           console.log('🔄 Refetching all data after analysis completion...');
           
-          const [gamesResult, userResult, summaryResult] = await Promise.all([
+          await Promise.all([
             refetchGames(),
             refetchUserData(),
             refetchAnalysisSummary()
           ]);
           
-          console.log('📊 Analysis Summary after refetch:', summaryResult.data);
-          console.log('🎮 Games after refetch:', gamesResult.data?.filter(g => g.is_analyzed).length, 'analyzed');
-          
-          // Force a second refetch after a short delay to ensure backend has committed
-          setTimeout(async () => {
-            console.log('🔄 Second refetch to ensure data is updated...');
-            await refetchAnalysisSummary();
-          }, 2000);
-          
           if (game?.is_analyzed) {
-            toast.success('✅ Game analysis complete! Dashboard updating...', {
-              duration: 3000,
-              icon: '🎉'
+            console.log(`✅ Game ${gameId} analysis complete!`);
+            clearInterval(pollInterval);
+            
+            // Update modal
+            setCurrentAnalyzedCount(1);
+            setShowAnalysisModal(false);
+            setCurrentAnalyzingGame(null);
+            
+            setAnalyzingGameIds(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(gameId);
+              return newSet;
             });
-          } else {
-            toast('⏳ Analysis is taking longer than expected. Please check back later.', {
-              duration: 4000
-            });
+            
+            // Refetch analysis summary
+            await refetchAnalysisSummary();
+            
+            toast.success('✅ Game analysis complete!', { duration: 3000, icon: '🎉' });
+          } else if (pollCount >= maxPolls) {
+            console.log(`⏱️ Polling timeout for game ${gameId}`);
+            clearInterval(pollInterval);
+            setShowAnalysisModal(false);
+            setCurrentAnalyzingGame(null);
+            toast('⏱️ Analysis is taking longer than expected. It will continue in the background.', { duration: 4000, icon: 'ℹ️' });
           }
         }
       } catch (error) {
-        console.error('Error polling game status:', error);
-        clearInterval(pollInterval);
-        setAnalyzingGameIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(gameId);
-          return newSet;
-        });
+        console.error('❌ Polling error:', error);
       }
-    }, 8000); // Poll every 8 seconds
+    }, 5000); // Poll every 5 seconds
   };
 
   const handleAnalyzeSingleGame = async (gameId: number) => {
     if (!user) return;
+    
+    console.log(`🧠 Starting analysis for game ${gameId}`);
     
     // Add to analyzing set
     setAnalyzingGameIds(prev => new Set(prev).add(gameId));
@@ -346,11 +356,34 @@ const Dashboard: React.FC = () => {
       const result = await api.analysis.analyzeSingleGame(user.id, gameId, false);
       
       if (result.status === 'queued') {
-        toast.success('🧠 Analysis started for this game', { duration: 2000 });
+        console.log(`✅ Game ${gameId} queued for analysis`);
+        
+        // Show modal for single game analysis
+        setAnalyzingGamesCount(1);
+        setCurrentAnalyzedCount(0);
+        setShowAnalysisModal(true);
+        
+        // Set current game info for modal
+        const game = games?.find(g => g.id === gameId);
+        if (game) {
+          setCurrentAnalyzingGame({
+            id: game.id,
+            opponent: game.white_username === user.chesscom_username 
+              ? game.black_username || 'Unknown'
+              : game.white_username || 'Unknown',
+            result: game.white_username === user.chesscom_username
+              ? (game.winner === 'white' ? 'win' : game.winner === 'black' ? 'loss' : 'draw')
+              : (game.winner === 'black' ? 'win' : game.winner === 'white' ? 'loss' : 'draw'),
+            timeClass: game.time_class || 'unknown',
+            date: game.end_time
+          });
+        }
+        
         // Start polling for this game's status
         startSingleGamePolling(gameId);
       } else if (result.status === 'already_analyzed') {
-        toast.info('✅ This game is already analyzed', { duration: 2000 });
+        console.log(`ℹ️ Game ${gameId} is already analyzed`);
+        toast('✅ This game is already analyzed', { duration: 2000, icon: 'ℹ️' });
         setAnalyzingGameIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(gameId);
@@ -358,7 +391,7 @@ const Dashboard: React.FC = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error analyzing game:', error);
+      console.error('❌ Error analyzing game:', error);
       const errorMessage = error.response?.data?.detail || error.message || 'Failed to start analysis';
       toast.error(`❌ ${errorMessage}`);
       setAnalyzingGameIds(prev => {
@@ -388,6 +421,24 @@ const Dashboard: React.FC = () => {
           // Update current analyzed count for modal
           setCurrentAnalyzedCount(analyzedCount);
           
+          // Find the first unanalyzed game to show as "currently analyzing"
+          const unanalyzedGame = updatedGames.find(g => !g.is_analyzed);
+          if (unanalyzedGame) {
+            setCurrentAnalyzingGame({
+              id: unanalyzedGame.id,
+              opponent: (unanalyzedGame.white_username === user?.chesscom_username 
+                ? unanalyzedGame.black_username 
+                : unanalyzedGame.white_username) || 'Unknown',
+              result: unanalyzedGame.white_username === user?.chesscom_username
+                ? (unanalyzedGame.winner === 'white' ? 'win' : unanalyzedGame.winner === 'black' ? 'loss' : 'draw')
+                : (unanalyzedGame.winner === 'black' ? 'win' : unanalyzedGame.winner === 'white' ? 'loss' : 'draw'),
+              timeClass: unanalyzedGame.time_class || 'unknown',
+              date: unanalyzedGame.end_time
+            });
+          } else {
+            setCurrentAnalyzingGame(null);
+          }
+          
           // If a new game was analyzed, refetch summary to update dashboard metrics
           if (analyzedCount > lastAnalyzedCount) {
             console.log(`📊 ${analyzedCount - lastAnalyzedCount} new game(s) analyzed, updating dashboard...`);
@@ -401,6 +452,7 @@ const Dashboard: React.FC = () => {
             setAnalysisPollingInterval(null);
             setIsAnalyzing(false);
             setShowAnalysisModal(false); // Close modal
+            setCurrentAnalyzingGame(null);
             
             // Final refetch of all data
             await Promise.all([
@@ -441,7 +493,7 @@ const Dashboard: React.FC = () => {
       setShowAnalysisModal(false);
       setCurrentAnalyzedCount(0);
       
-      toast.info('⏹️ Analysis stopped', { duration: 3000 });
+      toast('⏹️ Analysis stopped', { duration: 3000, icon: 'ℹ️' });
       
       // Refetch to get latest state
       await Promise.all([
@@ -906,6 +958,7 @@ const Dashboard: React.FC = () => {
           onClose={() => setShowAnalysisModal(false)}
           totalGames={analyzingGamesCount}
           analyzedGames={currentAnalyzedCount}
+          currentGame={currentAnalyzingGame}
           onComplete={handleAnalysisComplete}
           onStop={handleStopAnalysis}
         />

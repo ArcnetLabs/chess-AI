@@ -12,7 +12,25 @@ interface AnalysisProgressModalProps {
 
   totalGames: number;
 
+  analyzedGames?: number;
+
+  currentGame?: {
+
+    id: number;
+
+    opponent: string;
+
+    result: string;
+
+    timeClass: string;
+
+    date?: string;
+
+  } | null;
+
   onComplete?: () => void;
+
+  onStop?: () => void;
 
 }
 
@@ -26,7 +44,13 @@ export const AnalysisProgressModal: React.FC<AnalysisProgressModalProps> = ({
 
   totalGames,
 
-  onComplete
+  analyzedGames = 0,
+
+  currentGame,
+
+  onComplete,
+
+  onStop
 
 }) => {
 
@@ -150,21 +174,19 @@ export const AnalysisProgressModal: React.FC<AnalysisProgressModalProps> = ({
 
           </div>
 
-          {status !== 'analyzing' && (
+          <button
 
-            <button
+            onClick={onClose}
 
-              onClick={onClose}
+            className="text-gray-400 hover:text-white transition"
 
-              className="text-gray-400 hover:text-white transition"
+            title="Close modal (analysis continues in background)"
 
-            >
+          >
 
-              <X className="w-6 h-6" />
+            <X className="w-6 h-6" />
 
-            </button>
-
-          )}
+          </button>
 
         </div>
 
@@ -206,6 +228,74 @@ export const AnalysisProgressModal: React.FC<AnalysisProgressModalProps> = ({
 
 
 
+              {/* Current Game Being Analyzed */}
+
+              {currentGame && (
+
+                <div className="bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg p-4">
+
+                  <div className="flex items-center gap-2 mb-2">
+
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+
+                    <p className="text-sm font-semibold text-gray-300">Currently Analyzing:</p>
+
+                  </div>
+
+                  <div className="space-y-1">
+
+                    <p className="text-white font-medium">
+
+                      vs {currentGame.opponent}
+
+                    </p>
+
+                    <div className="flex gap-3 text-sm text-gray-400">
+
+                      <span className="capitalize">{currentGame.timeClass}</span>
+
+                      <span>•</span>
+
+                      <span className={`font-semibold ${
+
+                        currentGame.result === 'win' ? 'text-green-400' :
+
+                        currentGame.result === 'loss' ? 'text-red-400' :
+
+                        'text-gray-400'
+
+                      }`}>
+
+                        {currentGame.result === 'win' ? 'Victory' :
+
+                         currentGame.result === 'loss' ? 'Defeat' :
+
+                         'Draw'}
+
+                      </span>
+
+                      {currentGame.date && (
+
+                        <>
+
+                          <span>•</span>
+
+                          <span>{new Date(currentGame.date).toLocaleDateString()}</span>
+
+                        </>
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              )}
+
+
+
               {/* Progress Bar */}
 
               <div className="space-y-2">
@@ -214,7 +304,7 @@ export const AnalysisProgressModal: React.FC<AnalysisProgressModalProps> = ({
 
                   <span>Progress</span>
 
-                  <span>{Math.round(progress)}%</span>
+                  <span>{analyzedGames} / {totalGames} games ({Math.round(progress)}%)</span>
 
                 </div>
 
@@ -267,6 +357,50 @@ export const AnalysisProgressModal: React.FC<AnalysisProgressModalProps> = ({
                   <strong className="text-blue-300">💡 Tip:</strong> Analysis runs in the background. You can close this window and the analysis will continue.
 
                 </p>
+
+              </div>
+
+
+
+              {/* Action Buttons */}
+
+              <div className="flex gap-3">
+
+                <button
+
+                  onClick={onClose}
+
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+
+                >
+
+                  Close & Continue in Background
+
+                </button>
+
+                {onStop && (
+
+                  <button
+
+                    onClick={() => {
+
+                      if (confirm('Are you sure you want to stop the analysis? Games already analyzed will be saved.')) {
+
+                        onStop();
+
+                      }
+
+                    }}
+
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition"
+
+                  >
+
+                    Stop Analysis
+
+                  </button>
+
+                )}
 
               </div>
 
