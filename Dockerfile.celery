@@ -1,0 +1,33 @@
+# Celery Worker Dockerfile for Chess AI Application
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies including Stockfish
+RUN apt-get update && apt-get install -y \
+    stockfish \
+    postgresql-client \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY backend/ .
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV STOCKFISH_PATH=/usr/games/stockfish
+
+# Health check for Celery worker
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD celery -A app.celery_app inspect ping -d celery@$HOSTNAME || exit 1
+
+# Run Celery worker
+CMD ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "--pool=solo", "-Q", "analysis"]
