@@ -77,7 +77,7 @@ const PerformanceCard: React.FC<{
                 {change > 0 ? '+' : ''}{change} from last week
               </span>
             </div>
-          )}
+                   )}
         </div>
         <div className="text-blue-400">{icon}</div>
       </div>
@@ -135,8 +135,17 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [analyzingGamesCount, setAnalyzingGamesCount] = useState(0);
+  const [currentAnalyzedCount, setCurrentAnalyzedCount] = useState(0);
+  const [currentAnalyzingGame, setCurrentAnalyzingGame] = useState<{
+    id: number;
+    opponent: string;
+    result: string;
+    timeClass: string;
+    date?: string;
+  } | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [gamesCollapsed, setGamesCollapsed] = useState(false);
+  const [analysisPollingInterval, setAnalysisPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Fetch user data by username (ensure lowercase for consistency)
   const normalizedUsername = username ? (username as string).toLowerCase() : '';
@@ -147,13 +156,17 @@ const Dashboard: React.FC = () => {
   });
 
   // Fetch analysis summary
-  const { data: analysisSummary, isLoading: summaryLoading } = useQuery({
+  const { data: analysisSummary, isLoading: summaryLoading, refetch: refetchAnalysisSummary } = useQuery({
     queryKey: ['analysis-summary', user?.id],
-    queryFn: () => api.analysis.getSummary(user!.id, 7),
+    queryFn: async () => {
+      const summary = await api.analysis.getSummary(user!.id, 7);
+      console.log('📊 Fetched analysis summary:', summary);
+      return summary;
+    },
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: false, // Don't refetch on component mount
+    staleTime: 0, // Don't cache - always fetch fresh data
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnMount: true, // Refetch on component mount
   });
 
   // Fetch recommendations
@@ -196,6 +209,7 @@ const Dashboard: React.FC = () => {
 
   const [isFetching, setIsFetching] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingGameIds, setAnalyzingGameIds] = useState<Set<number>>(new Set());
 
   const handleFetchGames = async () => {
     if (!user) return;
@@ -225,8 +239,9 @@ const Dashboard: React.FC = () => {
     setAnalysisError(null);
     
     try {
+      // Analyze ALL games (not just last 7 days)
       const result = await api.analysis.analyzeGames(user.id, { 
-        days: 7,
+        days: 365, // Use large number to include all games
         forceReanalysis 
       });
       
@@ -265,9 +280,9 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const startAnalysisPolling = () => {
+  const startSingleGamePolling = (gameId: number) => {
     let pollCount = 0;
-    const maxPolls = 30; // Poll for max 2.5 minutes
+    const maxPolls = 45; // Poll for max 6 minutes (45 * 8s)
     
     const pollInterval = setInterval(async () => {
       pollCount++;
@@ -275,23 +290,178 @@ const Dashboard: React.FC = () => {
       try {
         // Refetch games to check analysis status
         const updatedGames = await api.games.getForUser(user!.id, { limit: 100 });
+        const game = updatedGames.find(g => g.id === gameId);
+        
+        if (game?.is_analyzed || pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          
+          // Remove from analyzing set
+          setAnalyzingGameIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(gameId);
+            return newSet;
+          });
+          
+          // Refetch all data to update dashboard - force refresh
+          console.log('🔄 Refetching all data after analysis completion...');
+          
+          await Promise.all([
+            refetchGames(),
+            refetchUserData(),
+            refetchAnalysisSummary()
+          ]);
+          
+          if (game?.is_analyzed) {
+            console.log(`✅ Game ${gameId} analysis complete!`);
+            clearInterval(pollInterval);
+            
+            // Update modal
+            setCurrentAnalyzedCount(1);
+            setShowAnalysisModal(false);
+            setCurrentAnalyzingGame(null);
+            
+            setAnalyzingGameIds(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(gameId);
+              return newSet;
+            });
+            
+            // Refetch analysis summary
+            await refetchAnalysisSummary();
+            
+            toast.success('✅ Game analysis complete!', { duration: 3000, icon: '🎉' });
+          } else if (pollCount >= maxPolls) {
+            console.log(`⏱️ Polling timeout for game ${gameId}`);
+            clearInterval(pollInterval);
+            setShowAnalysisModal(false);
+            setCurrentAnalyzingGame(null);
+            toast('⏱️ Analysis is taking longer than expected. It will continue in the background.', { duration: 4000, icon: 'ℹ️' });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Polling error:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+  };
+
+  const handleAnalyzeSingleGame = async (gameId: number) => {
+    if (!user) return;
+    
+    console.log(`🧠 Starting analysis for game ${gameId}`);
+    
+    // Add to analyzing set
+    setAnalyzingGameIds(prev => new Set(prev).add(gameId));
+    
+    try {
+      const result = await api.analysis.analyzeSingleGame(user.id, gameId, false);
+      
+      if (result.status === 'queued') {
+        console.log(`✅ Game ${gameId} queued for analysis`);
+        
+        // Show modal for single game analysis
+        setAnalyzingGamesCount(1);
+        setCurrentAnalyzedCount(0);
+        setShowAnalysisModal(true);
+        
+        // Set current game info for modal
+        const game = games?.find(g => g.id === gameId);
+        if (game) {
+          setCurrentAnalyzingGame({
+            id: game.id,
+            opponent: game.white_username === user.chesscom_username 
+              ? game.black_username || 'Unknown'
+              : game.white_username || 'Unknown',
+            result: game.white_username === user.chesscom_username
+              ? (game.winner === 'white' ? 'win' : game.winner === 'black' ? 'loss' : 'draw')
+              : (game.winner === 'black' ? 'win' : game.winner === 'white' ? 'loss' : 'draw'),
+            timeClass: game.time_class || 'unknown',
+            date: game.end_time
+          });
+        }
+        
+        // Start polling for this game's status
+        startSingleGamePolling(gameId);
+      } else if (result.status === 'already_analyzed') {
+        console.log(`ℹ️ Game ${gameId} is already analyzed`);
+        toast('✅ This game is already analyzed', { duration: 2000, icon: 'ℹ️' });
+        setAnalyzingGameIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(gameId);
+          return newSet;
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Error analyzing game:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to start analysis';
+      toast.error(`❌ ${errorMessage}`);
+      setAnalyzingGameIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(gameId);
+        return newSet;
+      });
+    }
+  };
+
+  const startAnalysisPolling = () => {
+    let pollCount = 0;
+    const maxPolls = 50; // Poll for max 6.5 minutes (50 * 8s)
+    let lastAnalyzedCount = 0;
+    
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      
+      try {
+        // Refetch games to check analysis status - this updates the UI in real-time
+        const gamesResult = await refetchGames();
+        const updatedGames = gamesResult.data;
         
         if (updatedGames) {
           const analyzedCount = updatedGames.filter(g => g.is_analyzed).length;
           
+          // Update current analyzed count for modal
+          setCurrentAnalyzedCount(analyzedCount);
+          
+          // Find the first unanalyzed game to show as "currently analyzing"
+          const unanalyzedGame = updatedGames.find(g => !g.is_analyzed);
+          if (unanalyzedGame) {
+            setCurrentAnalyzingGame({
+              id: unanalyzedGame.id,
+              opponent: (unanalyzedGame.white_username === user?.chesscom_username 
+                ? unanalyzedGame.black_username 
+                : unanalyzedGame.white_username) || 'Unknown',
+              result: unanalyzedGame.white_username === user?.chesscom_username
+                ? (unanalyzedGame.winner === 'white' ? 'win' : unanalyzedGame.winner === 'black' ? 'loss' : 'draw')
+                : (unanalyzedGame.winner === 'black' ? 'win' : unanalyzedGame.winner === 'white' ? 'loss' : 'draw'),
+              timeClass: unanalyzedGame.time_class || 'unknown',
+              date: unanalyzedGame.end_time
+            });
+          } else {
+            setCurrentAnalyzingGame(null);
+          }
+          
+          // If a new game was analyzed, refetch summary to update dashboard metrics
+          if (analyzedCount > lastAnalyzedCount) {
+            console.log(`📊 ${analyzedCount - lastAnalyzedCount} new game(s) analyzed, updating dashboard...`);
+            await refetchAnalysisSummary();
+            lastAnalyzedCount = analyzedCount;
+          }
+          
           // If analysis is complete or timeout
           if (pollCount >= maxPolls || analyzedCount >= analyzingGamesCount) {
             clearInterval(pollInterval);
+            setAnalysisPollingInterval(null);
             setIsAnalyzing(false);
             setShowAnalysisModal(false); // Close modal
+            setCurrentAnalyzingGame(null);
             
-            // Refetch all data
+            // Final refetch of all data
             await Promise.all([
-              refetchGames(),
-              refetchUserData()
+              refetchUserData(),
+              refetchAnalysisSummary()
             ]);
             
-            toast.success('✅ Analysis complete! Dashboard updated.', {
+            console.log(`✅ Batch analysis complete: ${analyzedCount} games analyzed`);
+            toast.success(`✅ Analysis complete! ${analyzedCount} games analyzed.`, {
               duration: 4000,
               icon: '🎉'
             });
@@ -299,25 +469,48 @@ const Dashboard: React.FC = () => {
         }
       } catch (error) {
         console.error('Polling error:', error);
-        // Continue polling despite errors
       }
-    }, 5000); // Poll every 5 seconds
+    }, 8000); // Poll every 8 seconds
     
-    // Cleanup after max time
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      if (isAnalyzing) {
-        setIsAnalyzing(false);
-        setShowAnalysisModal(false); // Close modal on timeout
-        refetchGames();
-        refetchUserData();
+    // Store interval reference for cancellation
+    setAnalysisPollingInterval(pollInterval);
+  };
+
+  const handleStopAnalysis = async () => {
+    if (!user) return;
+    
+    try {
+      // Stop the polling
+      if (analysisPollingInterval) {
+        clearInterval(analysisPollingInterval);
+        setAnalysisPollingInterval(null);
       }
-    }, maxPolls * 5000);
+      
+      // Call backend to cancel analysis (if endpoint exists)
+      // await api.analysis.cancelBatchAnalysis(user.id);
+      
+      setIsAnalyzing(false);
+      setShowAnalysisModal(false);
+      setCurrentAnalyzedCount(0);
+      
+      toast('⏹️ Analysis stopped', { duration: 3000, icon: 'ℹ️' });
+      
+      // Refetch to get latest state
+      await Promise.all([
+        refetchGames(),
+        refetchUserData(),
+        refetchAnalysisSummary()
+      ]);
+    } catch (error) {
+      console.error('Error stopping analysis:', error);
+      toast.error('Failed to stop analysis');
+    }
   };
 
   const handleAnalysisComplete = () => {
     setShowAnalysisModal(false);
     setIsAnalyzing(false);
+    setCurrentAnalyzedCount(0);
     // Refetch all data
     refetchGames();
     refetchUserData();
@@ -484,16 +677,12 @@ const Dashboard: React.FC = () => {
             <PerformanceCard
               title="Average Accuracy"
               value={`${analysisSummary.accuracy_percentage?.toFixed(1) || 0}%`}
-              change={5.2}
-              trend="up"
               icon={<Target className="w-6 h-6" />}
               subtitle="Higher is better"
             />
             <PerformanceCard
               title="ACPL"
               value={analysisSummary.average_acpl?.toFixed(0) || 'N/A'}
-              change={-8}
-              trend="up"
               icon={<Brain className="w-6 h-6" />}
               subtitle="Lower is better"
             />
@@ -515,41 +704,98 @@ const Dashboard: React.FC = () => {
         {/* Charts and Insights Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Move Quality Chart */}
-          {analysisSummary?.move_quality_breakdown && (
-            <MoveQualityChart data={analysisSummary.move_quality_breakdown} />
-          )}
+          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+            <h3 className="text-lg font-semibold mb-4 text-white">Move Quality Distribution</h3>
+            {analysisSummary?.move_quality_breakdown && analysisSummary?.total_games_analyzed > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Brilliant', value: analysisSummary.move_quality_breakdown.brilliant_moves, fill: '#10b981' },
+                      { name: 'Great', value: analysisSummary.move_quality_breakdown.great_moves, fill: '#22c55e' },
+                      { name: 'Best', value: analysisSummary.move_quality_breakdown.best_moves, fill: '#84cc16' },
+                      { name: 'Excellent', value: analysisSummary.move_quality_breakdown.excellent_moves, fill: '#eab308' },
+                      { name: 'Good', value: analysisSummary.move_quality_breakdown.good_moves, fill: '#f59e0b' },
+                      { name: 'Inaccuracy', value: analysisSummary.move_quality_breakdown.inaccuracies, fill: '#f97316' },
+                      { name: 'Mistake', value: analysisSummary.move_quality_breakdown.mistakes, fill: '#ef4444' },
+                      { name: 'Blunder', value: analysisSummary.move_quality_breakdown.blunders, fill: '#dc2626' },
+                    ].filter(item => item.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {[
+                      { name: 'Brilliant', value: analysisSummary.move_quality_breakdown.brilliant_moves, fill: '#10b981' },
+                      { name: 'Great', value: analysisSummary.move_quality_breakdown.great_moves, fill: '#22c55e' },
+                      { name: 'Best', value: analysisSummary.move_quality_breakdown.best_moves, fill: '#84cc16' },
+                      { name: 'Excellent', value: analysisSummary.move_quality_breakdown.excellent_moves, fill: '#eab308' },
+                      { name: 'Good', value: analysisSummary.move_quality_breakdown.good_moves, fill: '#f59e0b' },
+                      { name: 'Inaccuracy', value: analysisSummary.move_quality_breakdown.inaccuracies, fill: '#f97316' },
+                      { name: 'Mistake', value: analysisSummary.move_quality_breakdown.mistakes, fill: '#ef4444' },
+                      { name: 'Blunder', value: analysisSummary.move_quality_breakdown.blunders, fill: '#dc2626' },
+                    ].filter(item => item.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#374151', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <Trophy className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                  <p>Analyze some games to see phase performance</p>
+                  <p className="text-xs mt-2">Click &quot;Analyze&quot; on any game below</p>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Phase Performance */}
           <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <h3 className="text-lg font-semibold mb-4 text-white">Phase Performance (ACPL)</h3>
-            {analysisSummary?.phase_performance ? (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Phase Performance (ACPL)</h3>
+              <button
+                onClick={() => refetchAnalysisSummary()}
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                title="Refresh data"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            {analysisSummary?.total_games_analyzed > 0 && analysisSummary?.phase_performance ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={[
-                    { phase: 'Opening', acpl: analysisSummary.phase_performance.opening_acpl || 25 },
-                    { phase: 'Middlegame', acpl: analysisSummary.phase_performance.middlegame_acpl || 35 },
-                    { phase: 'Endgame', acpl: analysisSummary.phase_performance.endgame_acpl || 20 },
+                    { phase: 'Opening', acpl: analysisSummary.phase_performance.opening_acpl || 0 },
+                    { phase: 'Middlegame', acpl: analysisSummary.phase_performance.middlegame_acpl || 0 },
+                    { phase: 'Endgame', acpl: analysisSummary.phase_performance.endgame_acpl || 0 },
                   ]}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="phase" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
+                  <YAxis stroke="#9CA3AF" label={{ value: 'ACPL (Lower is better)', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }} />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#374151', 
-                      border: 'none', 
+                      backgroundColor: '#1F2937', 
+                      border: '1px solid #4B5563', 
                       borderRadius: '8px', 
                       color: '#fff' 
-                    }} 
+                    }}
+                    formatter={(value: number) => [value.toFixed(1), 'ACPL']}
                   />
                   <Bar dataKey="acpl" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-64 text-gray-500">
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
                 <div className="text-center">
                   <Trophy className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-                  <p>No phase data available yet</p>
+                  <p>Analyze some games to see phase performance</p>
+                  <p className="text-xs mt-2">Click &quot;Analyze&quot; on any game below</p>
                 </div>
               </div>
             )}
@@ -605,13 +851,24 @@ const Dashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center space-x-3">
                         {game.is_analyzed ? (
-                          <span className="px-3 py-1 bg-green-600/20 text-green-400 text-xs font-medium rounded-full border border-green-600/30">
-                            ✓ Analyzed
+                          <span className="px-3 py-1 bg-green-600/20 text-green-400 text-xs font-medium rounded-full border border-green-600/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Analyzed
+                          </span>
+                        ) : analyzingGameIds.has(game.id) ? (
+                          <span className="px-3 py-1 bg-blue-600/20 text-blue-400 text-xs font-medium rounded-full border border-blue-600/30 flex items-center gap-1">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400" />
+                            Analyzing...
                           </span>
                         ) : (
-                          <span className="px-3 py-1 bg-yellow-600/20 text-yellow-400 text-xs font-medium rounded-full border border-yellow-600/30">
-                            ⏳ Not analyzed
-                          </span>
+                          <button
+                            onClick={() => handleAnalyzeSingleGame(game.id)}
+                            disabled={isAnalyzing}
+                            className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 text-xs font-medium rounded-full border border-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                          >
+                            <Zap className="w-3 h-3" />
+                            Analyze
+                          </button>
                         )}
                         {game.chesscom_url && (
                           <a
@@ -656,7 +913,7 @@ const Dashboard: React.FC = () => {
                   <Brain className="w-12 h-12 mx-auto mb-4 text-gray-600" />
                   <p className="text-lg font-medium text-gray-400 mb-2">No insights available yet</p>
                   <p className="text-sm text-gray-500 max-w-md mx-auto">
-                    Click <strong>"Analyze with AI"</strong> above to analyze your games and generate personalized coaching insights.
+                    Click <strong>&quot;Analyze with AI&quot;</strong> above to analyze your games and generate personalized coaching insights.
                   </p>
                 </div>
               </div>
@@ -695,12 +952,17 @@ const Dashboard: React.FC = () => {
       </div>
       
       {/* Analysis Progress Modal */}
-      <AnalysisProgressModal
-        isOpen={showAnalysisModal}
-        onClose={() => setShowAnalysisModal(false)}
-        totalGames={analyzingGamesCount}
-        onComplete={handleAnalysisComplete}
-      />
+      {showAnalysisModal && (
+        <AnalysisProgressModal
+          isOpen={showAnalysisModal}
+          onClose={() => setShowAnalysisModal(false)}
+          totalGames={analyzingGamesCount}
+          analyzedGames={currentAnalyzedCount}
+          currentGame={currentAnalyzingGame}
+          onComplete={handleAnalysisComplete}
+          onStop={handleStopAnalysis}
+        />
+      )}
     </div>
   );
 };

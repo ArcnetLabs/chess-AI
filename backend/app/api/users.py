@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from ..core.database import get_db
 from ..models import User, Game
-from ..services.chesscom_api import chesscom_api, ChessComAPIError
+from ..services.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExceeded
 from ..services.tier_service import get_tier_service
 from loguru import logger
 
@@ -21,7 +21,7 @@ async def fetch_initial_games_background(user_id: int, username: str):
         logger.info(f"Fetching initial games for user {username} (ID: {user_id})")
         
         # Fetch recent games (last 30 days for new users)
-        raw_games = await chesscom_api.get_recent_games(username, days=30)
+        raw_games = await chesscom_api.get_recent_games(username, days=30, user_id=user_id)
         
         if not raw_games:
             logger.info(f"No recent games found for {username}")
@@ -174,18 +174,31 @@ async def create_user(
                 detail=f"Unable to verify Chess.com user: {error_message}"
             )
     
-    # Create user
+    # Create user with unique email handling
     db_user = User(
         chesscom_username=user_data.chesscom_username.lower(),
         display_name=profile_data.get("name", user_data.chesscom_username),
-        email=user_data.email,
+        email=user_data.email or f"{user_data.chesscom_username.lower()}@chess.placeholder",
         chesscom_profile=profile_data,
         current_ratings=stats_data
     )
     
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    try:
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating user: {e}")
+        # If duplicate, try to fetch existing user
+        if "UNIQUE constraint" in str(e):
+            existing_user = db.query(User).filter(
+                User.chesscom_username == user_data.chesscom_username.lower()
+            ).first()
+            if existing_user:
+                logger.info(f"User {user_data.chesscom_username} already exists, returning existing user")
+                return existing_user
+        raise HTTPException(status_code=400, detail=f"Error creating user: {str(e)}")
     
     # Add background task to fetch initial games
     background_tasks.add_task(

@@ -144,6 +144,21 @@ export const gamesApi = {
 
 // Analysis API
 export const analysisApi = {
+  analyzeSingleGame: async (
+    userId: number,
+    gameId: number,
+    forceReanalysis: boolean = false
+  ): Promise<AnalyzeGamesResponse> => {
+    const response = await apiClient.post<AnalyzeGamesResponse>(
+      `/analysis/${userId}/analyze/${gameId}`,
+      null,
+      {
+        params: { force_reanalysis: forceReanalysis }
+      }
+    );
+    return response.data;
+  },
+
   analyzeGames: async (
     userId: number, 
     options?: {
