@@ -204,20 +204,103 @@ async def analyze_single_game(
         return {
             "status": "already_analyzed",
             "message": "Game already analyzed",
-            "game_id": game_id
+            "game_id": game_id,
+            "analysis_id": existing_analysis.id
         }
     
-    # Queue the analysis with Celery
-    task = analyze_game_task.delay(game_id, user_id)
-    
-    logger.info(f"Queued Celery task {task.id} for game {game_id} (user {user_id})")
-    
-    return {
-        "status": "queued",
-        "message": "Analysis started",
-        "game_id": game_id,
-        "task_id": task.id
-    }
+    # Try Celery first, fallback to synchronous analysis
+    try:
+        # Queue the analysis with Celery
+        task = analyze_game_task.delay(game_id, user_id)
+        logger.info(f"Queued Celery task {task.id} for game {game_id} (user {user_id})")
+        
+        return {
+            "status": "queued",
+            "message": "Analysis started (background)",
+            "game_id": game_id,
+            "task_id": task.id
+        }
+    except Exception as celery_error:
+        # Celery not available, run synchronously
+        logger.warning(f"Celery not available, running synchronous analysis: {celery_error}")
+        
+        try:
+            # Run analysis synchronously
+            from ..services.engine.stockfish_engine import StockfishEngine
+            
+            # Create and initialize Stockfish engine
+            engine = StockfishEngine(depth=18, threads=2)
+            await engine.initialize()
+            
+            # Create analyzer with engine
+            analyzer = UnifiedChessAnalyzer(engine=engine)
+            
+            # Determine user color
+            user_color = 'white' if game.white_player.lower() == user.chesscom_username.lower() else 'black'
+            
+            # Analyze the game
+            analysis_result = await analyzer.analyze_game(
+                pgn_string=game.pgn,
+                user_color=user_color,
+                game_id=str(game_id)
+            )
+            
+            # Save analysis to database
+            game_analysis = GameAnalysis(
+                game_id=game_id,
+                analyzed_at=datetime.utcnow(),
+                accuracy_white=analysis_result.get('accuracy_white', 0),
+                accuracy_black=analysis_result.get('accuracy_black', 0),
+                mistakes_white=analysis_result.get('mistakes_white', 0),
+                mistakes_black=analysis_result.get('mistakes_black', 0),
+                blunders_white=analysis_result.get('blunders_white', 0),
+                blunders_black=analysis_result.get('blunders_black', 0),
+                analysis_data=analysis_result.get('moves', [])
+            )
+            
+            if existing_analysis:
+                # Update existing
+                existing_analysis.analyzed_at = datetime.utcnow()
+                existing_analysis.accuracy_white = game_analysis.accuracy_white
+                existing_analysis.accuracy_black = game_analysis.accuracy_black
+                existing_analysis.mistakes_white = game_analysis.mistakes_white
+                existing_analysis.mistakes_black = game_analysis.mistakes_black
+                existing_analysis.blunders_white = game_analysis.blunders_white
+                existing_analysis.blunders_black = game_analysis.blunders_black
+                existing_analysis.analysis_data = game_analysis.analysis_data
+            else:
+                db.add(game_analysis)
+            
+            # Mark game as analyzed
+            game.analyzed = True
+            db.commit()
+            
+            # Close engine
+            await engine.close()
+            
+            logger.info(f"Synchronous analysis completed for game {game_id}")
+            
+            return {
+                "status": "completed",
+                "message": "Analysis completed successfully",
+                "game_id": game_id,
+                "analysis_id": existing_analysis.id if existing_analysis else game_analysis.id,
+                "accuracy_white": game_analysis.accuracy_white,
+                "accuracy_black": game_analysis.accuracy_black
+            }
+            
+        except Exception as analysis_error:
+            logger.error(f"Synchronous analysis failed for game {game_id}: {analysis_error}")
+            # Try to close engine if it was created
+            try:
+                if 'engine' in locals():
+                    await engine.close()
+            except:
+                pass
+            raise HTTPException(
+                status_code=500,
+                detail=f"Analysis failed: {str(analysis_error)}"
+            )
 
 
 @router.post("/{user_id}/analyze")

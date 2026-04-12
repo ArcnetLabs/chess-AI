@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from loguru import logger
 
 from ..core.database import get_db
 from ..models import User, Game, GameAnalysis, UserInsight
@@ -392,34 +393,46 @@ async def get_insight(insight_id: int, db: Session = Depends(get_db)):
 async def get_recommendations(user_id: int, db: Session = Depends(get_db)):
     """Get current recommendations for a user."""
     
-    # Verify user exists
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Get latest insight
-    insight = db.query(UserInsight).filter(
-        UserInsight.user_id == user_id
-    ).order_by(UserInsight.period_end.desc()).first()
-    
-    # Return empty recommendations if no insights yet
-    if not insight:
+    try:
+        # Verify user exists
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get latest insight
+        insight = db.query(UserInsight).filter(
+            UserInsight.user_id == user_id
+        ).order_by(UserInsight.period_end.desc()).first()
+        
+        # Return empty recommendations if no insights yet
+        if not insight:
+            return {
+                "recommendations": [],
+                "focus_areas": [],
+                "period": None,
+                "message": "No insights available yet. Analyze games to get recommendations."
+            }
+        
+        return {
+            "recommendations": insight.recommendations or [],
+            "focus_areas": insight.focus_areas or [],
+            "period": {
+                "start": insight.period_start.isoformat() if insight.period_start else None,
+                "end": insight.period_end.isoformat() if insight.period_end else None,
+                "type": insight.analysis_type
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recommendations for user {user_id}: {e}")
+        # Return empty recommendations instead of 500 error
         return {
             "recommendations": [],
             "focus_areas": [],
             "period": None,
             "message": "No insights available yet. Analyze games to get recommendations."
         }
-    
-    return {
-        "recommendations": insight.recommendations or [],
-        "focus_areas": insight.focus_areas or [],
-        "period": {
-            "start": insight.period_start,
-            "end": insight.period_end,
-            "type": insight.analysis_type
-        }
-    }
 
 
 @router.get("/{user_id}/coaching-plan")

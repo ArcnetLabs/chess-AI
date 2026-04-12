@@ -9,7 +9,7 @@ from ..services.chat.chess_coach import ChessCoach
 from ..services.engine.stockfish_engine import StockfishEngine
 
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(tags=["chat"])
 
 
 # Request/Response Models
@@ -36,13 +36,35 @@ class ChatMessageResponse(BaseModel):
 
 # Dependency for chess coach
 _coach_instance = None
+_engine_instance = None
+_initialization_lock = False
 
 async def get_chess_coach() -> ChessCoach:
     """Get chess coach instance (singleton)."""
-    global _coach_instance
+    global _coach_instance, _engine_instance, _initialization_lock
+    
+    if _coach_instance is None and not _initialization_lock:
+        _initialization_lock = True
+        try:
+            logger.info("Initializing Chess Coach...")
+            _engine_instance = StockfishEngine(depth=18, threads=2)
+            await _engine_instance.initialize()  # Initialize Stockfish engine
+            _coach_instance = ChessCoach(stockfish_engine=_engine_instance)
+            logger.info("Chess Coach initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Chess Coach: {e}")
+            _initialization_lock = False
+            raise HTTPException(
+                status_code=500,
+                detail=f"Chess coach initialization failed: {str(e)}"
+            )
+    
     if _coach_instance is None:
-        engine = StockfishEngine(depth=18, threads=2)
-        _coach_instance = ChessCoach(stockfish_engine=engine)
+        raise HTTPException(
+            status_code=503,
+            detail="Chess coach is still initializing, please try again"
+        )
+    
     return _coach_instance
 
 
