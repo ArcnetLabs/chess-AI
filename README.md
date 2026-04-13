@@ -159,11 +159,13 @@ Partnerships with chess creators for exclusive “AI-practice-ready” tutorials
 ## 🚦 Getting Started
 
 ### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ (for local frontend development)
-- Python 3.11+ (for local backend development)
+- **Docker & Docker Compose** (for containerized deployment)
+- **Node.js 18+** (for local frontend development)
+- **Python 3.11+** (for local backend development)
+- **PostgreSQL** (Supabase or local instance)
+- **Redis** (optional, for caching)
 
-### Quick Start
+### Option 1: Docker (Production-like)
 ```bash
 # Clone and navigate to project
 git clone <repository-url>
@@ -172,10 +174,65 @@ cd chess-insight-ai
 # Start all services
 docker-compose up --build
 
-# Frontend will be available at http://localhost:3000
-# Backend API at http://localhost:8000
-# API docs at http://localhost:8000/docs
+# Frontend: http://localhost:3000
+# Backend API: http://localhost:8000
+# API docs: http://localhost:8000/docs
 ```
+
+### Option 2: Local Development (Recommended)
+
+#### Backend Setup
+```powershell
+# Navigate to backend
+cd backend
+
+# Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\Activate.ps1  # Windows
+# source .venv/bin/activate  # macOS/Linux
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment file and configure
+cp .env.example .env
+# Edit .env with your Supabase credentials
+
+# Run the backend server
+python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Backend will be available at:** `http://localhost:8000`  
+**API Documentation:** `http://localhost:8000/docs`
+
+#### Frontend Setup
+```powershell
+# Navigate to frontend (open new terminal)
+cd frontend
+
+# Install dependencies
+npm install
+
+# Copy environment file and configure
+cp .env.local.example .env.local
+# Edit .env.local: NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Run the frontend server
+npm run dev
+```
+
+**Frontend will be available at:** `http://localhost:3000`
+
+### Environment Configuration
+
+**Backend `.env` requires:**
+- `SECRET_KEY` - Generate with: `python -c 'import secrets; print(secrets.token_urlsafe(32))'`
+- `SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+- `DATABASE_URL` - PostgreSQL connection string
+
+See `backend/.env.example` for full configuration options.
 
 ## 🎨 Design Philosophy
 
