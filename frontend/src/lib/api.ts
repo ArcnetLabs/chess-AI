@@ -1,10 +1,10 @@
 import axios, { AxiosResponse } from 'axios';
-import { 
-  User, 
-  UserCreate, 
-  Game, 
-  Analysis, 
-  UserInsight, 
+import {
+  User,
+  UserCreate,
+  Game,
+  Analysis,
+  UserInsight,
   ApiResponse,
   FetchGamesRequest,
   FetchGamesResponse,
@@ -103,7 +103,7 @@ export const gamesApi = {
   },
 
   getForUser: async (
-    userId: number, 
+    userId: number,
     options?: {
       skip?: number;
       limit?: number;
@@ -160,7 +160,7 @@ export const analysisApi = {
   },
 
   analyzeGames: async (
-    userId: number, 
+    userId: number,
     options?: {
       gameIds?: number[];
       days?: number;
@@ -205,7 +205,7 @@ export const analysisApi = {
 // Insights API
 export const insightsApi = {
   generate: async (
-    userId: number, 
+    userId: number,
     options?: {
       periodDays?: number;
       analysisType?: string;
@@ -246,9 +246,11 @@ export const insightsApi = {
   },
 };
 
-export default {
+const api = {
   users: userApi,
   games: gamesApi,
   analysis: analysisApi,
   insights: insightsApi,
 };
+
+export default api;
