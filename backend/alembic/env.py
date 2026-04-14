@@ -36,17 +36,45 @@ target_metadata = Base.metadata
 
 def get_database_url():
     """Get database URL from environment variables or config."""
+    from sqlalchemy import create_engine, text
+    
     # Try DATABASE_URL first
     db_url = os.getenv("DATABASE_URL")
     if db_url:
+        # Check if PostgreSQL URL is accessible
+        if db_url.startswith("postgresql"):
+            try:
+                # Try to connect
+                test_engine = create_engine(db_url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+                with test_engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                test_engine.dispose()
+                print(f"✅ Using PostgreSQL: {db_url.split('@')[1].split('/')[0]}")
+                return db_url
+            except Exception as e:
+                print(f"⚠️ PostgreSQL not accessible: {e}")
+                print("📁 Using SQLite for local migration")
+                return "sqlite:///./chess_ai.db"
         return db_url
     
     # Fallback to individual components
     if os.getenv("POSTGRES_SERVER"):
-        return f"postgresql://{os.getenv('POSTGRES_USER', 'chessai')}:{os.getenv('POSTGRES_PASSWORD', 'chessai')}@{os.getenv('POSTGRES_SERVER', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'chessai')}"
+        pg_url = f"postgresql://{os.getenv('POSTGRES_USER', 'chessai')}:{os.getenv('POSTGRES_PASSWORD', 'chessai')}@{os.getenv('POSTGRES_SERVER', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'chessai')}"
+        try:
+            test_engine = create_engine(pg_url, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+            with test_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            test_engine.dispose()
+            print(f"✅ Using PostgreSQL: localhost:5432")
+            return pg_url
+        except Exception as e:
+            print(f"⚠️ PostgreSQL not accessible: {e}")
+            print("📁 Using SQLite for local migration")
+            return "sqlite:///./chess_ai.db"
     
-    # Last resort: use settings
-    return settings.SQLALCHEMY_DATABASE_URI or settings.DATABASE_URL
+    # Last resort: use SQLite
+    print("📁 Using SQLite for local migration")
+    return "sqlite:///./chess_ai.db"
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from loguru import logger
 
 from ..core.database import get_db
 from ..models import User, Game, GameAnalysis, UserInsight
@@ -162,36 +163,86 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
     
     # Generate recommendations based on analysis
     recommendations = []
+    recommendation_scores = []
+    pattern_matches = []
     
-    # ACPL-based recommendations
-    if average_acpl > 100:
-        recommendations.append({
-            "category": "tactics",
-            "priority": "high",
-            "description": f"Your average accuracy is {100 - (average_acpl/10):.1f}%. Focus on tactical training to reduce blunders."
-        })
-    
-    if total_blunders > games_analyzed * 0.3:  # More than 30% of games have blunders
-        recommendations.append({
-            "category": "time_management",
-            "priority": "high",
-            "description": "You're making frequent blunders. Consider taking more time for critical moves."
-        })
-    
-    # Phase-specific recommendations
-    phase_acpls = [
-        ("opening", opening_performance["acpl"]),
-        ("middlegame", middlegame_performance["acpl"]),
-        ("endgame", endgame_performance["acpl"])
-    ]
-    
-    worst_phase = max(phase_acpls, key=lambda x: x[1])
-    if worst_phase[1] > 80:
-        recommendations.append({
-            "category": f"{worst_phase[0]}_study",
-            "priority": "medium",
-            "description": f"Your {worst_phase[0]} play needs improvement (ACPL: {worst_phase[1]:.1f}). Study {worst_phase[0]} principles."
-        })
+    # Try to use enhanced recommendation engine
+    try:
+        from ..services.coaching.recommendation_engine import RecommendationEngine
+        from loguru import logger
+        
+        engine = RecommendationEngine()
+        enhanced_recommendations = engine.generate_recommendations(
+            user_data={
+                "user_id": user_id,
+                "rating_change": rating_change,
+                "performance_trend": performance_trend
+            },
+            analysis_data={
+                "average_acpl": average_acpl,
+                "opening_performance": opening_performance,
+                "middlegame_performance": middlegame_performance,
+                "endgame_performance": endgame_performance,
+                "move_quality_stats": move_quality_stats,
+                "frequent_mistakes": frequent_mistakes,
+                "opening_stats": opening_stats,
+                "total_games": games_analyzed
+            },
+            max_recommendations=5
+        )
+        
+        # Use enhanced recommendations if available
+        if enhanced_recommendations:
+            recommendations = [rec.to_dict() for rec in enhanced_recommendations]
+            recommendation_scores = [rec.priority_score for rec in enhanced_recommendations]
+            pattern_matches = [
+                rec.pattern_match.to_dict() 
+                for rec in enhanced_recommendations 
+                if rec.pattern_match
+            ]
+            logger.info(f"Generated {len(recommendations)} enhanced recommendations for user {user_id}")
+        else:
+            # Fallback to basic recommendations if no enhanced ones generated
+            logger.info(f"No enhanced recommendations generated, using basic fallback for user {user_id}")
+            raise Exception("No enhanced recommendations")
+            
+    except Exception as e:
+        # Fallback to basic recommendations if enhanced engine fails
+        from loguru import logger
+        logger.warning(f"Enhanced recommendation engine failed, using basic recommendations: {e}")
+        
+        # ACPL-based recommendations (original logic)
+        if average_acpl > 100:
+            recommendations.append({
+                "category": "tactics",
+                "priority": "high",
+                "description": f"Your average accuracy is {100 - (average_acpl/10):.1f}%. Focus on tactical training to reduce blunders."
+            })
+        
+        if total_blunders > games_analyzed * 0.3:  # More than 30% of games have blunders
+            recommendations.append({
+                "category": "time_management",
+                "priority": "high",
+                "description": "You're making frequent blunders. Consider taking more time for critical moves."
+            })
+        
+        # Phase-specific recommendations
+        phase_acpls = [
+            ("opening", opening_performance["acpl"]),
+            ("middlegame", middlegame_performance["acpl"]),
+            ("endgame", endgame_performance["acpl"])
+        ]
+        
+        worst_phase = max(phase_acpls, key=lambda x: x[1])
+        if worst_phase[1] > 80:
+            recommendations.append({
+                "category": f"{worst_phase[0]}_study",
+                "priority": "medium",
+                "description": f"Your {worst_phase[0]} play needs improvement (ACPL: {worst_phase[1]:.1f}). Study {worst_phase[0]} principles."
+            })
+        
+        recommendation_scores = []
+        pattern_matches = []
     
     # Check if insight already exists for this period
     existing_insight = db.query(UserInsight).filter(
@@ -215,6 +266,9 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
         existing_insight.frequent_mistakes = frequent_mistakes
         existing_insight.opening_repertoire = opening_stats
         existing_insight.recommendations = recommendations
+        # Enhanced recommendation fields
+        existing_insight.recommendation_scores = recommendation_scores
+        existing_insight.pattern_matches = pattern_matches
     else:
         # Create new insight
         insight = UserInsight(
@@ -233,7 +287,10 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
             move_quality_stats=move_quality_stats,
             frequent_mistakes=frequent_mistakes,
             opening_repertoire=opening_stats,
-            recommendations=recommendations
+            recommendations=recommendations,
+            # Enhanced recommendation fields
+            recommendation_scores=recommendation_scores,
+            pattern_matches=pattern_matches
         )
         
         db.add(insight)
@@ -336,6 +393,56 @@ async def get_insight(insight_id: int, db: Session = Depends(get_db)):
 async def get_recommendations(user_id: int, db: Session = Depends(get_db)):
     """Get current recommendations for a user."""
     
+    try:
+        # Verify user exists
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get latest insight
+        insight = db.query(UserInsight).filter(
+            UserInsight.user_id == user_id
+        ).order_by(UserInsight.period_end.desc()).first()
+        
+        # Return empty recommendations if no insights yet
+        if not insight:
+            return {
+                "recommendations": [],
+                "focus_areas": [],
+                "period": None,
+                "message": "No insights available yet. Analyze games to get recommendations."
+            }
+        
+        return {
+            "recommendations": insight.recommendations or [],
+            "focus_areas": insight.focus_areas or [],
+            "period": {
+                "start": insight.period_start.isoformat() if insight.period_start else None,
+                "end": insight.period_end.isoformat() if insight.period_end else None,
+                "type": insight.analysis_type
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recommendations for user {user_id}: {e}")
+        # Return empty recommendations instead of 500 error
+        return {
+            "recommendations": [],
+            "focus_areas": [],
+            "period": None,
+            "message": "No insights available yet. Analyze games to get recommendations."
+        }
+
+
+@router.get("/{user_id}/coaching-plan")
+async def get_coaching_plan(user_id: int, db: Session = Depends(get_db)):
+    """
+    Get detailed coaching plan with prioritized recommendations.
+    
+    Returns enhanced recommendations with actionable steps, priority scores,
+    and detected patterns from the latest insight period.
+    """
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -346,18 +453,20 @@ async def get_recommendations(user_id: int, db: Session = Depends(get_db)):
         UserInsight.user_id == user_id
     ).order_by(UserInsight.period_end.desc()).first()
     
-    # Return empty recommendations if no insights yet
     if not insight:
-        return {
-            "recommendations": [],
-            "focus_areas": [],
-            "period": None,
-            "message": "No insights available yet. Analyze games to get recommendations."
-        }
+        raise HTTPException(status_code=404, detail="No insights found. Analyze games first.")
     
     return {
         "recommendations": insight.recommendations or [],
-        "focus_areas": insight.focus_areas or [],
+        "priority_scores": insight.recommendation_scores or [],
+        "pattern_matches": insight.pattern_matches or [],
+        "focus_areas": insight.focus_areas_detailed or {},
+        "performance_summary": {
+            "average_acpl": insight.average_acpl,
+            "performance_trend": insight.performance_trend,
+            "rating_change": insight.rating_change,
+            "games_analyzed": insight.games_analyzed
+        },
         "period": {
             "start": insight.period_start,
             "end": insight.period_end,

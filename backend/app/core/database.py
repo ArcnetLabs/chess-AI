@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -29,7 +29,7 @@ if database_url and database_url != "None" and database_url.startswith("postgres
         )
         # Test connection
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         print(f"✅ Connected to PostgreSQL: {engine.url.host}")
     except Exception as e:
         # Fall back to local SQLite file

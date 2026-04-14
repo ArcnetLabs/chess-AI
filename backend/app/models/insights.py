@@ -43,6 +43,11 @@ class UserInsight(Base):
     recommendations = Column(JSON)  # [{category: "tactics", priority: "high", description: "..."}]
     focus_areas = Column(JSON)  # Areas needing most attention
     
+    # Enhanced recommendations (Phase 1)
+    recommendation_scores = Column(JSON)  # Priority scores for each recommendation
+    focus_areas_detailed = Column(JSON)  # Granular weakness breakdown
+    pattern_matches = Column(JSON)  # Detected patterns with evidence
+    
     # Progress tracking
     improvement_metrics = Column(JSON)  # Comparison with previous periods
     goals_progress = Column(JSON)  # User-set goals and progress

@@ -1,21 +1,21 @@
 services:
-  # PostgreSQL Database - DISABLED (Using Supabase)
-  # postgres:
-  #   image: postgres:15
-  #   container_name: chess-insight-postgres
-  #   environment:
-  #     POSTGRES_USER: chessai
-  #     POSTGRES_PASSWORD: chessai
-  #     POSTGRES_DB: chessai
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U chessai"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # PostgreSQL Database - Local Development
+  postgres:
+    image: postgres:15
+    container_name: chess-insight-postgres
+    environment:
+      POSTGRES_USER: chessai
+      POSTGRES_PASSWORD: chessai
+      POSTGRES_DB: chessai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chessai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Redis Cache
   redis:
