@@ -1,0 +1,51 @@
+---
+description: ChessIQ system architecture rules — layered service design, separation of concerns, no duplicate logic. Applies to every file in the repo.
+alwaysApply: true
+---
+
+# ChessIQ Architecture Rules
+
+## Layered Architecture
+
+```
+Frontend (Next.js Pages Router)
+  └── src/lib/api.ts (axios wrapper)  →  FastAPI backend
+        └── app/api/           (routes — decide WHAT)
+              └── app/services/      (service layer — handle HOW)
+                    └── app/models/  (SQLAlchemy ORM)
+                    └── app/tasks/   (Celery async)
+```
+
+- **Routes decide WHAT** — validate input, call the right service, return the response.
+- **Services handle HOW** — all reusable business logic, external API calls, transformations.
+- **Tasks are async services** — Celery tasks wrap service calls; they do not contain inline logic.
+
+## Hard Rules
+
+### Stockfish
+- Access ONLY via `backend/app/services/engine/engine_pool.py`.
+- Never call `subprocess.Popen` or `chess.engine.SimpleEngine` directly in a route or task.
+- Analyze positions via `UnifiedAnalyzer` in `app/services/analysis/unified_analyzer.py`.
+
+### LLM / AI Coach
+- All LLM calls route through `backend/app/services/chat/chess_coach.py`.
+- No `requests.post("https://api.openai.com/...")` inline in routes or tasks.
+- Context assembly lives in `ChessCoach`, not in API routes.
+
+### Database
+- Backend DB access via SQLAlchemy models in `app/models/` and `app/core/database.py`.
+- Frontend never hits the DB directly — all data flows through the FastAPI backend.
+- Supabase on the frontend is for **auth only** (at current stage); data reads/writes go to FastAPI.
+
+### Frontend/Backend Boundary
+- Frontend calls `src/lib/api.ts` — never imports from `backend/`.
+- Backend never imports from `frontend/`.
+- Shared types are duplicated (TypeScript in `frontend/src/types/`, Python schemas in `backend/app/`).
+
+## No Duplication Checklist
+Before adding a new function, grep for it first:
+```bash
+rg "def <function_name>" backend/app/services/
+rg "<function_name>" frontend/src/lib/
+```
+If it exists, reuse or extend it — do not create a parallel implementation.
