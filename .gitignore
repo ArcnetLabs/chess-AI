@@ -301,6 +301,10 @@ backend/stockfish/stockfish
 # Design prompts (local reference only)
 STITCHES_DESIGN_PROMPT.md
 
+# Generated documentation bundles
+docs/chessiq-docs.zip
+docs/**/*.zip
+
 # Reference source clones — too large to commit; READMEs are tracked
 reference/*/ssr-source/
 reference/*/supabase-js-src/
