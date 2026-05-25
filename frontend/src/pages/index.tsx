@@ -410,9 +410,9 @@ const HomePage: React.FC = () => {
             
             <div className="mt-3 text-center">
               <p className="text-xs text-gray-500">
-                🔍 <strong>Note:</strong> Chess.com doesn't currently offer OAuth for third-party apps.
+                🔍 <strong>Note:</strong> Chess.com doesn&apos;t currently offer OAuth for third-party apps.
                 <br />
-                We're using public API access for your games and analysis.
+                We&apos;re using public API access for your games and analysis.
               </p>
             </div>
           </div>

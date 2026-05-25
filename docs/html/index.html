@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChessIQ — Document Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0f14; --surface-low: #0e1419; --surface: #141a20;
+      --surface-bright: #252d35; --surface-highest: #2e3840;
+      --primary: #84FF00; --secondary: #69f6b8; --error: #ff7351;
+      --text-primary: #e7ebf3; --text-secondary: #8a97a8; --text-muted: #4a5568;
+      --topbar-height: 56px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text-secondary); font-family: 'Inter', sans-serif; min-height: 100vh; }
+
+    /* Topbar */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--topbar-height); background: var(--surface-low);
+      display: flex; align-items: center; padding: 0 32px;
+    }
+    .topbar::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: var(--primary);
+    }
+    .topbar-brand {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: 18px; color: var(--primary); text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+    .topbar-sub {
+      font-family: 'Inter', sans-serif; font-size: 12px;
+      color: var(--text-muted); margin-left: 14px; letter-spacing: 0.04em;
+    }
+
+    /* Hero */
+    .hero {
+      margin-top: var(--topbar-height);
+      padding: 80px 40px 64px;
+      background: var(--surface-low);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--surface-bright), transparent);
+    }
+    .hero-eyebrow {
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.12em; color: var(--primary);
+      margin-bottom: 16px;
+    }
+    .hero-title {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: 44px; color: var(--text-primary); line-height: 1.15;
+      letter-spacing: -0.025em; margin-bottom: 18px;
+    }
+    .hero-title span { color: var(--primary); }
+    .hero-sub {
+      font-size: 17px; color: var(--text-secondary); line-height: 1.7;
+      max-width: 560px; margin: 0 auto 32px;
+    }
+    .hero-meta {
+      display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+    }
+    .hero-badge {
+      background: var(--surface-bright); color: var(--text-muted);
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      padding: 5px 12px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    /* Grid */
+    .doc-grid-section {
+      max-width: 1100px; margin: 0 auto; padding: 64px 40px 100px;
+    }
+    .grid-label {
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .doc-card {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 28px;
+      text-decoration: none;
+      display: flex; flex-direction: column; gap: 12px;
+      transition: background 0.15s, box-shadow 0.2s, transform 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .doc-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; background: var(--card-accent, var(--primary));
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .doc-card:hover { background: var(--surface-bright); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .doc-card:hover::before { opacity: 1; }
+
+    .doc-card-tag {
+      font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--card-accent, var(--primary));
+    }
+    .doc-card-title {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: 18px; color: var(--text-primary); line-height: 1.25;
+    }
+    .doc-card-desc {
+      font-family: 'Inter', sans-serif; font-size: 13.5px;
+      color: var(--text-secondary); line-height: 1.65;
+    }
+    .doc-card-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: auto; padding-top: 8px;
+      border-top: 1px solid rgba(37, 45, 53, 0.6);
+    }
+    .doc-card-meta {
+      font-family: 'Inter', sans-serif; font-size: 11px;
+      color: var(--text-muted);
+    }
+    .doc-card-arrow {
+      color: var(--card-accent, var(--primary));
+      font-size: 18px; line-height: 1;
+      transition: transform 0.2s;
+    }
+    .doc-card:hover .doc-card-arrow { transform: translateX(4px); }
+
+    /* Architecture note */
+    .arch-note {
+      max-width: 1100px; margin: 0 auto 0; padding: 0 40px 80px;
+    }
+    .arch-note-inner {
+      background: var(--surface); border-radius: 10px; padding: 32px 36px;
+      border-left: 3px solid var(--secondary);
+    }
+    .arch-note-label {
+      font-family: 'Inter', sans-serif; font-weight: 700; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--secondary);
+      margin-bottom: 10px;
+    }
+    .arch-note p {
+      font-size: 14.5px; color: var(--text-secondary); line-height: 1.75;
+    }
+    .arch-note strong { color: var(--text-primary); }
+
+    @media (max-width: 640px) {
+      .hero { padding: 60px 24px 48px; }
+      .hero-title { font-size: 32px; }
+      .doc-grid-section, .arch-note { padding-left: 20px; padding-right: 20px; }
+      .doc-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <a href="index.html" class="topbar-brand">ChessIQ</a>
+    <span class="topbar-sub">Document Suite</span>
+  </header>
+
+  <section class="hero">
+    <p class="hero-eyebrow">ArcnetLabs · Internal Documentation</p>
+    <h1 class="hero-title">The <span>ChessIQ</span><br>Document Suite</h1>
+    <p class="hero-sub">Architecture decisions, functional requirements, AI strategy, and monetization model for the ChessIQ platform.</p>
+    <div class="hero-meta">
+      <span class="hero-badge">Version 1.0</span>
+      <span class="hero-badge">Status: Draft / Active</span>
+      <span class="hero-badge">Confidential — Internal Only</span>
+      <span class="hero-badge">5 Documents</span>
+    </div>
+  </section>
+
+  <div class="doc-grid-section">
+    <p class="grid-label">All Documents</p>
+    <div class="doc-grid">
+
+      <a href="frd_product.html" class="doc-card" style="--card-accent: #84FF00;">
+        <span class="doc-card-tag">Product · FRD</span>
+        <h2 class="doc-card-title">Product Functional Requirements</h2>
+        <p class="doc-card-desc">User roles, core platform capabilities, dashboard, game analysis, AI coach, pattern recognition, and move timing features.</p>
+        <div class="doc-card-footer">
+          <span class="doc-card-meta">FRD_PRODUCT.md · v1.0</span>
+          <span class="doc-card-arrow">→</span>
+        </div>
+      </a>
+
+      <a href="frd_technical.html" class="doc-card" style="--card-accent: #79c0ff;">
+        <span class="doc-card-tag">Engineering · FRD</span>
+        <h2 class="doc-card-title">Technical Functional Requirements</h2>
+        <p class="doc-card-desc">AI Coach Service architecture, context assembly pipeline, recommendation logic, Next.js frontend, API specs, and failure modes.</p>
+        <div class="doc-card-footer">
+          <span class="doc-card-meta">FRD_TECHNICAL.md · v1.0</span>
+          <span class="doc-card-arrow">→</span>
+        </div>
+      </a>
+
+      <a href="ai_model_strategy.html" class="doc-card" style="--card-accent: #d2a8ff;">
+        <span class="doc-card-tag">Architecture · AI</span>
+        <h2 class="doc-card-title">AI Model Strategy &amp; LLM Infrastructure</h2>
+        <p class="doc-card-desc">Local-first inference architecture, model selection, fine-tuning strategy, model routing, fallback mechanisms, and GPU scaling.</p>
+        <div class="doc-card-footer">
+          <span class="doc-card-meta">AI_MODEL_STRATEGY.md · v1.0</span>
+          <span class="doc-card-arrow">→</span>
+        </div>
+      </a>
+
+      <a href="memory_retrieval_context_architecture.html" class="doc-card" style="--card-accent: #69f6b8;">
+        <span class="doc-card-tag">Architecture · Memory</span>
+        <h2 class="doc-card-title">Memory, Retrieval &amp; Context Architecture</h2>
+        <p class="doc-card-desc">Three-tier storage, RAG pipeline, chat memory, hallucination mitigation, SQL vs. vector responsibilities, and scalability design.</p>
+        <div class="doc-card-footer">
+          <span class="doc-card-meta">MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md · v1.0</span>
+          <span class="doc-card-arrow">→</span>
+        </div>
+      </a>
+
+      <a href="pricing_monetization_strategy.html" class="doc-card" style="--card-accent: #f6ad55;">
+        <span class="doc-card-tag">Strategy · Business</span>
+        <h2 class="doc-card-title">Pricing &amp; Monetization Strategy</h2>
+        <p class="doc-card-desc">Open Beta → Freemium → Pro → Elite transition, feature gating, AI cost economics, model routing strategy, and financial projections.</p>
+        <div class="doc-card-footer">
+          <span class="doc-card-meta">PRICING_MONETIZATION_STRATEGY.md · v1.0</span>
+          <span class="doc-card-arrow">→</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="arch-note">
+    <div class="arch-note-inner">
+      <p class="arch-note-label">Architecture Overview</p>
+      <p>ChessIQ implements a <strong>three-layer intelligence architecture</strong>: <strong>Stockfish</strong> for deterministic chess analysis (position evaluation, move quality, tactical detection), a <strong>Pattern Recognition Engine</strong> for longitudinal behavioral analysis, and an <strong>AI Coach Service</strong> for personalized conversational coaching. The LLM's role is strictly <em>translation and explanation</em> — never raw chess reasoning — enabling a local-first inference model that achieves 90–98% cost reduction versus hosted-only architectures.</p>
+    </div>
+  </div>
+
+</body>
+</html>

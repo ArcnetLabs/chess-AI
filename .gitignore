@@ -289,3 +289,6 @@ commit-*.ps1
 backend/stockfish/*.exe
 backend/stockfish/stockfish
 !backend/stockfish/.gitkeep
+
+# Design prompts (local reference only)
+STITCHES_DESIGN_PROMPT.md

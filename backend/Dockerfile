@@ -39,9 +39,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && cd /app/stockfish \
     && wget https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar \
     && tar -xf stockfish-ubuntu-x86-64-avx2.tar \
-    && mv stockfish/stockfish-ubuntu-x86-64-avx2 stockfish \
-    && chmod +x stockfish \
+    && mv stockfish/stockfish-ubuntu-x86-64-avx2 ./stockfish-binary \
+    && chmod +x stockfish-binary \
     && rm -rf stockfish-ubuntu-x86-64-avx2.tar stockfish \
+    && mv stockfish-binary stockfish \
     && chown -R appuser:appuser /app/stockfish
 
 # Set work directory

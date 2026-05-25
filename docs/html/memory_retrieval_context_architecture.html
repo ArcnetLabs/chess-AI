@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory &amp; Retrieval Architecture — ChessIQ Docs</title>
+  <link rel="stylesheet" href="shared.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <div class="topbar-right">
+    <span class="topbar-title">Memory &amp; Retrieval Architecture</span>
+    <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
+  </div>
+</header>
+
+<div class="sidebar-overlay"></div>
+
+<nav class="sidebar" aria-label="Table of contents">
+  <span class="toc-label">Contents</span>
+  <ul class="toc-list">
+    <li class="toc-item"><a href="#s1" class="toc-link"><span class="toc-num">1</span>Core Principle</a></li>
+    <li class="toc-item"><a href="#s2" class="toc-link"><span class="toc-num">2</span>Database Architecture</a></li>
+    <li class="toc-item toc-sub"><a href="#s2-1" class="toc-link"><span class="toc-num">2.1</span>Tier 1 — SQL / Postgres</a></li>
+    <li class="toc-item toc-sub"><a href="#s2-2" class="toc-link"><span class="toc-num">2.2</span>Tier 2 — pgvector</a></li>
+    <li class="toc-item toc-sub"><a href="#s2-3" class="toc-link"><span class="toc-num">2.3</span>Tier 3 — Redis Cache</a></li>
+    <li class="toc-item"><a href="#s3" class="toc-link"><span class="toc-num">3</span>AI Memory Architecture</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-1" class="toc-link"><span class="toc-num">3.1</span>Short-Term Memory</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-2" class="toc-link"><span class="toc-num">3.2</span>Medium-Term Memory</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-3" class="toc-link"><span class="toc-num">3.3</span>Long-Term Intelligence</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-4" class="toc-link"><span class="toc-num">3.4</span>Semantic Memory</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-5" class="toc-link"><span class="toc-num">3.5</span>Memory Ranking &amp; Pruning</a></li>
+    <li class="toc-item"><a href="#s4" class="toc-link"><span class="toc-num">4</span>RAG Architecture</a></li>
+    <li class="toc-item toc-sub"><a href="#s4-1" class="toc-link"><span class="toc-num">4.1</span>Structured Retrieval (SQL)</a></li>
+    <li class="toc-item toc-sub"><a href="#s4-2" class="toc-link"><span class="toc-num">4.2</span>Semantic Retrieval (Vector)</a></li>
+    <li class="toc-item toc-sub"><a href="#s4-3" class="toc-link"><span class="toc-num">4.3</span>Hybrid Retrieval</a></li>
+    <li class="toc-item"><a href="#s5" class="toc-link"><span class="toc-num">5</span>Context Assembly &amp; Prompt Engineering</a></li>
+    <li class="toc-item"><a href="#s6" class="toc-link"><span class="toc-num">6</span>Embedding Strategy</a></li>
+    <li class="toc-item"><a href="#s7" class="toc-link"><span class="toc-num">7</span>Chat Memory Architecture</a></li>
+    <li class="toc-item"><a href="#s8" class="toc-link"><span class="toc-num">8</span>SQL vs Vector Responsibilities</a></li>
+    <li class="toc-item"><a href="#s9" class="toc-link"><span class="toc-num">9</span>Hallucination Mitigation</a></li>
+    <li class="toc-item"><a href="#s10" class="toc-link"><span class="toc-num">10</span>Scalability</a></li>
+    <li class="toc-item"><a href="#s11" class="toc-link"><span class="toc-num">11</span>Summary</a></li>
+  </ul>
+</nav>
+
+<div class="doc-header">
+  <h1 class="doc-title">ChessIQ — Memory, Retrieval, and AI Context Architecture</h1>
+  <div class="meta-pills">
+    <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
+    <span class="meta-pill"><span class="pill-label">Status</span>Technical Specification</span>
+    <span class="meta-pill"><span class="pill-label">Audience</span>Backend · AI/ML · DB Architects</span>
+  </div>
+  <p class="confidentiality-note">Confidential — Internal Use Only · ArcnetLabs</p>
+  <nav class="doc-nav">
+    <span class="doc-nav-label">Suite:</span>
+    <a href="index.html" class="doc-hub-link">Hub</a>
+    <a href="frd_product.html">Product FRD</a>
+    <a href="frd_technical.html">Technical FRD</a>
+    <a href="ai_model_strategy.html">AI Model Strategy</a>
+    <span class="doc-current">Memory &amp; Retrieval</span>
+    <a href="pricing_monetization_strategy.html">Pricing</a>
+  </nav>
+</div>
+
+<main class="main-content">
+<div class="content-inner">
+
+  <!-- Executive Summary -->
+  <div class="exec-summary">
+    <h2 class="exec-title">Executive Summary</h2>
+    <p>ChessIQ implements a <strong>hybrid memory and retrieval architecture</strong> that combines structured relational storage (Supabase Postgres) with semantic vector retrieval (pgvector) and ephemeral caching (Redis). This three-tier approach enables both transactional integrity for chess data and semantic intelligence for AI coaching, while maintaining grounded truth through Stockfish analysis.</p>
+    <p><strong>Core Innovation:</strong> ChessIQ's AI context system is not generic document RAG. It is <strong>structured chess intelligence retrieval</strong> — a domain-specific architecture that grounds LLM explanations in verified chess analysis, behavioral patterns, and longitudinal player memory.</p>
+    <p><strong>Key Principle:</strong> The LLM never invents chess truth. Stockfish provides objective analysis. The retrieval system assembles contextual intelligence. The LLM explains, personalizes, and coaches.</p>
+  </div>
+
+  <!-- Section 1 -->
+  <section class="section-block">
+    <div id="s1" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">1</span>
+      <h2 class="section-title">Core Principle: Structured AI Coaching, Not Generic Chatbot</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Generic Chatbot</th><th>ChessIQ</th></tr></thead>
+        <tbody>
+          <tr><td>Open-ended conversation</td><td>Structured, domain-specific coaching</td></tr>
+          <tr><td>LLM generates all content</td><td>LLM explains pre-computed analysis</td></tr>
+          <tr><td>No ground truth</td><td>Stockfish is authoritative source</td></tr>
+          <tr><td>Context is recent conversation only</td><td>Context is lifetime player patterns</td></tr>
+          <tr><td>Can hallucinate freely</td><td>Must not invent chess evaluation</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">1.2 The Grounding Principle</h3>
+    <ul>
+      <li><strong>Chess.com</strong> is the external source of raw game data: PGNs, ratings, timestamps, metadata</li>
+      <li><strong>Stockfish</strong> is the source of objective chess truth: position evaluation, best moves, tactical detection</li>
+      <li><strong>The LLM's constrained role:</strong> Explain Stockfish output, personalize to player level, summarize patterns, generate recommendations, manage conversational flow</li>
+    </ul>
+    <div class="callout warning">
+      <span class="callout-label">Critical Boundary</span>
+      <p>The LLM never says "This position is +2.3 for White" without Stockfish providing that evaluation. The LLM explains: <em>"The engine evaluates this as favorable for White because of the active rook and passed pawn."</em></p>
+    </div>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="section-block">
+    <div id="s2" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">2</span>
+      <h2 class="section-title">Database Architecture Overview</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Three-Tier Storage Architecture</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph Application["ChessIQ Application Layer"]
+        API[FastAPI Backend]
+        COACH[AI Coach Service]
+        PATTERN[Pattern Engine]
+    end
+    subgraph Tier1["Tier 1: Primary Source of Truth"]
+        PG[(Supabase Postgres)]
+        subgraph PGTables["Structured Tables"]
+            USERS[users]
+            GAMES[games]
+            ANALYSES[game_analyses]
+            PATTERNS[player_patterns]
+            PROFILES[player_profiles]
+            CHAT[coach_conversations]
+            TIMING[move_timing_data]
+        end
+    end
+    subgraph Tier2["Tier 2: Semantic Memory"]
+        PGVEC[(pgvector Extension)]
+        subgraph Vectors["Embeddings"]
+            COACH_EMB[coaching_summaries]
+            PAT_EMB[pattern_embeddings]
+            GAME_EMB[game_summaries]
+            BEHAV_EMB[behavioral_notes]
+        end
+    end
+    subgraph Tier3["Tier 3: Ephemeral Cache"]
+        REDIS[(Redis)]
+        subgraph CacheTypes["Cache Types"]
+            CELERY[Celery Queues]
+            INF[Inference Cache]
+            RATE[Rate Limiting]
+            SESSION[Active Sessions]
+        end
+    end
+    API --> PG
+    COACH --> PG
+    COACH --> PGVEC
+    COACH --> REDIS
+    PATTERN --> PG
+    PATTERN --> PGVEC
+      </pre>
+    </div>
+
+    <div id="s2-1"></div>
+    <h3 class="sub-heading">2.1 Tier 1: Supabase / Postgres — Primary Source of Truth</h3>
+    <p><strong>Philosophy:</strong> All transactional, relational, authoritative data lives here. The home for coaching intelligence derived from Chess.com game data — not a replacement for Chess.com's archive.</p>
+
+    <h4 class="sub-sub-heading">Game Storage Architecture</h4>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Layer</th><th>Content</th><th>Retention</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><strong>External (Chess.com)</strong></td><td>All historical games, PGNs, ratings, timestamps</td><td>Permanent (external)</td><td>Source of truth for raw game data</td></tr>
+          <tr><td><strong>Cached Game Layer</strong></td><td>Recently fetched PGNs, lightweight metadata</td><td>Configurable window (30–60 days)</td><td>Avoid repeated API calls; support recent analysis</td></tr>
+          <tr><td><strong>Analysis Layer</strong></td><td>Stockfish evaluations, blunders, ACPL, critical moments</td><td><strong>Permanent</strong></td><td>ChessIQ's primary long-term value</td></tr>
+          <tr><td><strong>Intelligence Layer</strong></td><td>Patterns, behavioral insights, AI memory, embeddings, profiles</td><td><strong>Permanent</strong></td><td>Powers personalized coaching and longitudinal intelligence</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">-- Core patterns table (transactional truth)
+CREATE TABLE player_patterns (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pattern_type TEXT NOT NULL,
+  pattern_subtype TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  confidence_score FLOAT NOT NULL,
+  occurrence_count INT NOT NULL,
+  affected_games_count INT NOT NULL,
+  pattern_description TEXT NOT NULL,
+  example_positions JSONB,
+  first_seen_at TIMESTAMPTZ,
+  last_seen_at TIMESTAMPTZ,
+  trend_direction TEXT,
+  is_strength BOOLEAN DEFAULT FALSE,
+  recommended_drill_type TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_patterns_user_severity
+  ON player_patterns (user_id, severity, confidence_score DESC);
+CREATE INDEX idx_patterns_type
+  ON player_patterns (pattern_type, pattern_subtype);</code></pre>
+    </div>
+
+    <div id="s2-2"></div>
+    <h3 class="sub-heading">2.2 Tier 2: pgvector / Vector Storage — Semantic Memory Layer</h3>
+    <div class="callout secondary">
+      <span class="callout-label">Critical Clarification</span>
+      <p>Vector DB is <strong>NOT transactional storage</strong>, <strong>NOT the source of truth</strong>, and <strong>NOT for structured queries</strong>. It <strong>IS</strong> a semantic search layer for finding conceptually similar information based on meaning.</p>
+    </div>
+
+    <h4 class="sub-sub-heading">What Gets Embedded vs. What Does Not</h4>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Content Type</th><th>Embedded?</th><th>Rationale</th></tr></thead>
+        <tbody>
+          <tr><td>Pattern summaries</td><td>✅ Yes</td><td>Retrieve similar weaknesses semantically</td></tr>
+          <tr><td>Coaching session summaries</td><td>✅ Yes</td><td>Find relevant prior coaching</td></tr>
+          <tr><td>Behavioral observations</td><td>✅ Yes</td><td>Match behavioral patterns</td></tr>
+          <tr><td>Game summaries</td><td>✅ Yes</td><td>Find similar game situations</td></tr>
+          <tr><td>Raw PGNs</td><td>❌ No</td><td>Too long, poor semantic value — embed summary instead</td></tr>
+          <tr><td>Entire move histories</td><td>❌ No</td><td>No semantic meaning per move — store in SQL</td></tr>
+          <tr><td>Raw Stockfish evaluations</td><td>❌ No</td><td>Numeric, not semantic — store in SQL for filtering</td></tr>
+          <tr><td>Unstructured conversation dumps</td><td>❌ No</td><td>Noise dominates signal — summarize first</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE semantic_memory (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  memory_type TEXT NOT NULL,       -- 'pattern', 'coaching', 'behavioral', 'game_summary'
+  source_id BIGINT,                -- FK to source table (e.g., pattern_id)
+  content_summary TEXT NOT NULL,   -- Human-readable summary
+  embedding VECTOR(1536),          -- OpenAI text-embedding-3-small dimensions
+  metadata JSONB,                  -- Source references, timestamps, tags
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_accessed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- HNSW index for fast approximate similarity search
+CREATE INDEX ON semantic_memory
+  USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+
+CREATE INDEX idx_semantic_user_type ON semantic_memory (user_id, memory_type);</code></pre>
+    </div>
+
+    <div id="s2-3"></div>
+    <h3 class="sub-heading">2.3 Tier 3: Redis — Ephemeral Cache Layer</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Use Case</th><th>Redis Structure</th><th>TTL</th></tr></thead>
+        <tbody>
+          <tr><td>Celery task queues</td><td>Lists/Streams</td><td>N/A</td></tr>
+          <tr><td>Inference result cache</td><td>Key-Value</td><td>5 min</td></tr>
+          <tr><td>Active AI context</td><td>Hash</td><td>1 hour</td></tr>
+          <tr><td>Rate limiting counters</td><td>Sorted Sets</td><td>1 min</td></tr>
+          <tr><td>Embedding cache</td><td>Key-Value</td><td>1 hour</td></tr>
+          <tr><td>Chat session warm-up</td><td>Hash</td><td>30 min</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="section-block">
+    <div id="s3" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">3</span>
+      <h2 class="section-title">AI Memory Architecture</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <p>ChessIQ implements a <strong>multi-horizon memory system</strong> spanning from immediate conversation context to years-long player patterns.</p>
+
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Multi-Horizon Memory System</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph MemoryHorizons["Memory Horizons"]
+        STM[Short-Term Memory<br/>Current Conversation<br/>Last 10 messages]
+        MTM[Medium-Term Memory<br/>Recent Patterns<br/>Last 30 days]
+        LTM[Long-Term Memory<br/>Player Archetype<br/>Lifetime patterns]
+        SEM[Semantic Memory<br/>Similar situations<br/>Conceptual retrieval]
+    end
+    subgraph Sources["Memory Sources"]
+        CHAT[coach_conversations]
+        RECENT[player_patterns recent]
+        PROFILE[player_profiles]
+        VECT[semantic_memory vectors]
+    end
+    STM --> CHAT
+    MTM --> RECENT
+    LTM --> PROFILE
+    SEM --> VECT
+    subgraph Assembly["Context Assembly"]
+        ASSEMBLER[Memory Assembler]
+        RANKER[Relevance Ranker]
+        PRUNER[Context Pruner]
+    end
+    MemoryHorizons --> ASSEMBLER
+    ASSEMBLER --> RANKER
+    RANKER --> PRUNER
+    PRUNER --> CONTEXT[Final Context Window<br/>~4K tokens]
+      </pre>
+    </div>
+
+    <div id="s3-1"></div>
+    <h3 class="sub-heading">3.1 Short-Term Conversational Memory</h3>
+    <p><strong>Scope:</strong> Current session, last 10–15 exchanges · <strong>Storage:</strong> <code class="inline">coach_conversations</code> (SQL)</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class ShortTermMemory:
+    def retrieve(self, session_id: str, limit: int = 10) -> List[Message]:
+        return self.db.query("""
+            SELECT message_role, message_content, created_at
+            FROM coach_conversations
+            WHERE session_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+        """, (session_id, limit))</code></pre>
+    </div>
+    <p><strong>Pruning Strategy:</strong> Always include last 3 exchanges → add earlier exchanges if token budget allows → summarize older parts if needed.</p>
+
+    <div id="s3-2"></div>
+    <h3 class="sub-heading">3.2 Medium-Term Player Memory</h3>
+    <p><strong>Scope:</strong> Recent patterns and behavioral data (last 30–90 days) · <strong>Storage:</strong> <code class="inline">player_patterns</code>, <code class="inline">move_timing_data</code> (SQL)</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class MediumTermMemory:
+    def retrieve_active_patterns(self, user_id: int, days: int = 30) -> List[Pattern]:
+        return self.db.query("""
+            SELECT * FROM player_patterns
+            WHERE user_id = %s
+              AND last_seen_at > NOW() - INTERVAL '%s days'
+              AND severity IN ('critical', 'significant')
+            ORDER BY confidence_score DESC, occurrence_count DESC
+            LIMIT 5
+        """, (user_id, days))</code></pre>
+    </div>
+
+    <div id="s3-3"></div>
+    <h3 class="sub-heading">3.3 Long-Term Player Intelligence</h3>
+    <p><strong>Scope:</strong> Lifetime patterns, archetype, style evolution · <strong>Storage:</strong> <code class="inline">player_profiles</code> (SQL)</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">@dataclass
+class PlayerProfile:
+    archetype: str                          # "The Tactician with Endgame Blind Spots"
+    style_indicators: Dict[str, float]      # {"tactical": 0.7, "positional": 0.3}
+    primary_strengths: List[str]
+    primary_weaknesses: List[str]
+    phase_performance: Dict[str, int]       # {"opening": 72, "middlegame": 65, "endgame": 58}
+    opening_repertoire: Dict[str, List[str]]
+    time_management_profile: Dict[str, float]
+    tactical_themes: Dict[str, int]         # {"missed_forks": 12, "successful_pins": 31}
+    games_analyzed_count: int
+    patterns_detected_count: int</code></pre>
+    </div>
+
+    <div id="s3-4"></div>
+    <h3 class="sub-heading">3.4 Semantic Memory Retrieval</h3>
+    <p><strong>Scope:</strong> Conceptually similar situations across all user history · <strong>Storage:</strong> <code class="inline">semantic_memory</code> with pgvector</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class SemanticMemory:
+    async def retrieve_similar_memories(
+        self, user_id: int, query: str, memory_types: List[str], top_k: int = 5
+    ) -> List[SemanticMemory]:
+        # 1. Generate query embedding
+        query_embedding = await self.embedder.embed(query)
+
+        # 2. Vector similarity search
+        results = await self.db.query("""
+            SELECT id, memory_type, content_summary, metadata,
+                   1 - (embedding <=> %s::vector) as similarity_score
+            FROM semantic_memory
+            WHERE user_id = %s AND memory_type = ANY(%s)
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
+        """, (query_embedding, user_id, memory_types, query_embedding, top_k))
+
+        # 3. Filter by similarity threshold
+        return [r for r in results if r.similarity_score > 0.75]</code></pre>
+    </div>
+
+    <div id="s3-5"></div>
+    <h3 class="sub-heading">3.5 Memory Ranking &amp; Pruning</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class MemoryRanker:
+    def rank_memories(self, query, memories, profile) -> List[RankedMemory]:
+        ranked = []
+        for memory in memories:
+            score = 0.0
+            # Factor 1: Recency (exponential decay, 30-day half-life)
+            days_old = (datetime.now() - memory.created_at).days
+            score += recency_weight * exp(-days_old / 30)
+
+            # Factor 2: Semantic similarity
+            score += similarity_weight * memory.similarity_score
+
+            # Factor 3: Pattern severity
+            severity_multiplier = {
+                'critical': 1.5, 'significant': 1.2,
+                'developing': 1.0, 'historical': 0.8
+            }.get(getattr(memory, 'severity', None), 1.0)
+            score += severity_weight * severity_multiplier
+
+            # Factor 4: User engagement
+            if hasattr(memory, 'access_count'):
+                score += engagement_weight * min(memory.access_count / 10, 1.0)
+
+            ranked.append(RankedMemory(memory=memory, relevance_score=score))
+
+        return sorted(ranked, key=lambda x: x.relevance_score, reverse=True)</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="section-block">
+    <div id="s4" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">4</span>
+      <h2 class="section-title">Retrieval-Augmented Generation (RAG) Architecture</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <p>ChessIQ's RAG system is <strong>domain-specific structured retrieval</strong>, not generic document search.</p>
+
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Full RAG Pipeline: Query → Retrieval → Generation → Storage</span>
+      <pre class="mermaid">
+flowchart TB
+    USER[User Question]
+    subgraph Retrieval["Retrieval Layer"]
+        INTENT[Intent Classification]
+        subgraph ParallelRetrieval["Parallel Retrieval"]
+            SQL_QUERY[SQL Query Builder]
+            VECTOR_SEARCH[Vector Search]
+            PROFILE_FETCH[Profile Fetch]
+        end
+        SQL_RESULTS[(Structured Data)]
+        VECTOR_RESULTS[(Semantic Matches)]
+        PROFILE_RESULTS[(Player Context)]
+    end
+    subgraph Enrichment["Context Enrichment"]
+        MERGE[Result Merger]
+        RANK[Relevance Ranking]
+        PRUNE[Token Budget Pruning]
+    end
+    subgraph Generation["Generation Layer"]
+        PROMPT[Prompt Assembly]
+        LLM[Local LLM]
+        RESPONSE[Coaching Response]
+    end
+    subgraph Storage["Storage & Feedback"]
+        STORE[Store Response]
+        EXTRACT[Extract Memory]
+        EMBED[Generate Embedding]
+        INDEX[Index to Vector DB]
+    end
+    USER --> INTENT
+    INTENT --> SQL_QUERY
+    INTENT --> VECTOR_SEARCH
+    INTENT --> PROFILE_FETCH
+    SQL_QUERY --> SQL_RESULTS
+    VECTOR_SEARCH --> VECTOR_RESULTS
+    PROFILE_FETCH --> PROFILE_RESULTS
+    SQL_RESULTS --> MERGE
+    VECTOR_RESULTS --> MERGE
+    PROFILE_RESULTS --> MERGE
+    MERGE --> RANK
+    RANK --> PRUNE
+    PRUNE --> PROMPT
+    PROMPT --> LLM
+    LLM --> RESPONSE
+    RESPONSE --> STORE
+    STORE --> EXTRACT
+    EXTRACT --> EMBED
+    EMBED --> INDEX
+    RESPONSE --> USER
+      </pre>
+    </div>
+
+    <div id="s4-1"></div>
+    <h3 class="sub-heading">4.2 Structured Retrieval (SQL Layer)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class StructuredRetriever:
+    def retrieve_relevant_patterns(self, user_id: int, intent: Intent) -> List[Pattern]:
+        keywords = intent.extract_keywords()
+        return self.db.query("""
+            SELECT * FROM player_patterns
+            WHERE user_id = %s
+              AND (
+                pattern_type = ANY(%s)
+                OR pattern_subtype ILIKE ANY(%s)
+                OR pattern_description ILIKE ANY(%s)
+              )
+              AND confidence_score > 0.6
+            ORDER BY
+              CASE severity
+                WHEN 'critical' THEN 1
+                WHEN 'significant' THEN 2
+                WHEN 'developing' THEN 3
+                ELSE 4
+              END, confidence_score DESC
+            LIMIT 5
+        """, (user_id, intent.pattern_types, keywords, keywords))</code></pre>
+    </div>
+
+    <div id="s4-2"></div>
+    <h3 class="sub-heading">4.3 Semantic Retrieval (Vector Layer)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class SemanticRetriever:
+    def map_intent_to_memory_types(self, intent: Intent) -> List[str]:
+        mapping = {
+            IntentType.PATTERN_QUESTION:  ['pattern', 'coaching'],
+            IntentType.OPENING_QUESTION:  ['opening_weakness', 'coaching'],
+            IntentType.TACTIC_QUESTION:   ['pattern', 'behavioral'],
+            IntentType.IMPROVEMENT_PLAN:  ['coaching', 'recommendation'],
+            IntentType.GAME_REVIEW:       ['game_summary', 'pattern'],
+        }
+        return mapping.get(intent.type, ['pattern', 'coaching', 'behavioral'])</code></pre>
+    </div>
+
+    <div id="s4-3"></div>
+    <h3 class="sub-heading">4.4 Hybrid Retrieval Strategy</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class HybridRetriever:
+    async def retrieve_context(self, user_id: int, query: str) -> CoachContext:
+        # Parallel execution
+        structured, semantic, profile, history = await asyncio.gather(
+            self.structured.retrieve(user_id, query),
+            self.semantic.retrieve(user_id, query),
+            self.profile.get(user_id),
+            self.chat_history.get_recent(user_id, limit=5)
+        )
+
+        return CoachContext(
+            profile=profile,
+            patterns=self.merge_patterns(structured.patterns, semantic.patterns),
+            games=structured.recent_games,
+            timing=structured.timing,
+            semantic_memories=semantic.memories,
+            conversation_history=history
+        )</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="section-block">
+    <div id="s5" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">5</span>
+      <h2 class="section-title">Context Assembly &amp; Prompt Engineering</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">5.1 Context Retrieval Flow</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Sequence: User Query → Parallel Retrieval → Prompt → LLM Response</span>
+      <pre class="mermaid">
+sequenceDiagram
+    participant U as User
+    participant API as Coach API
+    participant IA as Intent Analyzer
+    participant SR as Structured Retriever
+    participant VR as Vector Retriever
+    participant PR as Profile Retriever
+    participant PA as Prompt Assembler
+    participant LLM as Local LLM
+
+    U->>API: "Why do I keep losing winning positions?"
+    API->>IA: Analyze intent
+    IA-->>API: Intent: PATTERN_QUESTION
+
+    par Parallel Retrieval
+        API->>SR: Query patterns by severity and keywords
+        SR-->>API: Rook endgame struggles, Time pressure issues
+
+        API->>VR: Embed query + similarity search
+        VR-->>API: Prior coaching on endgames, Similar "won but lost" games
+
+        API->>PR: Fetch player profile
+        PR-->>API: Archetype: Tactician, Weakness: Endgames
+    end
+
+    API->>PA: Assemble context
+    PA->>PA: Rank by relevance, prune to token budget
+    PA->>LLM: Send contextualized prompt
+    LLM-->>PA: Coaching response
+    PA-->>U: "I see a critical pattern: you convert only 45% of winning endgames..."
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">5.2 Prompt Assembly</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class PromptAssembler:
+    def assemble(self, context: CoachContext, query: str, token_budget: int = 4000) -> Prompt:
+        sections = []
+        current_tokens = 0
+
+        # 1. System prompt (~200 tokens, always included)
+        sections.append(self.system_prompt())
+
+        # 2. Player profile (~300 tokens, high priority)
+        if context.profile:
+            sections.append(self.format_profile(context.profile))
+
+        # 3. Relevant patterns (~800 tokens, ranked by severity)
+        if context.patterns:
+            sections.append(self.format_patterns(context.patterns, max_tokens=800))
+
+        # 4. Semantic memories (~500 tokens, if token budget allows)
+        if context.semantic_memories and current_tokens < token_budget * 0.7:
+            sections.append(self.format_semantic_memories(context.semantic_memories[:3]))
+
+        # 5. Conversation history (~600 tokens, if space)
+        if context.conversation_history and current_tokens < token_budget * 0.85:
+            sections.append(self.format_history(context.conversation_history, max_tokens=600))
+
+        # 6. Current question (always included)
+        sections.append(f"\n## Current Question\nPlayer: {query}\n\nCoach: ")
+
+        return Prompt(content="\n\n".join(sections))</code></pre>
+    </div>
+
+    <h3 class="sub-heading">5.3 Example: "Why do I keep losing winning positions?"</h3>
+    <div class="callout secondary">
+      <span class="callout-label">AI Coach Response Example</span>
+      <p>"I see a critical pattern affecting 42% of your recent games: <strong>Rook Endgame Technique</strong>. You've had 14 missed conversions in winning rook endgames, primarily due to passive king placement and hesitation when converting material advantage.</p>
+      <p>Combined with your <strong>Time Pressure Collapse</strong> pattern (blunder rate increases 4× under 30 seconds), you're often rushing the conversion phase.</p>
+      <p><strong>Recommendation:</strong> Practice the 'Lucena Position' and 'Philidor Position' daily. Target: 70%+ conversion rate from winning endgames."</p>
+    </div>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="section-block">
+    <div id="s6" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">6</span>
+      <h2 class="section-title">Embedding Strategy</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">6.2 Summarization Before Embedding</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class SummarizationService:
+    def summarize_pattern(self, pattern: Pattern) -> str:
+        return f"""
+Player weakness in {pattern.pattern_type}: {pattern.pattern_subtype}.
+Affects {pattern.affected_games_ratio:.0%} of games with {pattern.confidence_score:.0%} confidence.
+Issue: {pattern.description}
+Seen {pattern.occurrence_count} times from {pattern.first_seen_at} to {pattern.last_seen_at}.
+Trend: {pattern.trend_direction}. Recommended training: {pattern.recommended_drill_type}.
+""".strip()
+
+    def summarize_game(self, game: Game, analysis: GameAnalysis) -> str:
+        return f"""
+{game.result} against {game.opponent_rating} rated opponent.
+Opening: {analysis.opening_name} ({analysis.opening_eco}).
+ACPL: {analysis.acpl}. Critical moments: {len(analysis.critical_moments)}.
+Phase performance: Opening {analysis.phase_scores.opening}%, Middlegame {analysis.phase_scores.middlegame}%, Endgame {analysis.phase_scores.endgame}%.
+""".strip()</code></pre>
+    </div>
+
+    <h3 class="sub-heading">6.3 Chunking Strategy</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class ConversationChunker:
+    def chunk_conversation(self, messages: List[Message], chunk_size: int = 512) -> List[Chunk]:
+        chunks, current_chunk, current_tokens = [], [], 0
+        for i, msg in enumerate(messages):
+            msg_tokens = self.estimate_tokens(msg.content)
+            if current_tokens + msg_tokens > chunk_size or self.is_topic_shift(messages, i):
+                if current_chunk:
+                    chunks.append(self.create_chunk(current_chunk))
+                current_chunk, current_tokens = [msg], msg_tokens
+            else:
+                current_chunk.append(msg)
+                current_tokens += msg_tokens
+        if current_chunk:
+            chunks.append(self.create_chunk(current_chunk))
+        return chunks</code></pre>
+    </div>
+
+    <h3 class="sub-heading">6.4 Embedding Lifecycle Management</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class EmbeddingLifecycleManager:
+    async def refresh_embeddings(self, user_id: int):
+        """Refresh embeddings for users with updated patterns."""
+        updated_patterns = await self.db.query("""
+            SELECT p.* FROM player_patterns p
+            LEFT JOIN semantic_memory sm ON p.id = sm.source_id
+            WHERE p.user_id = %s
+              AND (sm.id IS NULL OR p.updated_at > sm.created_at)
+        """, (user_id,))
+        for pattern in updated_patterns:
+            summary = self.summarizer.summarize_pattern(pattern)
+            embedding = await self.embedder.embed(summary)
+            await self.vector_db.upsert(user_id=user_id, memory_type='pattern',
+                                        source_id=pattern.id,
+                                        content_summary=summary, embedding=embedding)
+
+    async def prune_stale_embeddings(self, user_id: int, max_age_days: int = 365):
+        await self.db.execute("""
+            DELETE FROM semantic_memory
+            WHERE user_id = %s AND memory_type = 'pattern'
+              AND created_at < NOW() - INTERVAL '%s days'
+              AND source_id NOT IN (
+                SELECT id FROM player_patterns
+                WHERE user_id = %s AND last_seen_at > NOW() - INTERVAL '90 days'
+              )
+        """, (user_id, max_age_days, user_id))</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 7 -->
+  <section class="section-block">
+    <div id="s7" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">7</span>
+      <h2 class="section-title">Chat Memory Architecture</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">7.1 Chat Session Schema</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">-- Chat sessions (conversation containers)
+CREATE TABLE chat_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT,                    -- AI-generated summary ("Rook Endgame Discussion")
+  context_snapshot JSONB,        -- Player state at session start
+  message_count INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_activity_at TIMESTAMPTZ DEFAULT NOW(),
+  is_archived BOOLEAN DEFAULT FALSE
+);
+
+-- Individual messages
+CREATE TABLE chat_messages (
+  id BIGSERIAL PRIMARY KEY,
+  session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  message_role TEXT NOT NULL,    -- 'user', 'assistant', 'system'
+  content TEXT NOT NULL,
+  referenced_patterns JSONB,
+  referenced_games JSONB,
+  model_used TEXT,
+  tokens_used JSONB,             -- {input: 1200, output: 350}
+  latency_ms INT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Session summaries for semantic retrieval
+CREATE TABLE chat_summaries (
+  id BIGSERIAL PRIMARY KEY,
+  session_id UUID UNIQUE REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  user_id INT NOT NULL,
+  summary_text TEXT,
+  key_topics JSONB,
+  resolved_questions JSONB,
+  open_questions JSONB,
+  generated_at TIMESTAMPTZ DEFAULT NOW()
+);</code></pre>
+    </div>
+
+    <h3 class="sub-heading">7.3 Raw Chat History vs. Semantic Memory</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Raw Chat History</th><th>Semantic Memory</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Storage</strong></td><td>SQL (<code class="inline">chat_messages</code>)</td><td>Vector DB (<code class="inline">semantic_memory</code>)</td></tr>
+          <tr><td><strong>Scope</strong></td><td>Exact conversation</td><td>Conceptual summary</td></tr>
+          <tr><td><strong>Use Case</strong></td><td>Session continuity</td><td>Cross-session retrieval</td></tr>
+          <tr><td><strong>Token Cost</strong></td><td>High (every word)</td><td>Low (summarized)</td></tr>
+          <tr><td><strong>Retrieval</strong></td><td>Sequential access</td><td>Similarity search</td></tr>
+          <tr><td><strong>Lifespan</strong></td><td>30–90 days</td><td>Permanent</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout secondary">
+      <span class="callout-label">Why This Separation Matters</span>
+      <p>User can have 1000+ messages, but only top 5 <em>relevant</em> memories get injected into the LLM context. Sending full conversation history would consume the entire context window and degrade response quality.</p>
+    </div>
+  </section>
+
+  <!-- Section 8 -->
+  <section class="section-block">
+    <div id="s8" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">8</span>
+      <h2 class="section-title">SQL vs Vector Responsibilities</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="diagram-wrapper">
+      <span class="diagram-label">SQL vs Vector: Clear Separation of Concerns</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph SQLResponsibilities["SQL / Relational Layer"]
+        TRANS[Transactional Truth]
+        STRUCT[Structured Filtering]
+        ANALYTICS[Analytics and Reporting]
+        RELATIONS[Relational Integrity]
+    end
+    subgraph VectorResponsibilities["Vector / Semantic Layer"]
+        SEMANTIC[Semantic Similarity]
+        CONTEXT[Contextual Retrieval]
+        MEMORY[Memory Search]
+        MEANING[Meaning-Based Matching]
+    end
+      </pre>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Use SQL When</th><th>Use Vector Search When</th></tr></thead>
+        <tbody>
+          <tr><td>Exact filtering needed (<code class="inline">result = 'loss' AND played_at > NOW() - 7d</code>)</td><td>Finding conceptually similar content ("I keep messing up endgames")</td></tr>
+          <tr><td>Aggregations and analytics (win rate, ACPL averages)</td><td>Retrieving prior explanations of similar concepts</td></tr>
+          <tr><td>Relational joins (game → analysis → patterns)</td><td>Discovering non-obvious connections</td></tr>
+          <tr><td>Time-series queries (daily game counts)</td><td>Semantic filtering — concepts, not keywords</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 9 -->
+  <section class="section-block">
+    <div id="s9" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">9</span>
+      <h2 class="section-title">Hallucination Mitigation: Grounded Chess Intelligence</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">9.1 The Grounding Architecture</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Layer</th><th>Role</th><th>Never Does</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Chess Truth Layer</strong> (Stockfish)</td><td>Objective position evaluation, best move identification</td><td>Generate natural language</td></tr>
+          <tr><td><strong>Retrieval Layer</strong> (SQL + Vector)</td><td>Assemble verified chess data into structured context</td><td>Evaluate positions</td></tr>
+          <tr><td><strong>Explanation Layer</strong> (LLM)</td><td>Explain evaluations, personalize, summarize, recommend</td><td>Invent evaluations, move stats, or pattern counts</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">9.2 Constrained System Prompt</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">CONSTRAINED_SYSTEM_PROMPT = """
+You are ChessIQ, an expert chess coach AI. Your role is to EXPLAIN and COACH based on provided data.
+
+CRITICAL RULES:
+1. You will be provided with Stockfish evaluations, pattern data, and player history.
+2. ONLY explain what the data shows. NEVER invent chess evaluations.
+3. If asked about a specific position, use the provided FEN and Stockfish analysis.
+4. If pattern data shows "8 occurrences", say "8 times" — not "many times".
+5. For move suggestions, ONLY suggest moves if Stockfish evaluation is provided.
+6. If unsure about chess facts, say "I don't have that analysis in your data."
+
+Your role is explanation, personalization, and coaching — NOT chess calculation.
+Stockfish handles all position evaluation.
+"""</code></pre>
+    </div>
+
+    <h3 class="sub-heading">9.3 Post-Generation Verification Layer</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class HallucinationGuard:
+    async def verify_response(self, response: str, context: CoachContext) -> VerificationResult:
+        issues = []
+
+        # 1. Verify evaluation claims
+        eval_matches = re.findall(r'([+-]\d+\.\d+)', response)
+        for claimed_eval in eval_matches:
+            if not self.eval_in_context(claimed_eval, context):
+                issues.append(HallucinationIssue(type="eval_mismatch",
+                                                  claim=claimed_eval, severity="high"))
+
+        # 2. Verify pattern statistics
+        stat_matches = re.findall(r'(\d+) (times|games|occurrences)', response)
+        for number, unit in stat_matches:
+            if not self.stat_in_context(int(number), unit, context):
+                issues.append(HallucinationIssue(type="stat_mismatch",
+                                                  claim=f"{number} {unit}", severity="medium"))
+
+        # 3. Verify move suggestions
+        move_matches = re.findall(r'([KQRBN]?[a-h]?[1-8]?x?[a-h][1-8]=?[QRBN]?)', response)
+        for move in move_matches:
+            if not self.move_verified(move, context):
+                issues.append(HallucinationIssue(type="unverified_move",
+                                                  claim=move, severity="medium"))
+
+        return VerificationResult(
+            is_valid=len(issues) == 0, issues=issues,
+            corrected_response=self.correct_response(response, issues) if issues else response
+        )</code></pre>
+    </div>
+
+    <h3 class="sub-heading">9.4 Deterministic Chess Operations</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class ChessOperations:
+    async def analyze_position(self, fen: str) -> PositionAnalysis:
+        """Always use Stockfish, never LLM, for position analysis."""
+        evaluation = await self.stockfish.evaluate(fen, depth=20)
+        best_move  = await self.stockfish.get_best_move(fen, time_ms=1000)
+        return PositionAnalysis(fen=fen, evaluation=evaluation.score,
+                                best_move=best_move, is_mate=evaluation.is_mate)</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 10 -->
+  <section class="section-block">
+    <div id="s10" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">10</span>
+      <h2 class="section-title">Scalability Considerations</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">10.1 Embedding Growth Management</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class EmbeddingScalingStrategy:
+    # Selective embedding — only valuable content
+    SHOULD_EMBED = {
+        'pattern_summary': True,
+        'coaching_insight': True,
+        'game_summary': True,
+        'raw_pgn': False,
+        'move_list': False,
+        'full_conversation': False,
+    }</code></pre>
+    </div>
+
+    <h3 class="sub-heading">10.2 Retrieval Latency Optimization</h3>
+    <p><strong>Target:</strong> &lt;100ms for full context retrieval.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class RetrievalOptimizer:
+    async def fast_retrieve(self, user_id: int, query: str) -> CoachContext:
+        cache_key = f"context:{user_id}:{hash(query)}"
+
+        # 1. Check cache first
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return CoachContext.deserialize(cached)
+
+        # 2. Parallel retrieval
+        profile, patterns, vector_results = await asyncio.gather(
+            self.get_profile_cached(user_id),
+            self.get_patterns_cached(user_id),
+            self.vector_search(query, user_id)
+        )
+
+        context = CoachContext(
+            profile=profile,
+            patterns=patterns[:5],           # Top 5 only
+            semantic_memories=vector_results[:3]   # Top 3 only
+        )
+
+        # 3. Cache for 5 minutes
+        await self.cache.set(cache_key, context.serialize(), ttl=300)
+        return context</code></pre>
+    </div>
+
+    <h3 class="sub-heading">10.3 Indexing Strategies</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">-- HNSW index for fast approximate vector similarity search
+CREATE INDEX ON semantic_memory
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64, ef = 32);
+
+-- BRIN index for time-series data (efficient for append-only)
+CREATE INDEX idx_games_played_at_brin ON games
+USING BRIN (played_at);
+
+-- Composite for common query patterns
+CREATE INDEX idx_patterns_user_severity_confidence
+ON player_patterns (user_id, severity, confidence_score DESC);
+
+-- Partial index for hot data (recent 90 days)
+CREATE INDEX idx_recent_patterns
+ON player_patterns (user_id, last_seen_at)
+WHERE last_seen_at > NOW() - INTERVAL '90 days';</code></pre>
+    </div>
+
+    <h3 class="sub-heading">10.5 GPU Batching for Local LLM Inference</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class OptimizedLLMClient:
+    def __init__(self):
+        self.llm = vllm.LLM(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            tensor_parallel_size=2,
+            max_num_batched_tokens=4096,
+            max_num_seqs=256,
+        )
+
+    async def generate_coaching_responses(
+        self, requests: List[CoachRequest]
+    ) -> List[CoachingResponse]:
+        outputs = self.llm.generate(
+            [req.prompt for req in requests],
+            sampling_params=vllm.SamplingParams(temperature=0.7, max_tokens=1024)
+        )
+        return [CoachingResponse(text=out.outputs[0].text,
+                                 tokens_used=out.outputs[0].token_count)
+                for out in outputs]</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 11 -->
+  <section class="section-block">
+    <div id="s11" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">11</span>
+      <h2 class="section-title">Summary</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">Architectural Principles</h3>
+    <ol>
+      <li><strong>Three-Tier Storage</strong> — SQL (transactional truth), Vector (semantic memory), Redis (ephemeral cache)</li>
+      <li><strong>Grounded Intelligence</strong> — Stockfish is the authoritative source; LLM explains, personalizes, coaches — never invents</li>
+      <li><strong>Hybrid Retrieval</strong> — SQL for structured queries, Vector for semantic search, combined for optimal context</li>
+      <li><strong>Multi-Horizon Memory</strong> — Short-term (session), medium-term (30–90 days), long-term (archetype), semantic (cross-history)</li>
+    </ol>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Generic RAG</th><th>ChessIQ Structured RAG</th></tr></thead>
+        <tbody>
+          <tr><td>Document chunks</td><td>Pattern summaries, coaching insights</td></tr>
+          <tr><td>Open-domain queries</td><td>Intent-classified, domain-specific</td></tr>
+          <tr><td>Unstructured context</td><td>Structured, verified chess data</td></tr>
+          <tr><td>Can hallucinate freely</td><td>Grounded in Stockfish truth</td></tr>
+          <tr><td>Vector-only retrieval</td><td>SQL + Vector hybrid</td></tr>
+          <tr><td>Simple embedding of raw text</td><td>Summarization-before-embedding</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">Scalability Profile</h3>
+    <ul>
+      <li><strong>SQL Layer:</strong> Scales with PostgreSQL read replicas</li>
+      <li><strong>Vector Layer:</strong> HNSW indexing enables sub-100ms similarity search</li>
+      <li><strong>Caching Layer:</strong> Redis reduces retrieval latency by 80%+</li>
+      <li><strong>Inference Layer:</strong> vLLM batching handles 100+ concurrent users per GPU</li>
+    </ul>
+  </section>
+
+</div>
+</main>
+
+<button id="back-to-top" title="Back to top">↑</button>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

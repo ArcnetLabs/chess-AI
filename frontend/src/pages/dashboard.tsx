@@ -355,7 +355,7 @@ const Dashboard: React.FC = () => {
     try {
       const result = await api.analysis.analyzeSingleGame(user.id, gameId, false);
       
-      if (result.status === 'queued') {
+      if (result.games_queued > 0) {
         console.log(`✅ Game ${gameId} queued for analysis`);
         
         // Show modal for single game analysis
@@ -381,8 +381,9 @@ const Dashboard: React.FC = () => {
         
         // Start polling for this game's status
         startSingleGamePolling(gameId);
-      } else if (result.status === 'already_analyzed') {
-        console.log(`ℹ️ Game ${gameId} is already analyzed`);
+      } else {
+        // Game not queued (likely already analyzed)
+        console.log(`ℹ️ Game ${gameId}: ${result.message}`);
         toast('✅ This game is already analyzed', { duration: 2000, icon: 'ℹ️' });
         setAnalyzingGameIds(prev => {
           const newSet = new Set(prev);
