@@ -13,7 +13,8 @@ docs/
 ├── README.md                       # This index
 ├── architecture/                   # System architecture & technical design
 │   ├── AI_MODEL_STRATEGY.md
-│   └── MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md
+│   ├── MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md
+│   └── reference-context-system.md
 ├── product/                        # Product requirements
 │   └── FRD_PRODUCT.md
 ├── requirements/                   # Technical requirements
@@ -59,6 +60,7 @@ docs/
 Authoritative technical design documents that describe how subsystems work.
 - **`AI_MODEL_STRATEGY.md`** — Model selection, prompting, evaluation, and inference strategy for the AI subsystem.
 - **`MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`** — Long-term memory, retrieval, and context assembly architecture for the chatbot/coach.
+- **`reference-context-system.md`** — Why reference-driven development matters, how the `reference/` + `prompts/` system reduces agent hallucination, and how to maintain it.
 
 ### Product (`product/`)
 - **`FRD_PRODUCT.md`** — Product functional requirements (features, user flows, target audience, success criteria).

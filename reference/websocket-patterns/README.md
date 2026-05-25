@@ -74,3 +74,33 @@ Before adding WebSockets, evaluate:
 - Can Celery progress be polled via `/tasks/{task_id}/status` instead of WebSocket?
 
 WebSockets add complexity. Polling is simpler and adequate for analysis that takes > 5 seconds.
+
+---
+
+## How Agents Should Inspect This Reference
+
+```bash
+# Find FastAPI WebSocket examples
+rg "WebSocket\|websocket\|accept\(\)" reference/websocket-patterns/fastapi-source/ --type py -l
+
+# Find streaming/generator patterns
+rg "async.*generator\|yield\|EventSourceResponse\|StreamingResponse" reference/websocket-patterns/ -l
+
+# Check if WebSocket is already implemented before building
+rg "WebSocket\|websocket" backend/app/ --type py -l
+rg "WebSocket\|useWebSocket\|new WebSocket" frontend/src/ --type ts -l
+```
+
+## Reuse Safeguards — Never Duplicate These
+
+| Pattern | Status | Rule |
+|---------|--------|------|
+| Analysis polling | `/api/v1/tasks/{id}` — implemented | Use this before building WebSocket |
+| HTTP streaming | Not yet implemented | Build once in `chat.py` endpoint, reuse |
+| WebSocket connection management | Not yet implemented | One `ConnectionManager` class, not per-endpoint |
+
+```bash
+# Verify no ad-hoc WebSocket implementations before adding one:
+rg "@router.websocket\|WebSocket\b" backend/app/api/ --type py
+# If results appear, extend the existing implementation
+```

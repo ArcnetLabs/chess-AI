@@ -80,3 +80,34 @@ const { data, isLoading } = useQuery({
 | `pages/auth/signup.tsx` | `/auth/signup` |
 | `pages/auth/callback.tsx` | `/auth/callback` |
 | `pages/api/[...route].ts` | `/api/*` (proxied to FastAPI) |
+
+---
+
+## How Agents Should Inspect This Reference
+
+```bash
+# Find Pages Router data fetching examples
+rg "getServerSideProps\|getStaticProps" reference/nextjs-patterns/ --type ts -l
+
+# Find middleware examples
+rg "export.*middleware\|NextResponse" reference/nextjs-patterns/ --type ts
+
+# Check existing ChessIQ patterns before adding new ones
+rg "getServerSideProps" frontend/src/pages/ --type ts -l
+rg "export const config" frontend/src/ --type ts
+```
+
+## Reuse Safeguards — Never Duplicate These
+
+| Pattern | Lives in ChessIQ | Never recreate in |
+|---------|-----------------|-------------------|
+| Auth-protected page HOC | `withAuth` in `src/lib/auth/withAuth.ts` | Per-page manual redirect logic |
+| Middleware route protection | `src/middleware.ts` | `getServerSideProps` in individual pages |
+| API client instance | `src/lib/api.ts` | Component-level `axios.create()` calls |
+| Query client setup | `src/pages/_app.tsx` | Individual page files |
+
+```bash
+# Check for duplicate middleware or route protection:
+rg "redirect.*login\|router\.push.*login" frontend/src/pages/ --type ts
+# Should return nothing — withAuth handles all redirects
+```

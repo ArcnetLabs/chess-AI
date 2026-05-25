@@ -49,3 +49,43 @@ rg "def <function_name>" backend/app/services/
 rg "<function_name>" frontend/src/lib/
 ```
 If it exists, reuse or extend it — do not create a parallel implementation.
+
+## Reference-First Rule
+
+Before implementing against any external library (Stockfish, Supabase, Celery, Ollama, python-chess, Next.js):
+
+1. Check `reference/<domain>/` for the current API source.
+2. Check `backend/app/services/` or `frontend/src/lib/` for existing ChessIQ wrappers.
+3. **Only proceed to write new code after both checks.**
+
+```bash
+# Canonical check sequence (takes < 60 seconds)
+rg "<api_name>" reference/<domain>/          # step 1: library source
+rg "<api_name>" backend/app/services/        # step 2: existing wrapper (backend)
+rg "<api_name>" frontend/src/lib/            # step 2: existing wrapper (frontend)
+```
+
+Reference population commands: `reference/README.md`
+Full policy: `workflows/reference-context-usage.md`
+Implementation templates: `prompts/`
+
+## Architecture Safeguard Grep Suite (run before every PR)
+
+```bash
+# Stockfish outside pool
+rg "SimpleEngine|popen_uci" backend/app/api/ backend/app/tasks/ --type py
+
+# LLM calls outside chess_coach.py
+rg "openai\.|ollama\.|anthropic\." backend/app/api/ --type py
+
+# Direct axios in components/pages (must be 0)
+rg "axios\.(get|post|put|delete)" frontend/src/components/ frontend/src/pages/ --type ts
+
+# Auth bypass (must be 0 in pages/)
+rg "supabase\.auth\." frontend/src/pages/ --type ts
+
+# Service role key in frontend (must be 0)
+rg "service_role|SERVICE_ROLE" frontend/src/
+```
+
+All five checks must return zero violations before a PR is opened.
