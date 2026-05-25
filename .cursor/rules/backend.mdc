@@ -1,0 +1,78 @@
+---
+description: ChessIQ backend conventions — FastAPI route structure, Celery tasks, Stockfish engine access, error handling, and Python patterns.
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Backend Rules (FastAPI + Celery + Python)
+
+## Route Organization
+
+```
+backend/app/api/
+  analysis.py        ← game analysis endpoints
+  analysis_stockfish.py ← Stockfish-specific analysis
+  chat.py            ← AI coach chat endpoints
+  games.py           ← Chess.com game fetching
+  insights.py        ← user insight aggregation
+  moves.py           ← move recommendation endpoints
+  users.py           ← user management
+```
+
+- Route files: input validation + service call + response. No inline logic.
+- All routers registered in `app/main.py` under `/api/v1/`.
+- Use `HTTPException` for client errors, let unhandled exceptions propagate to the global handler.
+
+## Service Layer
+
+- One service per domain: `analysis/`, `chat/`, `coaching/`, `engine/`, `moves/`, `integration/`.
+- Service functions are `async` when they do I/O, sync when CPU-bound (Stockfish, pattern scoring).
+- Services return domain objects or raise `ValueError`/`RuntimeError`; routes convert these to HTTP responses.
+
+## Celery Tasks
+
+- Tasks live in `backend/app/tasks/analysis_tasks.py`.
+- Tasks call service functions — they do not contain business logic inline.
+- All tasks must be idempotent (safe to retry).
+- Task signatures: `task_name.delay(user_id, ...)` — always pass primitive IDs, not ORM objects.
+
+## Stockfish Rules
+
+```python
+# ✅ CORRECT — use the engine pool
+from app.services.engine.engine_pool import get_engine_pool
+pool = get_engine_pool()
+result = await pool.analyze(board, depth=15)
+
+# ❌ WRONG — never do this in routes/tasks
+engine = chess.engine.SimpleEngine.popen_uci("/path/to/stockfish")
+```
+
+- Always release engines back to the pool. Use context managers where available.
+- Depth defaults: quick analysis = 12, full analysis = 18, move rec = 15.
+
+## Error Handling
+
+```python
+# ✅ Route-level: convert service errors to HTTP
+try:
+    result = await analysis_service.analyze(game_id)
+except ValueError as e:
+    raise HTTPException(status_code=400, detail=str(e))
+
+# ✅ Service-level: raise domain errors, never swallow
+if not game:
+    raise ValueError(f"Game {game_id} not found")
+```
+
+## Database
+
+- Use `async with get_db() as db:` from `app/core/database.py`.
+- Never import `SessionLocal` directly in routes — use the `get_db` dependency.
+- Migrations via Alembic: `alembic revision --autogenerate -m "description"`.
+
+## Naming
+
+- Endpoint functions: `get_<resource>`, `create_<resource>`, `analyze_<resource>`.
+- Service functions: verb + noun (`fetch_games`, `analyze_position`, `generate_insights`).
+- Celery tasks: `<verb>_<resource>_task` (`analyze_games_task`).

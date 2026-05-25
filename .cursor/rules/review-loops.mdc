@@ -1,0 +1,72 @@
+---
+description: PR review discipline, cleanup passes, and automated grep checks to run before every merge. Applies to all files.
+alwaysApply: true
+---
+
+# Review Loop Rules
+
+## Before Opening a PR
+
+Run these checks every time. Fix anything flagged before creating the PR.
+
+### 1. TypeScript / Python type-check
+```bash
+cd frontend && npm run type-check
+cd backend && python -m mypy app/ --ignore-missing-imports
+```
+
+### 2. Grep for architecture violations
+```bash
+# No direct Stockfish access outside the engine pool
+rg "SimpleEngine|popen_uci|subprocess.*stockfish" backend/app/api/ backend/app/tasks/
+
+# No inline LLM calls outside the chat service
+rg "openai\.|anthropic\.|ollama\." backend/app/api/ --type py
+
+# No raw DB session imports in routes
+rg "from app.core.database import SessionLocal" backend/app/api/
+
+# No service_role key in frontend
+rg "service_role|SERVICE_ROLE" frontend/src/
+```
+
+### 3. Grep for duplicate logic
+```bash
+# Duplicate service-layer functions
+rg "def analyze_" backend/app/
+rg "def fetch_games" backend/app/
+
+# Duplicate API client patterns in frontend
+rg "axios\.\(get\|post\|put\|delete\)" frontend/src/components/ frontend/src/pages/
+```
+
+### 4. Verify PR scope
+- Single concern per PR. If the diff touches >3 unrelated domains, split it.
+- No formatting-only commits mixed with logic changes.
+- No "while I was here" refactors — those belong in a separate cleanup PR.
+
+## Post-Feature Cleanup Pass
+
+After a feature works and is merged, run a cleanup pass as a **separate PR**:
+
+```
+Prompt: "The feature is working. Do a code-structure cleanup pass.
+Find duplicated logic introduced by this feature.
+Extract repeated mechanics into the existing service layer.
+Do not change user-facing behaviour. Keep the diff small."
+```
+
+## PR Size Limits
+
+- Ideal: < 200 lines changed.
+- Acceptable: < 400 lines.
+- Requires split: > 600 lines (unless it's a single generated file like a migration).
+
+## Merge Checklist
+
+- [ ] TypeScript/mypy passes with zero new errors.
+- [ ] Grep checks above produced no violations.
+- [ ] PR scope is a single concern.
+- [ ] Commit messages follow `<type>: <subject>` format.
+- [ ] `.env` files not accidentally staged.
+- [ ] No console.log / print debug statements left in.

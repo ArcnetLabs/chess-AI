@@ -1,0 +1,77 @@
+---
+description: ChessIQ frontend conventions — Next.js Pages Router, Supabase auth patterns, API client usage, component structure, and TypeScript rules.
+globs: frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend Rules (Next.js Pages Router + TypeScript)
+
+## This is Pages Router — not App Router
+
+- No `'use client'` or `'use server'` directives — those are App Router patterns.
+- No `next/headers` imports — cookies are handled via `@supabase/ssr` with `req`/`res`.
+- Data fetching: `getServerSideProps` (SSR) or React Query (client-side), never `generateStaticParams`.
+
+## Supabase Auth
+
+```typescript
+// ✅ In React components (browser)
+import { createClient } from '@/lib/supabase/client'
+const supabase = createClient()
+
+// ✅ In getServerSideProps / API routes (server)
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+const supabase = createSupabaseServerClient(req, res)
+
+// ✅ Server-side user validation
+import { getServerUser } from '@/lib/auth/session'
+const user = await getServerUser(req, res) // validates JWT — never trusts cookie alone
+
+// ✅ Protect a page
+export const getServerSideProps = withAuth(async (context, user) => {
+  return { props: { userId: user.id } }
+})
+
+// ❌ Never do this on the server
+const { data: { session } } = await supabase.auth.getSession()
+// getSession() doesn't validate the JWT — use getUser() instead
+```
+
+- `user_metadata` is user-editable — **never** use it for authorization decisions.
+- Future roles/subscription tiers must come from `app_metadata` or the FastAPI backend.
+
+## API Calls
+
+- All backend calls go through `src/lib/api.ts` (axios instance).
+- Never call the FastAPI backend directly from a component with raw `fetch`.
+- Never expose the Supabase `service_role` key in client-side code.
+
+## Component Structure
+
+```
+src/
+  components/        ← shared, reusable UI components
+  pages/             ← one file per route (Pages Router)
+  lib/               ← utilities: supabase clients, api client, helpers
+  services/          ← client-side service abstractions (e.g. chatService.ts)
+  store/             ← Zustand stores (global UI state only)
+  types/             ← TypeScript types (no runtime logic)
+  styles/            ← global CSS
+```
+
+- No business logic in `pages/` — pages call services/hooks.
+- Zustand stores hold **UI state** only — not server state. Use React Query for server data.
+- Custom hooks live in `src/hooks/` (create the directory when needed).
+
+## Naming
+
+- Pages: `kebab-case` filenames → `/pages/auth/login.tsx` → `/auth/login`.
+- Components: `PascalCase` — `ChatWindow`, `AnalysisCard`.
+- Hooks: `use` prefix — `useChessAnalysis`, `useAuth`.
+- API helper functions: `verb + noun` — `fetchGames`, `analyzePosition`.
+
+## TypeScript
+
+- `strict: true` is enabled — no `any` without a comment explaining why.
+- Prefer `unknown` over `any` for external data.
+- Supabase types: once schema is finalised, run `supabase gen types typescript` and replace the placeholder in `src/types/supabase.ts`.
