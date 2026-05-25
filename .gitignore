@@ -104,9 +104,12 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments — ignore all env files except *.example
 .env
-.env.local
+.env.*
+!.env.example
+!.env.*.example
+!.env.production.example
 .venv
 env/
 venv/
@@ -292,3 +295,10 @@ backend/stockfish/stockfish
 
 # Design prompts (local reference only)
 STITCHES_DESIGN_PROMPT.md
+
+# Backup / scratch files
+*.bak
+*.backup
+*.orig
+*.tmp
+tracked_files.txt
