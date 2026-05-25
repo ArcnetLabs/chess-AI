@@ -19,23 +19,30 @@ This file encodes conventions that are not (or cannot be) enforced by branch pro
 ## Branching workflow (strict)
 
 ```
-production:   main                            ← only updated via PR merge
-staging:      dev                             ← only updated via PR merge
+production:   main                            ← only updated via PR merge from staging
+staging:      staging                         ← only updated via PR merge from feature branches
 development:  feature/<topic>, fix/<topic>,
-              chore/<topic>, docs/<topic>     ← cut from dev, merged into dev
+              chore/<topic>, docs/<topic>     ← cut from staging, merged into staging
 ```
+
+> The branch literally named `dev` does **not** exist. PR branches themselves are the development branches; `staging` is the integration target. (`dev` was renamed to `staging` to remove that ambiguity.)
 
 **Rules:**
 
-1. **Never push directly to `main` or `dev`.** Always create a feature branch, open a PR, and merge through the GitHub UI or `gh pr merge`.
-2. **Feature branches target `dev`** for normal work. Promote `dev` → `main` only when releasing a tested set of changes.
-3. **Always delete PR branches after a successful merge.** GitHub is configured with `delete_branch_on_merge: true`, so merged PR branches auto-delete remotely. If you delete manually, clean up both sides:
+1. **Never push directly to `main` or `staging`.** Always create a feature branch, open a PR, and merge through the GitHub UI or `gh pr merge`.
+2. **Feature branches target `staging`** for normal work. Promote `staging` → `main` only when releasing a tested set of changes, and only when the user explicitly asks for a release.
+3. **Auto-merge PRs targeting `staging` without waiting for confirmation.** When you (the agent) open a PR into `staging` as part of completing a requested task, merge it as soon as it is pushed and any required checks pass. Do **not** pause to ask the user. Exceptions:
+   - The user explicitly told you to wait, hold, or "open the PR but don't merge."
+   - The PR introduces a destructive / irreversible change (history rewrite, schema-destructive migration, secret rotation, mass deletion).
+   - CI has not yet been configured but is requested for this change.
+4. **PRs targeting `main` always require explicit user approval before merging.** `main` is production; do not auto-merge into it.
+5. **Always delete PR branches after a successful merge.** GitHub is configured with `delete_branch_on_merge: true`, so merged PR branches auto-delete remotely. If you delete manually, clean up both sides:
    ```bash
    git branch -D <branch>
    git push origin --delete <branch>
    ```
-4. **Never force-push `main` or `dev`.** Force-push only your own feature branches, and only when necessary.
-5. **Never rewrite history that has been pushed to a shared branch.**
+6. **Never force-push `main` or `staging`.** Force-push only your own feature branches, and only when necessary.
+7. **Never rewrite history that has been pushed to a shared branch.**
 
 ---
 
