@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Model Strategy — ChessIQ Docs</title>
+  <link rel="stylesheet" href="shared.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<header class="topbar">
+  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <div class="topbar-right">
+    <span class="topbar-title">AI Model Strategy</span>
+    <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
+  </div>
+</header>
+
+<!-- ── Sidebar Overlay ── -->
+<div class="sidebar-overlay"></div>
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar" aria-label="Table of contents">
+  <span class="toc-label">Contents</span>
+  <ul class="toc-list">
+    <li class="toc-item"><a href="#exec-summary" class="toc-link"><span class="toc-num">—</span>Executive Summary</a></li>
+    <li class="toc-item"><a href="#s1" class="toc-link"><span class="toc-num">1</span>Local-First Architecture</a></li>
+    <li class="toc-item toc-sub"><a href="#s1" class="toc-link"><span class="toc-num">1.1</span>The Cost Problem</a></li>
+    <li class="toc-item toc-sub"><a href="#s1-2" class="toc-link"><span class="toc-num">1.2</span>Why Local Models Are Viable</a></li>
+    <li class="toc-item toc-sub"><a href="#s1-3" class="toc-link"><span class="toc-num">1.3</span>Model Agnosticism</a></li>
+    <li class="toc-item"><a href="#s2" class="toc-link"><span class="toc-num">2</span>Coach Service Architecture</a></li>
+    <li class="toc-item"><a href="#s3" class="toc-link"><span class="toc-num">3</span>Local Model Strategy</a></li>
+    <li class="toc-item"><a href="#s4" class="toc-link"><span class="toc-num">4</span>Fine-Tuning Strategy</a></li>
+    <li class="toc-item"><a href="#s5" class="toc-link"><span class="toc-num">5</span>Model Routing Strategy</a></li>
+    <li class="toc-item toc-sub"><a href="#s5-3" class="toc-link"><span class="toc-num">5.3</span>Fallback Mechanism</a></li>
+    <li class="toc-item"><a href="#s6" class="toc-link"><span class="toc-num">6</span>Chatbot Context System</a></li>
+    <li class="toc-item"><a href="#s7" class="toc-link"><span class="toc-num">7</span>API Structure</a></li>
+    <li class="toc-item"><a href="#s8" class="toc-link"><span class="toc-num">8</span>Economic Scaling Model</a></li>
+    <li class="toc-item"><a href="#s9" class="toc-link"><span class="toc-num">9</span>What ChessIQ Is (And Is Not)</a></li>
+    <li class="toc-item"><a href="#s10" class="toc-link"><span class="toc-num">10</span>Implementation Roadmap</a></li>
+    <li class="toc-item"><a href="#s11" class="toc-link"><span class="toc-num">11</span>Summary</a></li>
+  </ul>
+</nav>
+
+<!-- ── Document Header ── -->
+<div class="doc-header">
+  <h1 class="doc-title">AI Model Strategy, Conversational AI Architecture &amp; LLM Infrastructure</h1>
+  <div class="meta-pills">
+    <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
+    <span class="meta-pill"><span class="pill-label">Status</span>Draft / Architecture Definition</span>
+    <span class="meta-pill"><span class="pill-label">Audience</span>Engineering Leadership, AI/ML Engineers, Infrastructure, Investors</span>
+  </div>
+  <p class="confidentiality-note">Confidential — Internal Use Only · ArcnetLabs</p>
+  <nav class="doc-nav">
+    <span class="doc-nav-label">Suite:</span>
+    <a href="index.html" class="doc-hub-link">Hub</a>
+    <a href="frd_product.html">Product FRD</a>
+    <a href="frd_technical.html">Technical FRD</a>
+    <span class="doc-current">AI Model Strategy</span>
+    <a href="memory_retrieval_context_architecture.html">Memory &amp; Retrieval</a>
+    <a href="pricing_monetization_strategy.html">Pricing</a>
+  </nav>
+</div>
+
+<!-- ── Main Content ── -->
+<main class="main-content">
+<div class="content-inner">
+
+  <!-- Executive Summary -->
+  <div class="exec-summary" id="exec-summary">
+    <span class="exec-summary-label">Executive Summary</span>
+    <p>ChessIQ implements a <strong>hybrid AI architecture</strong> that prioritizes <strong>local LLM inference</strong> for core coaching workloads while maintaining <strong>hosted LLM fallbacks</strong> for premium escalations and edge cases. This strategy is economically essential: API costs for hosted LLMs become unsustainable at conversational scale, while Stockfish already handles all chess-specific reasoning.</p>
+    <p><strong>Core Thesis:</strong> The LLM's role is not to "play chess" but to translate structured chess intelligence (Stockfish analysis, behavioral patterns, timing data) into personalized, conversational coaching.</p>
+    <p style="margin-bottom:0"><strong>Economic Impact:</strong> Local inference reduces per-user coaching costs from ~$0.05–0.15 per conversation (hosted) to ~$0.0005–0.002 (local), enabling sustainable unit economics at scale.</p>
+  </div>
+
+  <!-- Section 1 -->
+  <section class="section-block">
+    <div id="s1" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">1</span>
+      <h2 class="section-title">Core Strategic Decision: Local-First AI Architecture</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">1.1 The Cost Problem</h3>
+    <p>Hosted LLM costs for conversational chess coaching are economically prohibitive at scale:</p>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Metric</th><th>Hosted LLM (GPT-4)</th><th>Local LLM (7B/13B)</th></tr></thead>
+        <tbody>
+          <tr><td>Cost per 1K tokens</td><td>$0.03 input / $0.06 output</td><td>$0.0001–0.0005 (GPU amortized)</td></tr>
+          <tr><td>Avg coaching session</td><td>2K input / 1K output tokens</td><td>2K input / 1K output tokens</td></tr>
+          <tr><td>Cost per session</td><td>$0.12–0.18</td><td>$0.001–0.003</td></tr>
+          <tr><td>100K monthly sessions</td><td>$12K–18K</td><td>$100–300</td></tr>
+          <tr><td>Annual projection</td><td>$144K–216K</td><td>$1.2K–3.6K</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Critical Insight:</strong> Chess coaching requires heavy conversational usage (5–15 questions/session), large context windows, repeated interactions, and stateful conversations. At 10K+ active users, hosted-only architecture becomes a business viability issue.</p>
+
+    <div id="s1-2"></div>
+    <h3 class="sub-heading">1.2 Why Local Models Are Viable for ChessIQ <span class="badge-new">UPDATED</span></h3>
+    <p>Unlike general reasoning systems, ChessIQ's AI workload is <strong>constrained and structured</strong>:</p>
+
+    <h4 class="sub-sub-heading">What Stockfish Handles (Not the LLM)</h4>
+    <ul>
+      <li>Position evaluation (centipawn loss calculation)</li>
+      <li>Move quality assessment (best move identification)</li>
+      <li>Tactical pattern detection (forks, pins, skewers)</li>
+      <li>Endgame tablebase queries</li>
+      <li>Opening theory validation</li>
+    </ul>
+
+    <h4 class="sub-sub-heading">What the Backend Derives (Deterministic Processing — Before LLM)</h4>
+    <p>Prior to any LLM involvement, the backend pipeline extracts structured coaching context from raw chess data using <code class="inline">python-chess</code>, PGN replay, and Stockfish output:</p>
+    <ul>
+      <li><code class="inline">move_number</code>, <code class="inline">side_to_move</code>, <code class="inline">fen_before</code> — from PGN replay</li>
+      <li><code class="inline">eval_before</code>, <code class="inline">eval_after</code>, <code class="inline">eval_drop</code> — from Stockfish evaluations</li>
+      <li><code class="inline">move_classification</code> (blunder/mistake/inaccuracy/good) — deterministic centipawn thresholds</li>
+      <li><code class="inline">game_phase</code> (opening/middlegame/endgame) — move-count and material heuristics</li>
+      <li><code class="inline">opening_name</code>, <code class="inline">opening_eco</code> — ECO database lookup</li>
+      <li><code class="inline">time_spent</code>, <code class="inline">clock_remaining</code>, <code class="inline">time_pressure_flag</code> — from PGN clock annotations</li>
+      <li><code class="inline">tactical_theme</code> (fork/pin/skewer) — deterministic pattern matching</li>
+    </ul>
+    <div class="callout">
+      <span class="callout-label">Architecture Note</span>
+      <p>This pipeline must <strong>NOT</strong> introduce an additional "LLM-before-LLM" interpretation step. All context extraction uses deterministic algorithms, keeping the architecture simple, verifiable, and free from compounding inference costs.</p>
+    </div>
+
+    <h4 class="sub-sub-heading">What the LLM Handles (Coaching Layer — Explanation Only)</h4>
+    <ul>
+      <li>Translating pre-computed Stockfish context into human explanations</li>
+      <li>Conversational context management</li>
+      <li>Pattern explanation and recommendation generation</li>
+      <li>Coaching tone and motivational framing</li>
+      <li>Summarization of longitudinal patterns</li>
+    </ul>
+    <div class="callout secondary">
+      <span class="callout-label">Key Principle</span>
+      <p>The LLM explains: <em>"Developing your knight to f3 controls the center and prepares for kingside castling, which is why the engine prefers it here."</em> This is a <strong>translation and explanation</strong> task, not a <strong>chess reasoning</strong> task. Modern 7B–13B instruct models are fully capable of this workload.</p>
+    </div>
+
+    <div id="s1-3"></div>
+    <h3 class="sub-heading">1.3 Architectural Principle: Model Agnosticism</h3>
+    <p>ChessIQ is <strong>never tightly coupled</strong> to any single model provider:</p>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Layer</th><th>Abstraction</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Application</strong></td><td>AI Coach Service (internal API)</td></tr>
+          <tr><td><strong>Routing</strong></td><td>Model Router (local vs. hosted decision)</td></tr>
+          <tr><td><strong>Execution</strong></td><td>Local Runtime (Ollama/vLLM) OR Hosted Client (OpenAI/Anthropic)</td></tr>
+          <tr><td><strong>Models</strong></td><td>Swappable backends (Llama 3, Mistral, Qwen, GPT-4, Claude)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Benefits:</strong> Vendor independence, model upgrade flexibility, A/B testing capability, fallback resilience, geographic flexibility (EU data stays in EU deployments).</p>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="section-block">
+    <div id="s2" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">2</span>
+      <h2 class="section-title">AI Coach Service Architecture</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">2.1 Service Overview</h3>
+    <p>The AI Coach Service is the <strong>central abstraction layer</strong> between ChessIQ application logic and underlying LLM infrastructure. All conversational AI flows through this service.</p>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">AI Coach Service — System Architecture</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph Application["ChessIQ Application"]
+        DASH[Dashboard UI]
+        COACH_UI[Coach Chat UI]
+        PATTERN_UI[Pattern Dashboard]
+    end
+    subgraph CoachService["AI Coach Service"]
+        API[Coach API Gateway]
+        CONTEXT[Context Assembler]
+        PROMPT[Prompt Builder]
+        ROUTER[Model Router]
+        CACHE[Response Cache]
+    end
+    subgraph Execution["Model Execution Layer"]
+        LOCAL[Local LLM Runtime]
+        HOSTED[Hosted LLM Client]
+    end
+    subgraph DataSources["ChessIQ Data Layer"]
+        STOCKFISH[Stockfish Analysis]
+        PATTERNS[Pattern Engine]
+        TIMING[Timing Analysis]
+        HISTORY[Conversation History]
+        PROFILE[Player Profile]
+    end
+    DASH -->|Question| API
+    COACH_UI -->|Chat| API
+    PATTERN_UI -->|Explain| API
+    API --> CONTEXT
+    CONTEXT --> STOCKFISH
+    CONTEXT --> PATTERNS
+    CONTEXT --> TIMING
+    CONTEXT --> HISTORY
+    CONTEXT --> PROFILE
+    CONTEXT --> PROMPT
+    PROMPT --> ROUTER
+    ROUTER -->|Local| LOCAL
+    ROUTER -->|Hosted| HOSTED
+    LOCAL -->|Response| CACHE
+    HOSTED -->|Response| CACHE
+    CACHE --> API
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">2.2 Service Components</h3>
+
+    <h4 class="sub-sub-heading">2.2.1 Context Assembler</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class ContextAssembler:
+    def assemble(self, request: CoachRequest) -> CoachContext:
+        context = CoachContext()
+        context.profile = self.profile_store.get(request.user_id)
+        all_patterns = self.pattern_store.get_patterns(request.user_id)
+        context.patterns = self.pattern_filter.filter(
+            patterns=all_patterns, query=request.message, limit=5
+        )
+        if self.intent_classifier.is_game_query(request.message):
+            context.recent_games = self.game_store.get_recent(request.user_id, limit=5)
+        if self.intent_classifier.is_behavioral(request.message):
+            context.timing = self.timing_store.get_profile(request.user_id)
+        context.history = self.history_store.get_session(
+            request.user_id, request.session_id, limit=10
+        )
+        if self.intent_classifier.is_opening_query(request.message):
+            context.opening_stats = self.opening_store.get_repertoire(request.user_id)
+        return context</code></pre>
+    </div>
+
+    <h4 class="sub-sub-heading">2.2.2 Prompt Builder</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class PromptBuilder:
+    def build(self, context: CoachContext) -> Prompt:
+        sections = []
+        sections.append(self.system_prompt())
+        sections.append(f"""
+## Player Profile
+- Archetype: {context.profile.archetype}
+- Rating Range: {context.profile.rating_range}
+- Primary Strengths: {', '.join(context.profile.strengths[:3])}
+- Critical Weaknesses: {', '.join(context.profile.weaknesses[:3])}
+- Coaching Style Preference: {context.profile.coaching_style}
+""")
+        if context.patterns:
+            sections.append("## Detected Patterns\n")
+            for pattern in context.patterns:
+                sections.append(f"""
+- {pattern.name} (Severity: {pattern.severity}, Confidence: {pattern.confidence}%)
+  {pattern.description}
+  Seen in {pattern.occurrence_count} games
+""")
+        if context.history:
+            sections.append("## Conversation History\n")
+            for msg in context.history[-5:]:
+                role = "Player" if msg.role == "user" else "Coach"
+                sections.append(f"{role}: {msg.content}")
+        sections.append(f"\n## Current Question\nPlayer: {context.current_message}")
+        sections.append("\nCoach: ")
+        return Prompt(content="\n\n".join(sections))</code></pre>
+    </div>
+
+    <h4 class="sub-sub-heading">2.2.3 Model Router</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class ModelRouter:
+    async def route(self, prompt: Prompt, request: CoachRequest) -> RoutingDecision:
+        if request.flags.get("premium_reasoning"):
+            return RoutingDecision(model="hosted", reason="premium_request")
+        if not await self.local_client.health_check():
+            self.fallback_tracker.record_fallback("local_unhealthy")
+            return RoutingDecision(model="hosted", reason="local_unavailable")
+        if prompt.estimated_tokens > self.local_client.max_context:
+            if prompt.estimated_tokens <= self.hosted_client.max_context:
+                return RoutingDecision(model="hosted", reason="context_overflow")
+        complexity_score = self.assess_complexity(prompt)
+        if complexity_score > 0.8 and request.user_tier == "premium":
+            return RoutingDecision(model="hosted", reason="high_complexity_premium")
+        return RoutingDecision(model="local", reason="default_routing")</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="section-block">
+    <div id="s3" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">3</span>
+      <h2 class="section-title">Local Model Strategy</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">3.1 Why Local Models Work for ChessIQ</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Characteristic</th><th>ChessIQ Workload</th><th>General LLM Workload</th></tr></thead>
+        <tbody>
+          <tr><td>Domain</td><td>Constrained (chess)</td><td>Open-ended</td></tr>
+          <tr><td>Reasoning</td><td>Stockfish handles chess logic</td><td>LLM handles all reasoning</td></tr>
+          <tr><td>Context</td><td>Structured (FEN, patterns, metrics)</td><td>Unstructured (any text)</td></tr>
+          <tr><td>Output</td><td>Guided (explanations, recommendations)</td><td>Open generation</td></tr>
+          <tr><td>Hallucination Risk</td><td>Low (Stockfish ground truth)</td><td>High (no ground truth)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout secondary">
+      <span class="callout-label">Key Implication</span>
+      <p>ChessIQ's LLM workload is essentially <strong>structured-to-conversational translation</strong> — a task where 7B–13B instruct models perform comparably to 70B+ models.</p>
+    </div>
+
+    <h3 class="sub-heading">3.2 Local Runtime Options</h3>
+
+    <h4 class="sub-sub-heading">3.2.1 Ollama (Development &amp; Light Production)</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-yaml">services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=4
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  ollama-init:
+    entrypoint: >
+      sh -c "sleep 10 &&
+        ollama pull llama3:8b-instruct-q5_K_M &&
+        ollama pull mistral:7b-instruct-v0.3-q5_K_M"</code></pre>
+    </div>
+    <p><strong>Pros:</strong> Extremely simple setup, broad model support. <strong>Cons:</strong> Single-node only, limited concurrency. <strong>Best For:</strong> Development, MVP, &lt;100 concurrent users.</p>
+
+    <h4 class="sub-sub-heading">3.2.2 vLLM (Production Scale)</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class VLLMProductionRuntime:
+    def __init__(self):
+        self.llm = LLM(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            tensor_parallel_size=2,
+            gpu_memory_utilization=0.85,
+            max_num_seqs=256,
+            max_model_len=8192,
+            quantization="awq",
+        )
+        self.sampling_params = SamplingParams(
+            temperature=0.7, top_p=0.9,
+            max_tokens=1024, presence_penalty=0.1,
+        )</code></pre>
+    </div>
+    <p><strong>Pros:</strong> High throughput (10x+ vs. Ollama), PagedAttention, OpenAI-compatible API. <strong>Best For:</strong> Production, 100–10K+ concurrent users.</p>
+
+    <h3 class="sub-heading">3.3 Model Selection Criteria</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Model</th><th>Size</th><th>Quantization</th><th>VRAM</th><th>Throughput</th><th>Quality</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Llama 3 Instruct</strong></td><td>8B</td><td>Q5_K_M</td><td>6GB</td><td>High</td><td>8.5/10</td></tr>
+          <tr><td>Mistral Instruct</td><td>7B</td><td>Q5_K_M</td><td>5GB</td><td>High</td><td>8.2/10</td></tr>
+          <tr><td>Qwen 2.5 Instruct</td><td>7B</td><td>Q5_K_M</td><td>5GB</td><td>High</td><td>8.3/10</td></tr>
+          <tr><td>Phi-3 Mini</td><td>3.8B</td><td>Q5_K_M</td><td>3GB</td><td>Very High</td><td>7.5/10</td></tr>
+          <tr><td>Llama 3.1</td><td>70B</td><td>Q4_K_M</td><td>40GB</td><td>Medium</td><td>9.2/10</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Recommended Default:</strong> Llama 3 8B Instruct (Q5_K_M). <strong>Cost-Optimized:</strong> Phi-3 Mini for simple queries. <strong>Premium Tier:</strong> Llama 3.1 70B for complex multi-step reasoning.</p>
+
+    <h3 class="sub-heading">3.4 GPU Hosting &amp; Scaling</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Provider</th><th>GPU Type</th><th>Cost/Hour</th><th>Best For</th></tr></thead>
+        <tbody>
+          <tr><td><strong>RunPod</strong></td><td>RTX 4090</td><td>$0.74</td><td>Development, burst scaling</td></tr>
+          <tr><td><strong>Lambda Labs</strong></td><td>A10</td><td>$0.60</td><td>Production, cost-optimized</td></tr>
+          <tr><td><strong>CoreWeave</strong></td><td>A100 40GB</td><td>$2.50</td><td>High-throughput production</td></tr>
+          <tr><td><strong>AWS g5</strong></td><td>A10G</td><td>$1.006</td><td>Enterprise, AWS ecosystem</td></tr>
+          <tr><td><strong>Self-hosted</strong></td><td>RTX A6000</td><td>CapEx</td><td>Long-term, &gt;10K users</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">3.5 Token Economics</h3>
+    <div class="callout">
+      <span class="callout-label">Cost Calculation</span>
+      <p>GPU Cost/Hour: $0.74 (RunPod RTX 4090) · Tokens/Second: 50 · Tokens/Hour: 180,000 · Cost per 1M tokens: <strong>$4.11</strong> (→ $1.03/1M with 4× concurrency)</p>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Provider</th><th>Cost per 1M mixed tokens</th></tr></thead>
+        <tbody>
+          <tr><td>OpenAI GPT-4</td><td>~$45</td></tr>
+          <tr><td>Anthropic Claude 3 Sonnet</td><td>~$9</td></tr>
+          <tr><td><strong>Local Llama 3 8B</strong></td><td class="val-positive"><strong>~$1</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Savings: 90–98% vs. hosted alternatives.</strong></p>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="section-block">
+    <div id="s4" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">4</span>
+      <h2 class="section-title">Fine-Tuning Strategy</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">4.1 Domain Adaptation Phase</h3>
+    <p><strong>Objective:</strong> Adapt base instruct model to chess coaching domain before production deployment.</p>
+    <p><strong>Dataset Sources:</strong></p>
+    <ul>
+      <li><strong>Stockfish Explanation Pairs</strong> (50K examples) — Input: Stockfish evaluation; Output: human-readable explanation</li>
+      <li><strong>Pattern Explanation Dataset</strong> (30K examples) — Pattern metadata + example positions → explanation + recommendation</li>
+      <li><strong>Coaching Conversation Dataset</strong> (20K examples) — Curated from chess coaching books, videos, forums</li>
+      <li><strong>Player Archetype Adaptations</strong> (10K examples) — Tailored responses for beginner/intermediate/advanced</li>
+    </ul>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">CHESS_COACHING_SFT_CONFIG = {
+    "base_model": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "training": {
+        "method": "qlora",  # 4-bit LoRA for efficiency
+        "r": 64,
+        "lora_alpha": 16,
+        "learning_rate": 2e-4,
+        "num_epochs": 3,
+        "batch_size": 4,
+        "gradient_accumulation_steps": 4,
+    },
+    "datasets": [
+        "stockfish_explanations.jsonl",
+        "pattern_coaching.jsonl",
+        "chess_conversations.jsonl",
+    ]
+}</code></pre>
+    </div>
+
+    <h3 class="sub-heading">4.2 RLHF — Continuous Improvement</h3>
+    <p>As ChessIQ gathers real user interactions:</p>
+    <ul>
+      <li><strong>Preference Data Collection</strong> — Thumbs up/down, "Was this helpful?" feedback, session completion rates</li>
+      <li><strong>Reward Model Training</strong> — Criteria: accuracy, helpfulness, tone, actionability</li>
+      <li><strong>PPO/DPO Fine-Tuning</strong> — Align with user preferences while maintaining Stockfish ground truth</li>
+    </ul>
+
+    <h3 class="sub-heading">4.3 Personalized Response Styles (Future)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class PersonalizedCoach:
+    def adapt_response(self, base_response: str, user_profile: Profile) -> str:
+        if user_profile.rating < 1200:
+            response = self.simplify_language(base_response)
+            response = self.add_basic_definitions(response)
+        elif user_profile.rating > 1800:
+            response = self.add_advanced_variations(response)
+            response = self.reference_theory(response)
+        if user_profile.coaching_style == "direct":
+            response = self.make_direct(response)
+        elif user_profile.coaching_style == "encouraging":
+            response = self.add_encouragement(response)
+        return response</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="section-block">
+    <div id="s5" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">5</span>
+      <h2 class="section-title">Model Routing Strategy</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">5.1 Routing Decision Matrix</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Scenario</th><th>Local</th><th>Hosted</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Standard pattern explanation</td><td>✓ Default</td><td></td><td>Cost optimization</td></tr>
+          <tr><td>Opening recommendation</td><td>✓ Default</td><td></td><td>Local model sufficient</td></tr>
+          <tr><td>Game review summary</td><td>✓ Default</td><td></td><td>Structured output</td></tr>
+          <tr><td>Complex multi-pattern analysis</td><td></td><td>✓ Fallback</td><td>Context length</td></tr>
+          <tr><td>"Why did I lose this game?"</td><td>✓ Default</td><td></td><td>Pattern retrieval</td></tr>
+          <tr><td>"Compare my style to GM style"</td><td></td><td>✓ Premium</td><td>Advanced reasoning</td></tr>
+          <tr><td>Local model failure</td><td></td><td>✓ Fallback</td><td>Reliability</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">5.1.1 Complexity-Based Model Tier Selection <span class="badge-new">NEW</span></h3>
+    <p>Routing serves <strong>two independent dimensions</strong>: complexity-based model sizing and pricing-tier entitlements.</p>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Query Complexity</th><th>Model Tier</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>Simple (short summary, single-pattern)</td><td>Lightweight local (Phi-3 Mini 3.8B)</td><td>"What's my biggest weakness?"</td></tr>
+          <tr><td>Standard (coaching, explanation, recommendations)</td><td>Default local (Llama 3 8B)</td><td>"Why do I blunder in endgames?"</td></tr>
+          <tr><td>Complex (multi-pattern, long context, deep reasoning)</td><td>Large local (Llama 3.1 70B) or hosted</td><td>"Compare my style across last 6 months"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Tier</th><th>Model Access</th><th>Context Window</th><th>Hosted Escalation</th></tr></thead>
+        <tbody>
+          <tr><td>Free</td><td>Lightweight local only</td><td>4K tokens</td><td>Not permitted</td></tr>
+          <tr><td>Pro</td><td>Default local (Llama 3 8B)</td><td>8K tokens</td><td>Not permitted</td></tr>
+          <tr><td>Elite</td><td>Large local + hosted default</td><td>32K tokens</td><td>Always permitted</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="callout-label">Critical Note</span>
+      <p>Complexity routing and tier entitlements are evaluated together — a Free user with a complex query still gets the lightweight local model, not hosted escalation.</p>
+    </div>
+
+    <h3 class="sub-heading">5.2 Intelligent Routing Logic</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class IntelligentRouter:
+    async def route_request(self, request: CoachRequest) -> LLMResponse:
+        factors = {
+            "local_healthy":   await self.local.health_check(),
+            "context_size":    len(request.context_tokens),
+            "complexity_score": self.assess_complexity(request),
+            "user_tier":       request.user.tier,
+            "urgency":         request.flags.get("urgent", False),
+        }
+        if not factors["local_healthy"]:
+            return await self.hosted.generate(request, reason="local_unavailable")
+        if factors["context_size"] > self.local.max_context:
+            return await self.hosted.generate(request, reason="context_overflow")
+        if factors["complexity_score"] > 0.9 and factors["user_tier"] == "premium":
+            return await self.hosted.generate(request, reason="premium_complexity")
+        if factors["urgency"] and factors["local_healthy"]:
+            return await self.local.generate(request, reason="urgency_speed")
+        return await self.local.generate(request, reason="default")</code></pre>
+    </div>
+
+    <div id="s5-3"></div>
+    <h3 class="sub-heading">5.3 Fallback Mechanism <span class="badge-new">UPDATED</span></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class FallbackManager:
+    LOCAL_TIMEOUT = 30.0       # seconds — not 5s; local models need time for longer contexts
+    MAX_LOCAL_RETRIES = 2      # retry before escalating to hosted
+
+    async def generate_with_fallback(self, request: CoachRequest) -> LLMResponse:
+        # Context overflow: warn user first, don't silently escalate
+        if request.estimated_tokens > self.local.max_context:
+            if not request.flags.get("context_warning_shown"):
+                return LLMResponse(
+                    type="context_warning",
+                    message="Your coaching context is very long. Consider starting a new session or asking a more focused question.",
+                    action_required=True
+                )
+            if request.user.tier == "elite":
+                return await self.hosted.generate(request, reason="user_confirmed_context_overflow")
+            return self.cache.get_generic_response(request.intent)
+
+        last_error = None
+        for attempt in range(1, self.MAX_LOCAL_RETRIES + 1):
+            try:
+                response = await asyncio.wait_for(
+                    self.local.generate(request), timeout=self.LOCAL_TIMEOUT
+                )
+                return response
+            except (TimeoutError, LLMError) as e:
+                last_error = e
+                self.metrics.record_local_attempt_failure(request.user_id, attempt, str(e))
+                if attempt < self.MAX_LOCAL_RETRIES:
+                    await asyncio.sleep(1.0 * attempt)
+
+        # All local retries exhausted — escalate only if tier permits
+        self.metrics.record_local_failure(request.user_id, str(last_error))
+        if request.user.tier in ("elite", "pro"):
+            try:
+                response = await self.hosted.generate(request)
+                response.flags["fallback_used"] = True
+                return response
+            except HostedLLMError:
+                pass
+        return self.cache.get_generic_response(request.intent)</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="section-block">
+    <div id="s6" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">6</span>
+      <h2 class="section-title">Chatbot Context System</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">6.1 Conversational Memory Architecture</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Context Window Assembly</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph Session["Session State"]
+        CURRENT[Current Context: Last 10 messages]
+        PROFILE[Player Profile: Static reference]
+    end
+    subgraph Persistent["Persistent Storage"]
+        HISTORY[Conversation History: Full log]
+        PATTERNS[Active Patterns: Updated in real-time]
+        GAMES[Recent Games: Last 30 days]
+    end
+    subgraph ContextWindow["Context Window Assembly"]
+        SYSTEM[System Prompt: Role definition]
+        PLAYER[Player Context: Archetype + style]
+        ACTIVE[Active Patterns: Top 5 relevant]
+        HIST_W[History Window: Last 5 exchanges]
+        CURRENT_MSG[Current Message]
+    end
+    PROFILE --> PLAYER
+    PATTERNS --> ACTIVE
+    HISTORY --> HIST_W
+    CURRENT --> CURRENT_MSG
+    SYSTEM --> CONTEXT[Final Context ~4K tokens]
+    PLAYER --> CONTEXT
+    ACTIVE --> CONTEXT
+    HIST_W --> CONTEXT
+    CURRENT_MSG --> CONTEXT
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">6.2 Context Retrieval Pipeline</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class ContextRetrievalPipeline:
+    def assemble_context(self, user_id: int, message: str, session_id: str) -> CoachContext:
+        # 1. Player Profile (always included, ~500 tokens)
+        profile = self.profile_store.get(user_id)
+
+        # 2. Pattern Retrieval (~1000 tokens)
+        query_embedding = self.embedder.encode(message)
+        relevant_patterns = self.pattern_store.similarity_search(
+            user_id=user_id, query_embedding=query_embedding, top_k=5
+        )
+
+        # 3. Game Retrieval (conditional, ~800 tokens)
+        games = []
+        if self.detects_game_reference(message):
+            games = self.game_store.get_recent(user_id, limit=3)
+
+        # 4. Conversation History (~1500 tokens)
+        history = self.history_store.get_session_messages(session_id=session_id, limit=10)
+
+        # 5. Timing Insights (conditional, ~300 tokens)
+        timing = None
+        if self.detects_time_question(message):
+            timing = self.timing_store.get_summary(user_id)
+
+        return CoachContext(
+            profile=profile, patterns=relevant_patterns,
+            games=games, history=history, timing=timing,
+            current_message=message
+        )</code></pre>
+    </div>
+
+    <h3 class="sub-heading">6.3 Pattern-Aware Context Example</h3>
+    <blockquote>
+      <p><strong>1. Missed Knight Forks (Critical)</strong><br>
+      You've missed 12 knight fork opportunities in your last 30 games, affecting 40% of games where forks were available. Most recent: Game #12345, move 24 (Nf3-d4+ forks King and Queen).</p>
+      <p><strong>2. Time Pressure Blunders (Significant)</strong><br>
+      You make 3× more blunders when under 30 seconds. 28% of your moves are played in time pressure.</p>
+      <p><strong>3. French Defense Struggles (Developing)</strong><br>
+      Win rate in French Defense positions: 32%. Average ACPL in closed positions: 85 (vs. 45 in open positions).</p>
+    </blockquote>
+  </section>
+
+  <!-- Section 7 -->
+  <section class="section-block">
+    <div id="s7" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">7</span>
+      <h2 class="section-title">API Structure</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">7.1 Core Coach APIs</h3>
+
+    <h4 class="sub-sub-heading">POST /v1/coach/chat</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">// Request
+{
+  "message": "Why do I keep blundering in time pressure?",
+  "session_id": "uuid-session-123",
+  "user_id": 456,
+  "context_flags": {
+    "include_patterns": true,
+    "include_timing": true,
+    "include_games": 3
+  },
+  "preferences": {
+    "tone": "encouraging",
+    "technical_depth": "intermediate"
+  }
+}
+
+// Response
+{
+  "message": "I see a clear pattern in your time management...",
+  "model_used": "llama3-8b-local",
+  "routing_reason": "default",
+  "context_used": {
+    "patterns_referenced": [789, 792],
+    "timing_profile_included": true
+  },
+  "suggested_drills": [
+    { "type": "time_management", "description": "Practice maintaining calm under 60 seconds" }
+  ],
+  "tokens_used": { "input": 2847, "output": 412 },
+  "latency_ms": 1245
+}</code></pre>
+    </div>
+
+    <h4 class="sub-sub-heading">GET /v1/player/{user_id}/profile</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">{
+  "user_id": 456,
+  "archetype": "The Tactician with Endgame Blind Spots",
+  "rating_range": "1400-1600",
+  "primary_strengths": ["tactical_vision", "attacking_play"],
+  "primary_weaknesses": ["endgame_technique", "time_management"],
+  "style_indicators": {
+    "positional_vs_tactical": 0.7,
+    "aggressive_vs_conservative": 0.8
+  },
+  "coaching_focus_areas": [
+    "rook_endgames", "time_pressure_management", "closed_position_strategy"
+  ]
+}</code></pre>
+    </div>
+
+    <h3 class="sub-heading">7.3 Model Management API (Admin)</h3>
+    <h4 class="sub-sub-heading">GET /v1/admin/models/status</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">{
+  "local": {
+    "status": "healthy",
+    "model": "llama3-8b-instruct-q5",
+    "gpu_utilization": 0.45,
+    "requests_per_second": 12,
+    "avg_latency_ms": 850,
+    "queue_depth": 3
+  },
+  "hosted": {
+    "status": "available",
+    "provider": "openai",
+    "fallback_rate": 0.02
+  },
+  "routing_stats": {
+    "local_requests": 9847,
+    "hosted_requests": 153,
+    "fallback_triggers": ["context_overflow: 89", "local_timeout: 64"]
+  }
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 8 -->
+  <section class="section-block">
+    <div id="s8" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">8</span>
+      <h2 class="section-title">Economic Scaling Model</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">8.1 Cost Projections</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Users</th><th>Monthly Sessions</th><th>Local Cost</th><th>Hosted Cost</th><th>Savings</th></tr></thead>
+        <tbody>
+          <tr><td>1,000</td><td>10,000</td><td>$150</td><td>$6,750</td><td class="val-positive">$6,600 (98%)</td></tr>
+          <tr><td>10,000</td><td>100,000</td><td>$1,500</td><td>$67,500</td><td class="val-positive">$66,000 (98%)</td></tr>
+          <tr><td>50,000</td><td>500,000</td><td>$7,500</td><td>$337,500</td><td class="val-positive">$330,000 (98%)</td></tr>
+          <tr><td>100,000</td><td>1,000,000</td><td>$15,000</td><td>$675,000</td><td class="val-positive">$660,000 (98%)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">8.2 Infrastructure Scaling</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Users</th><th>GPU Nodes</th><th>Cost/Month</th><th>Cost/User</th></tr></thead>
+        <tbody>
+          <tr><td>1,000</td><td>2× RTX 4090</td><td>$1,080</td><td>$1.08</td></tr>
+          <tr><td>10,000</td><td>8× RTX 4090</td><td>$4,320</td><td>$0.43</td></tr>
+          <tr><td>50,000</td><td>20× A100</td><td>$36,000</td><td>$0.72</td></tr>
+          <tr><td>100,000</td><td>40× A100</td><td>$72,000</td><td>$0.72</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout secondary"><span class="callout-label">Economic Conclusion</span><p>Unit economics remain healthy across all scales.</p></div>
+
+    <h3 class="sub-heading">8.3 Revenue Model Alignment</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Tier</th><th>Price/Month</th><th>AI Usage</th><th>Cost</th><th>Margin</th></tr></thead>
+        <tbody>
+          <tr><td>Free</td><td>$0</td><td>10 sessions</td><td>$0.015</td><td>N/A</td></tr>
+          <tr><td>Pro</td><td>$9.99</td><td>Unlimited</td><td>$0.50–2.00</td><td class="val-positive">80–95%</td></tr>
+          <tr><td>Elite</td><td>$29.99</td><td>Unlimited + GPT-4</td><td>$2.00–5.00</td><td class="val-positive">75–90%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 9 -->
+  <section class="section-block">
+    <div id="s9" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">9</span>
+      <h2 class="section-title">What ChessIQ Is (And Is Not)</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">9.1 ChessIQ Is NOT</h3>
+    <ul>
+      <li><strong>A generic chatbot:</strong> Every interaction is grounded in structured chess intelligence.</li>
+      <li><strong>An LLM trying to "play chess":</strong> Stockfish handles all chess calculation. The LLM never suggests moves without Stockfish validation.</li>
+      <li><strong>A replacement for human coaches:</strong> ChessIQ augments coaching with data-driven insights, not replaces human expertise.</li>
+      <li><strong>A simple Stockfish wrapper:</strong> The value is in pattern recognition, behavioral analysis, and personalized explanation.</li>
+    </ul>
+
+    <h3 class="sub-heading">9.2 ChessIQ IS <span class="badge-new">UPDATED</span></h3>
+    <ul>
+      <li><strong>A persistent conversational chess intelligence system:</strong> A structured platform with long-term player memory, behavioral pattern recognition, and conversational coaching grounded in verified analysis.</li>
+      <li><strong>A structured AI coaching system:</strong> Three layers — Stockfish (chess logic), Pattern Engine (longitudinal analysis), AI Coach (conversational explanation).</li>
+      <li><strong>An economically scalable platform:</strong> Local-first architecture enables sustainable unit economics at 100K+ users.</li>
+      <li><strong>A model-agnostic infrastructure:</strong> Swappable LLM backends prevent vendor lock-in.</li>
+      <li><strong>A continuously improving system:</strong> RLHF pipeline ensures coaching quality improves with usage.</li>
+    </ul>
+  </section>
+
+  <!-- Section 10 -->
+  <section class="section-block">
+    <div id="s10" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">10</span>
+      <h2 class="section-title">Implementation Roadmap</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="roadmap-phase">
+      <p class="roadmap-phase-title">Phase 1: MVP (Months 1–3)</p>
+      <div class="roadmap-item">Ollama deployment for development</div>
+      <div class="roadmap-item">Basic AI Coach Service with context assembly</div>
+      <div class="roadmap-item">Llama 3 8B integration</div>
+      <div class="roadmap-item">Simple local/hosted routing</div>
+      <div class="roadmap-item">Conversation history storage</div>
+    </div>
+    <div class="roadmap-phase">
+      <p class="roadmap-phase-title">Phase 2: Production (Months 4–6)</p>
+      <div class="roadmap-item">vLLM production deployment</div>
+      <div class="roadmap-item">GPU cluster setup (RunPod/CoreWeave)</div>
+      <div class="roadmap-item">Fine-tuned domain model</div>
+      <div class="roadmap-item">Intelligent routing with metrics</div>
+      <div class="roadmap-item">Comprehensive fallback mechanisms</div>
+    </div>
+    <div class="roadmap-phase">
+      <p class="roadmap-phase-title">Phase 3: Scale (Months 7–9)</p>
+      <div class="roadmap-item">Multi-region GPU deployment</div>
+      <div class="roadmap-item">Auto-scaling implementation</div>
+      <div class="roadmap-item">RLHF pipeline</div>
+      <div class="roadmap-item">Personalized response adaptation</div>
+      <div class="roadmap-item">Advanced pattern-aware prompting</div>
+    </div>
+    <div class="roadmap-phase">
+      <p class="roadmap-phase-title">Phase 4: Optimization (Months 10–12)</p>
+      <div class="roadmap-item">Model distillation for edge deployment</div>
+      <div class="roadmap-item">TensorRT-LLM optimization</div>
+      <div class="roadmap-item">Cost monitoring and optimization</div>
+      <div class="roadmap-item">Open-source model contribution</div>
+    </div>
+  </section>
+
+  <!-- Section 11 -->
+  <section class="section-block">
+    <div id="s11" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">11</span>
+      <h2 class="section-title">Summary</h2>
+    </div>
+    <div class="section-divider"></div>
+    <p>ChessIQ's AI architecture represents a <strong>fundamentally different approach</strong> to LLM-powered applications:</p>
+    <ol>
+      <li><strong>Local-First:</strong> Default to local inference for 95%+ of workloads</li>
+      <li><strong>Structured Domain:</strong> LLM translates chess intelligence — it doesn't generate it</li>
+      <li><strong>Model Agnostic:</strong> Abstraction layer enables vendor independence</li>
+      <li><strong>Economically Scalable:</strong> 90–98% cost reduction vs. hosted-only</li>
+      <li><strong>Production Ready:</strong> Built-in fallback, monitoring, and scaling</li>
+    </ol>
+    <div class="callout secondary">
+      <span class="callout-label">Platform Result</span>
+      <p>An architecture that can serve 100,000+ active users with personalized AI coaching without incurring prohibitive LLM API costs.</p>
+    </div>
+    <p style="margin-top:28px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-muted)"><strong>Document Version:</strong> 1.0 · <strong>Last Updated:</strong> 2025-01-12 · <strong>Next Review:</strong> 2025-04-12</p>
+  </section>
+
+</div>
+</main>
+
+<button id="back-to-top" title="Back to top">↑</button>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

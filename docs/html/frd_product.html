@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product FRD — ChessIQ Docs</title>
+  <link rel="stylesheet" href="shared.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <div class="topbar-right">
+    <span class="topbar-title">Product FRD</span>
+    <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
+  </div>
+</header>
+
+<div class="sidebar-overlay"></div>
+
+<nav class="sidebar" aria-label="Table of contents">
+  <span class="toc-label">Contents</span>
+  <ul class="toc-list">
+    <li class="toc-item"><a href="#s1" class="toc-link"><span class="toc-num">1</span>Product Overview</a></li>
+    <li class="toc-item toc-sub"><a href="#s1-1" class="toc-link"><span class="toc-num">1.1</span>Vision</a></li>
+    <li class="toc-item toc-sub"><a href="#s1-2" class="toc-link"><span class="toc-num">1.2</span>High-Level Capabilities</a></li>
+    <li class="toc-item"><a href="#s2" class="toc-link"><span class="toc-num">2</span>User Roles &amp; Personas</a></li>
+    <li class="toc-item"><a href="#s3" class="toc-link"><span class="toc-num">3</span>Functional Requirements</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-1" class="toc-link"><span class="toc-num">3.1</span>Authentication</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-2" class="toc-link"><span class="toc-num">3.2</span>Game Fetching</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-3" class="toc-link"><span class="toc-num">3.3</span>Dashboard — Fetched Games</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-4" class="toc-link"><span class="toc-num">3.4</span>Dashboard — Analysis &amp; Insights</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-5" class="toc-link"><span class="toc-num">3.5</span>Coaching / Recommendations</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-6" class="toc-link"><span class="toc-num">3.6</span>Analysis Workflow</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-7" class="toc-link"><span class="toc-num">3.7</span>Training Mode</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-8" class="toc-link"><span class="toc-num">3.8</span>Pattern Recognition Engine</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-9" class="toc-link"><span class="toc-num">3.9</span>Move Timing &amp; Clock Analysis</a></li>
+    <li class="toc-item toc-sub"><a href="#s3-10" class="toc-link"><span class="toc-num">3.10</span>AI Coach Interface</a></li>
+    <li class="toc-item"><a href="#s4" class="toc-link"><span class="toc-num">4</span>Non-Functional Requirements</a></li>
+    <li class="toc-item"><a href="#s5" class="toc-link"><span class="toc-num">5</span>UX &amp; Interaction Notes</a></li>
+    <li class="toc-item"><a href="#s6" class="toc-link"><span class="toc-num">6</span>Flow Diagrams</a></li>
+    <li class="toc-item"><a href="#s7" class="toc-link"><span class="toc-num">7</span>Roadmap Considerations</a></li>
+  </ul>
+</nav>
+
+<div class="doc-header">
+  <h1 class="doc-title">FRD — ChessIQ (Product &amp; Functional Requirements)</h1>
+  <div class="meta-pills">
+    <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
+    <span class="meta-pill"><span class="pill-label">Status</span>Active</span>
+    <span class="meta-pill"><span class="pill-label">Target</span>Intermediate Players · 1000–2200 Elo</span>
+  </div>
+  <p class="confidentiality-note">Confidential — Internal Use Only · ArcnetLabs</p>
+  <nav class="doc-nav">
+    <span class="doc-nav-label">Suite:</span>
+    <a href="index.html" class="doc-hub-link">Hub</a>
+    <span class="doc-current">Product FRD</span>
+    <a href="frd_technical.html">Technical FRD</a>
+    <a href="ai_model_strategy.html">AI Model Strategy</a>
+    <a href="memory_retrieval_context_architecture.html">Memory &amp; Retrieval</a>
+    <a href="pricing_monetization_strategy.html">Pricing</a>
+  </nav>
+</div>
+
+<main class="main-content">
+<div class="content-inner">
+
+  <!-- Section 1 -->
+  <section class="section-block">
+    <div id="s1" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">1</span>
+      <h2 class="section-title">Product Overview</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div id="s1-1"></div>
+    <h3 class="sub-heading">1.1 Vision</h3>
+    <p>ChessIQ is an <strong>AI-powered personalized chess intelligence and coaching platform</strong> that transforms how players improve at chess. Unlike traditional game analyzers that provide one-off engine evaluations, ChessIQ builds a comprehensive understanding of each player's unique patterns, tendencies, and developmental needs across their entire game history.</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>ChessIQ Is NOT</th><th>ChessIQ IS</th></tr></thead>
+        <tbody>
+          <tr><td>Just a game analyzer</td><td>A <strong>personalized AI chess coach</strong> that learns your unique playing style</td></tr>
+          <tr><td>Just a Stockfish wrapper</td><td>A <strong>behavioral pattern recognition system</strong> identifying recurring tendencies across hundreds of games</td></tr>
+          <tr><td>Just a dashboard for metrics</td><td>A <strong>conversational chess intelligence platform</strong> where players ask questions and receive contextual, personalized guidance</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The key differentiator is <strong>long-term pattern recognition</strong>: The AI learns recurring patterns across a player's games and provides personalized coaching based on those longitudinal insights, not just individual game analysis.</p>
+    <p>Target users: Intermediate online players (~1000–2200 Elo) seeking personalized, actionable coaching that evolves with their play.</p>
+
+    <div id="s1-2"></div>
+    <h3 class="sub-heading">1.2 High-Level Capabilities</h3>
+
+    <h4 class="sub-sub-heading">Core Platform</h4>
+    <ul>
+      <li>Chess.com account linking by username (no OAuth in MVP)</li>
+      <li>Game fetching with filters: count, time control, rated/unrated, date range</li>
+      <li><strong>Chess.com is the external source of truth</strong> for raw game data (PGNs, move history, ratings, timestamps)</li>
+      <li><strong>Lightweight game storage</strong> — recently fetched games are temporarily cached; Stockfish analysis outputs and detected patterns are stored permanently</li>
+      <li>Batch analysis of games using Stockfish via Celery workers</li>
+      <li>Move timing and clock data ingestion for behavioral analysis</li>
+      <li><strong>Analysis depth advantage:</strong> ChessIQ's free-tier analysis depth may exceed Chess.com's free analysis, framed as deeper analysis + personalized coaching + longitudinal intelligence</li>
+    </ul>
+
+    <h4 class="sub-sub-heading">Pattern Recognition Engine</h4>
+    <ul>
+      <li>Long-term behavioral pattern detection across hundreds of games</li>
+      <li>Recurring mistake identification in similar positions</li>
+      <li>Opening-specific weakness detection, middlegame collapse patterns, tactical recurrence</li>
+      <li>Endgame weakness profiling, strategic habit detection</li>
+      <li>Time management issue identification, hesitation/overthinking detection</li>
+      <li>Impulsive play pattern recognition and longitudinal player profile generation</li>
+    </ul>
+
+    <h4 class="sub-sub-heading">AI Coach / Conversational Interface</h4>
+    <ul>
+      <li>Natural language Q&amp;A about player patterns and games</li>
+      <li>Personalized improvement recommendations and context-aware coaching</li>
+      <li>Interactive drill and study suggestions</li>
+    </ul>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="section-block">
+    <div id="s2" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">2</span>
+      <h2 class="section-title">User Roles &amp; Personas</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">2.1 Roles</h3>
+    <ul>
+      <li><strong>Player (End User)</strong> — Owns a profile, links Chess.com username, fetches games, runs analyses, consumes recommendations and training drills</li>
+      <li><strong>Admin / Support</strong> — Inspects user stats and logs, triggers re-analysis, adjusts system-wide settings</li>
+      <li><strong>System / Background Workers</strong> — Celery workers performing heavy engine analysis and generating insights</li>
+    </ul>
+
+    <h3 class="sub-heading">2.2 Primary User Journeys</h3>
+    <h4 class="sub-sub-heading">First-Time Setup</h4>
+    <ol>
+      <li>Enters Chess.com username and email</li>
+      <li>ChessIQ creates or finds user</li>
+      <li>User chooses filters (e.g., last 25 rapid rated games)</li>
+      <li>Games fetched, stored, and visible on dashboard as "Not analyzed"</li>
+      <li>User clicks "Analyze All Games" to start analysis</li>
+    </ol>
+    <h4 class="sub-sub-heading">Return Visit</h4>
+    <ol>
+      <li>Lands directly on <code class="inline">/dashboard?username=…</code></li>
+      <li>Sees summary of performance and last analyzed period</li>
+      <li>Can sync new games, re-analyze, or enter Training Mode</li>
+    </ol>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="section-block">
+    <div id="s3" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">3</span>
+      <h2 class="section-title">Functional Requirements</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div id="s3-1"></div>
+    <h3 class="sub-heading">3.1 Authentication &amp; Identity</h3>
+    <div class="fr-item"><div class="fr-id">FR-AUTH-1</div><div class="fr-text">Users authenticate via lightweight account (email + Chess.com username). No password in MVP.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AUTH-2</div><div class="fr-text">System uniquely identifies users by lowercase <code class="inline">chesscom_username</code>.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AUTH-3</div><div class="fr-text">On first login: If user exists → "Welcome back". Else → create Supabase <code class="inline">users</code> row with username, display name, email, timestamps.</div></div>
+
+    <div id="s3-2"></div>
+    <h3 class="sub-heading">3.2 Game Fetching</h3>
+    <h4 class="sub-sub-heading">3.2.1 Filters &amp; Options</h4>
+    <div class="fr-item"><div class="fr-id">FR-GAMES-1</div><div class="fr-text">User can choose: <code class="inline">game_count</code> (10, 25, 50, 100), <code class="inline">time_controls</code> (rapid, blitz, bullet, daily), <code class="inline">rated_filter</code> (rated, unrated, both), optional <code class="inline">start_date</code>/<code class="inline">end_date</code>.</div></div>
+    <h4 class="sub-sub-heading">3.2.2 Behavior</h4>
+    <div class="fr-item"><div class="fr-id">FR-GAMES-2</div><div class="fr-text">On new fetch, app uses <strong>replace all</strong> semantics: remove or logically archive prior games within scope. Chess.com is the external source of truth; ChessIQ maintains only the working cache needed for active analysis and coaching.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-GAMES-3</div><div class="fr-text">"Get Started" flow: Find/create user → POST <code class="inline">games/fetch</code> with filters → show progress → toast fetched count → redirect to <code class="inline">/dashboard</code>.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-GAMES-4</div><div class="fr-text">Backend ensures idempotent storage (no duplicate games per <code class="inline">user_id</code> + external game id).</div></div>
+
+    <div id="s3-3"></div>
+    <h3 class="sub-heading">3.3 Dashboard — Fetched Games</h3>
+    <div class="fr-item"><div class="fr-id">FR-DASH-GAMES-1</div><div class="fr-text">Dashboard displays "Fetched Games" section with title and <code class="inline">{N} games</code> subtext.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-DASH-GAMES-2</div><div class="fr-text">Each game card shows: opponent username, result (Win/Loss/Draw with icon), time control, rated/unrated, date/time, Chess.com link, badge (<code class="inline">Not analyzed</code> or <code class="inline">Analyzed</code>).</div></div>
+    <div class="fr-item"><div class="fr-id">FR-DASH-GAMES-3</div><div class="fr-text">Section is <strong>collapsible</strong> (default expanded). Clicking header toggles state.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-DASH-GAMES-4</div><div class="fr-text">Top-right "Analyze All Games" button — disabled if analysis is running or all games already analyzed.</div></div>
+
+    <div id="s3-4"></div>
+    <h3 class="sub-heading">3.4 Dashboard — Analysis Summary &amp; Insights</h3>
+    <div class="fr-item"><div class="fr-id">FR-ANALYSIS-1</div><div class="fr-text">Summary panel: total games analyzed, overall accuracy metric (0–100), Win/Draw/Loss distribution, ACPL trend or period comparison.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-ANALYSIS-2</div><div class="fr-text">Phase-based breakdown: Opening, Middlegame, Endgame scores (0–100 or A–E) with phase-level blunder/mistake/inaccuracy counts.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-ANALYSIS-3</div><div class="fr-text">Move-quality chart (pie or stacked bar): Best, Excellent, Good, Inaccuracy, Mistake, Blunder.</div></div>
+
+    <div id="s3-5"></div>
+    <h3 class="sub-heading">3.5 Coaching / Recommendations</h3>
+    <div class="fr-item"><div class="fr-id">FR-COACH-1</div><div class="fr-text">Coaching Insights panel lists 3–7 key insights with: Category, Headline, Description, Severity level (low/medium/high), Recommended drill type.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-COACH-2</div><div class="fr-text">Insights derived from: repeated blunders in similar positions, high ACPL or low accuracy in specific phases, particular tactical themes frequently missed.</div></div>
+
+    <div id="s3-6"></div>
+    <h3 class="sub-heading">3.6 Analysis Workflow</h3>
+    <div class="fr-item"><div class="fr-id">FR-WORKFLOW-1</div><div class="fr-text">"Analyze All Games" → frontend calls backend endpoint → backend queues Celery jobs for unanalyzed games → frontend shows modal with queued count.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-WORKFLOW-2</div><div class="fr-text">Frontend periodically polls summary/games status until all queued games show <code class="inline">is_analyzed = true</code> or timeout/max polling hits.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-WORKFLOW-3</div><div class="fr-text">On completion: modal closes, dashboard summary and game list update, toast notification fires.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-WORKFLOW-4</div><div class="fr-text">"Re-analyze" button for advanced users forces recompute of previously analyzed games.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-WORKFLOW-5</div><div class="fr-text"><span class="badge badge-premium">Premium</span> Pro/Elite users can enable <strong>automatic background analysis</strong>: periodic Chess.com game fetching, auto-queue for Stockfish, incremental profile updates.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-WORKFLOW-6</div><div class="fr-text"><span class="badge badge-premium">Premium</span> Auto-analysis generates scheduled reports (daily/weekly coaching summary) delivered as in-app notifications and optionally via email.</div></div>
+
+    <div id="s3-7"></div>
+    <h3 class="sub-heading">3.7 Training Mode</h3>
+    <div class="fr-item"><div class="fr-id">FR-TRAIN-1</div><div class="fr-text">Training Mode accessible from game rows ("Train this game") or insight cards ("Practice rook endgames").</div></div>
+    <div class="fr-item"><div class="fr-id">FR-TRAIN-2</div><div class="fr-text">Training mode includes: interactive board, move list, engine evaluation bar (optional for MVP).</div></div>
+    <div class="fr-item"><div class="fr-id">FR-TRAIN-3</div><div class="fr-text">Drill behavior: board shows position just before user's mistake → user chooses best move → correct: confirmation + explanation → incorrect: feedback + engine move + retry.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-TRAIN-4</div><div class="fr-text">Track number of drills attempted and success rate by theme.</div></div>
+
+    <div id="s3-8"></div>
+    <h3 class="sub-heading">3.8 Pattern Recognition Engine</h3>
+    <p>The Pattern Recognition Engine is the <strong>intelligence layer</strong> that transforms individual game analyses into personalized coaching insights. It operates on the principle of <strong>longitudinal analysis</strong> — identifying recurring patterns across many games.</p>
+
+    <h4 class="sub-sub-heading">3.8.1 Pattern Detection Categories</h4>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-1</div><div class="fr-text"><strong>Recurring Positional Mistakes</strong> — Detect when user repeatedly blunders in similar position types. E.g.: <em>"You have blundered material in 8 out of 15 King's Gambit middlegame positions with this pawn structure."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-2</div><div class="fr-text"><strong>Opening-Specific Weaknesses</strong> — Track performance by opening/repertoire line. E.g.: <em>"You lose 73% of games when playing the Sicilian Dragon."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-3</div><div class="fr-text"><strong>Middlegame Collapse Patterns</strong> — Identify at-risk transition points. E.g.: <em>"You consistently lose positional battles around moves 18-25."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-4</div><div class="fr-text"><strong>Tactical Recurrence</strong> — Frequently missed tactical themes (forks, skewers, pins). E.g.: <em>"You've missed knight forks in similar positions 14 times in the last 50 games."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-5</div><div class="fr-text"><strong>Endgame Weaknesses</strong> — Recurring technique failures. E.g.: <em>"You have drawn 6 winning rook endgames this month."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-6</div><div class="fr-text"><strong>Strategic Habits</strong> — Positional vs. tactical tendencies. E.g.: <em>"You perform better in closed positions (62% win rate) vs. open positions (41% win rate)."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-7</div><div class="fr-text"><strong>Castling &amp; King Safety</strong> — Delayed castling risks. E.g.: <em>"Your win rate drops to 28% when you lose castling rights before move 15."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-8</div><div class="fr-text"><strong>Strong Recurring Patterns (Strengths)</strong> — Positions where user consistently excels. E.g.: <em>"You have a 78% success rate in IQP positions."</em></div></div>
+
+    <h4 class="sub-sub-heading">3.8.2 Pattern Scoring &amp; Severity</h4>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-9</div><div class="fr-text">
+      <strong>Severity Levels:</strong>
+      <span class="severity-badge critical">Critical</span> &gt;30% of relevant games, high impact ·
+      <span class="severity-badge significant">Significant</span> 15–30% of relevant games ·
+      <span class="severity-badge developing">Developing</span> &lt;15% of games ·
+      <span class="severity-badge historical">Historical</span> detected but improving
+    </div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-10</div><div class="fr-text"><strong>Confidence Scoring</strong> — Based on: sample size (games analyzed), statistical significance, recency weighting.</div></div>
+
+    <h4 class="sub-sub-heading">3.8.3 Longitudinal Player Profile</h4>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-11</div><div class="fr-text"><strong>Player Archetype Generation</strong> — System generates a "player archetype" combining strengths, weaknesses, and stylistic tendencies. Examples: "The Tactician with Endgame Blind Spots", "The Solid Builder with Opening Gaps", "The Time Pressure Panicker".</div></div>
+    <div class="fr-item"><div class="fr-id">FR-PATTERN-12</div><div class="fr-text"><strong>Evolution Tracking</strong> — Track how patterns change over time; surface "breakthrough" moments; identify persistent vs. resolved weaknesses.</div></div>
+
+    <div id="s3-9"></div>
+    <h3 class="sub-heading">3.9 Move Timing &amp; Clock Data Analysis</h3>
+    <p>ChessIQ analyzes not just <em>what</em> moves were played, but <em>how</em> time was used — revealing behavioral patterns invisible to traditional engine analysis.</p>
+
+    <h4 class="sub-sub-heading">3.9.1 Time Data Ingestion</h4>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-1</div><div class="fr-text"><strong>Clock Data Capture</strong> — Ingest move timestamps from Chess.com PGNs; calculate think time per move; store clock remaining; track time spent by phase.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-2</div><div class="fr-text"><strong>Time Pressure Detection</strong> — Identify moves under time pressure (&lt;30s blitz, &lt;2min rapid); flag "panic moves"; correlate with move quality.</div></div>
+
+    <h4 class="sub-sub-heading">3.9.2 Behavioral Pattern Detection</h4>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-3</div><div class="fr-text"><strong>Overthinking Patterns</strong> — Detect excessive think time followed by blunders. E.g.: <em>"You spent 3+ minutes on 8 positions and blundered in 6."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-4</div><div class="fr-text"><strong>Impulsive Play Detection</strong> — Flag moves played too quickly given position complexity. E.g.: <em>"You blundered on 12 moves played in under 5 seconds when you had plenty of time."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-5</div><div class="fr-text"><strong>Time Management Collapse</strong> — Games where user burned time early and collapsed in endgame. E.g.: <em>"You consistently reach the endgame with &lt;30 seconds and make 3× more errors."</em></div></div>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-6</div><div class="fr-text"><strong>Hesitation Patterns</strong> — Recurring hesitation on specific position types; confidence patterns; improvement in decision speed over time.</div></div>
+
+    <h4 class="sub-sub-heading">3.9.3 Time-Based Recommendations</h4>
+    <div class="fr-item"><div class="fr-id">FR-TIMING-7</div><div class="fr-text"><strong>Personalized Time Management Coaching</strong> — Recommend time allocation strategies; suggest thinking heuristics; flag opening lines where user consistently overspends.</div></div>
+
+    <div id="s3-10"></div>
+    <h3 class="sub-heading">3.10 AI Coach / Conversational Interface</h3>
+    <p>The AI Coach is a <strong>primary interface</strong> of ChessIQ — not an add-on, but a core way users interact with their chess intelligence.</p>
+
+    <h4 class="sub-sub-heading">3.10.1 Conversational Capabilities</h4>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-1</div><div class="fr-text"><strong>Pattern-Based Questions</strong> — "Why do I keep blundering in the middlegame?", "What openings fit my style?", "How has my play changed over the last 3 months?"</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-2</div><div class="fr-text"><strong>Specific Game Questions</strong> — "Why was move 18 a mistake?", "Was I winning at any point?", "Why did I spend 5 minutes and still blunder here?"</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-3</div><div class="fr-text"><strong>Comparative Analysis</strong> — "How does my blitz compare to rapid?", "Do I play better as White or Black?", "Am I improving in tactics?"</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-4</div><div class="fr-text"><strong>Improvement Planning</strong> — "Create a training plan for my endgame weaknesses", "Recommend drills for my knight fork problem."</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-5</div><div class="fr-text"><strong>Opening &amp; Repertoire Guidance</strong> — "What opening should I play against 1.e4?", "Is the Sicilian right for me?"</div></div>
+
+    <h4 class="sub-sub-heading">3.10.2 AI Coach Intelligence Requirements</h4>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-6</div><div class="fr-text"><strong>Context-Aware Responses</strong> — Must reference user's actual patterns and data; include specific examples from user's games; avoid generic advice.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-7</div><div class="fr-text"><strong>Multi-Source Intelligence</strong> — Synthesizes: Pattern Engine outputs, Stockfish findings, historical game trends, time management patterns, phase-based performance.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-8</div><div class="fr-text"><strong>Conversational Memory</strong> — Maintain context within a session; reference prior questions; build upon established player profile.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-9</div><div class="fr-text"><strong>Actionable Recommendations</strong> — Specific and actionable; include direct drill links; prioritize by impact and feasibility.</div></div>
+
+    <h4 class="sub-sub-heading">3.10.3 Explanation Quality</h4>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-10</div><div class="fr-text"><strong>Human-Readable Explanations</strong> — Conversational language (not notation-heavy); analogies and conceptual explanations; depth adapted to user skill level.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-AICOACH-11</div><div class="fr-text"><strong>Evidence-Based Coaching</strong> — Cite specific evidence ("In 12 similar positions…"); show statistics; reference patterns by confidence level.</div></div>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="section-block">
+    <div id="s4" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">4</span>
+      <h2 class="section-title">Non-Functional Requirements</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">4.1 Performance</h3>
+    <ul>
+      <li>Single batch analysis of ~25 rapid games: typically complete within <strong>2–5 minutes</strong> under normal load</li>
+      <li>Dashboard load time (summary + games): under <strong>1.5 seconds</strong> P95 on typical broadband</li>
+    </ul>
+
+    <h3 class="sub-heading">4.2 Scalability</h3>
+    <ul>
+      <li>10K+ registered users</li>
+      <li>1M+ games stored</li>
+      <li>Dozens of concurrent analysis jobs handled by Celery workers</li>
+    </ul>
+
+    <h3 class="sub-heading">4.3 Reliability &amp; Resilience</h3>
+    <ul>
+      <li>Chess.com API unavailable: show human-readable error, suggest retry, enforce backend timeouts</li>
+      <li>Individual game analysis failure: mark <code class="inline">analysis_failed</code>, continue others, surface minimal error in logs only</li>
+    </ul>
+
+    <h3 class="sub-heading">4.4 Security &amp; Privacy</h3>
+    <ul>
+      <li>No user passwords stored (MVP uses username + email only)</li>
+      <li>All database connections over TLS (Supabase)</li>
+      <li>User PGNs and analysis data are private and not visible to other users</li>
+      <li>API endpoints protected: rate limiting, payload size limits</li>
+    </ul>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="section-block">
+    <div id="s5" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">5</span>
+      <h2 class="section-title">UX &amp; Interaction Notes</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">5.1 Landing Page</h3>
+    <ul>
+      <li>Clear value prop explanation</li>
+      <li>Simple form: Chess.com username, email, filters (count, time control, rated)</li>
+      <li>Primary CTA: "Get Started"</li>
+      <li>Inline status messages: "Creating account…", "Fetching your games…"</li>
+    </ul>
+
+    <h3 class="sub-heading">5.2 Dashboard Layout (Recommended Order)</h3>
+    <ol>
+      <li><strong>Top Bar</strong> — Greeting, username, quick navigation</li>
+      <li><strong>AI Coach Widget</strong> — Quick-access chat, recent conversation snippets, pattern alerts: "New insight: You struggle with rook endgames"</li>
+      <li><strong>Key Metrics / Performance Cards</strong> — Overall accuracy, ACPL, Win rate, Time management score</li>
+      <li><strong>Pattern Recognition Panel</strong> — Player archetype summary, top 3–5 recurring patterns, evolution indicators</li>
+      <li><strong>Move Quality / Phase Charts</strong></li>
+      <li><strong>Coaching Insights</strong> — Pattern-driven, severity-ranked with drill links</li>
+      <li><strong>Time Management Insights</strong> — Time usage visualization, overthinking/impulsive alerts</li>
+      <li><strong>Fetched Games</strong> (collapsible)</li>
+    </ol>
+
+    <h3 class="sub-heading">5.3 Empty States</h3>
+    <ul>
+      <li><strong>No games fetched:</strong> CTA to go back to landing or "Fetch your first games" button</li>
+      <li><strong>No analysis yet:</strong> Explanation and prominent "Analyze All Games" button</li>
+    </ul>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="section-block">
+    <div id="s6" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">6</span>
+      <h2 class="section-title">High-Level Flow Diagrams</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">6.1 Data Pipeline Architecture</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Data Flow: Ingestion → Analysis → Intelligence → Output</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph Input["Data Ingestion"]
+        CC[Chess.com API]
+        PGN[PGN + Clock Data]
+    end
+    subgraph Analysis["Analysis Layers"]
+        SF[Stockfish Engine]
+        PR[Pattern Recognition Engine]
+        TIME[Move Timing Analyzer]
+    end
+    subgraph Intelligence["Intelligence Layer"]
+        PP[Player Profile Generator]
+        AI[AI Coach Layer]
+    end
+    subgraph Output["User Interfaces"]
+        DASH[Dashboard]
+        CHAT[AI Coach Chat]
+        TRAIN[Training Mode]
+    end
+    CC --> PGN
+    PGN --> SF
+    SF --> |Move evaluations| PR
+    PGN --> |Clock data| TIME
+    PR --> |Patterns| PP
+    TIME --> |Time patterns| PP
+    PP --> |Player profile| AI
+    AI --> DASH
+    AI --> CHAT
+    AI --> TRAIN
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">6.2 Game Analysis &amp; Pattern Recognition Flow</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Sequence: User → Analysis → Pattern Detection → Dashboard</span>
+      <pre class="mermaid">
+sequenceDiagram
+    actor U as User
+    participant FE as Next.js Frontend
+    participant BE as FastAPI Backend
+    participant CC as Chess.com API
+    participant CELERY as Celery Workers
+    participant SF as Stockfish
+    participant PRE as Pattern Engine
+    participant AI as AI Coach
+    participant DB as Supabase
+
+    U->>FE: Fetch games (username + filters)
+    FE->>BE: POST /games/{userId}/fetch
+    BE->>CC: Fetch games + clock data
+    CC-->>BE: PGN/JSON with timestamps
+    BE->>DB: Store games with timing data
+    BE-->>FE: { games_added: N }
+    FE-->>U: Show games list
+
+    U->>FE: "Analyze All Games"
+    FE->>BE: POST /analysis/{userId}/analyze-games
+    BE->>DB: Queue Celery tasks
+
+    par Parallel Analysis
+        CELERY->>SF: Analyze game positions
+        SF-->>CELERY: Evaluations + best moves
+        CELERY->>DB: Store game_analyses
+    end
+
+    CELERY->>PRE: Run pattern recognition
+    PRE->>DB: Query historical analyses
+    DB-->>PRE: Game history
+    PRE->>PRE: Detect recurring patterns
+    PRE->>DB: Store player_patterns
+
+    FE->>BE: Poll /analysis/{userId}/summary
+    BE-->>FE: Analysis + patterns + insights
+    FE-->>U: Dashboard with pattern insights
+
+    U->>FE: "Why do I blunder in endgames?"
+    FE->>BE: POST /coach/chat
+    BE->>AI: Query with player profile
+    AI-->>BE: Personalized response
+    BE-->>FE: "You struggle with rook endgames..."
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">6.3 AI Coach Conversation Flow</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Sequence: Chat → Context Assembly → LLM → Response</span>
+      <pre class="mermaid">
+sequenceDiagram
+    actor U as User
+    participant FE as Chat UI
+    participant BE as AI Coach API
+    participant PC as Prompt Builder
+    participant LLM as Language Model
+    participant DB as Player Data
+
+    U->>FE: "What openings fit my style?"
+    FE->>BE: Send message + user context
+    BE->>PC: Build contextual prompt
+    PC->>DB: Fetch player profile
+    DB-->>PC: Patterns, strengths, weaknesses
+    PC->>PC: Structure prompt with evidence
+    PC->>LLM: "Player is tactical, struggles in closed positions..."
+    LLM-->>PC: "Based on your 78% win rate in open positions..."
+    PC->>BE: Format response with links
+    BE-->>FE: Response + drill recommendations
+    FE-->>U: Personalized opening recommendations
+      </pre>
+    </div>
+  </section>
+
+  <!-- Section 7 -->
+  <section class="section-block">
+    <div id="s7" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">7</span>
+      <h2 class="section-title">Roadmap Considerations (Beyond MVP)</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">7.1 Platform Integrations</h3>
+    <ul>
+      <li>Lichess integration</li>
+      <li>YouTube → PGN extraction</li>
+      <li>PGN upload from external sources</li>
+    </ul>
+
+    <h3 class="sub-heading">7.2 AI Coach Enhancements</h3>
+    <ul>
+      <li>Voice interface for AI Coach conversations</li>
+      <li>Real-time analysis during games (browser extension)</li>
+      <li>AI-generated video explanations with voice narration</li>
+      <li>Multi-language coaching support</li>
+    </ul>
+
+    <h3 class="sub-heading">7.3 Pattern Recognition Expansion</h3>
+    <ul>
+      <li>Cross-referential pattern analysis (compare with similar-rated players)</li>
+      <li>Opening repertoire optimization based on pattern data</li>
+      <li>Predictive performance modeling</li>
+      <li>Tournament preparation mode (analyze opponent patterns)</li>
+    </ul>
+
+    <h3 class="sub-heading">7.4 Training &amp; Curriculum</h3>
+    <ul>
+      <li>Richer training curriculum and spaced repetition</li>
+      <li>AI-generated custom puzzle sets based on exact patterns</li>
+      <li>Opening repertoire builder with pattern-based recommendations</li>
+      <li>Integration with ChessReps for pattern-specific training lines</li>
+    </ul>
+
+    <h3 class="sub-heading">7.5 Social &amp; Community</h3>
+    <ul>
+      <li>Social / sharing features (share reports, challenge friends)</li>
+      <li>Coach-student mode (human coach reviews AI insights)</li>
+      <li>Community pattern comparisons ("Players like you improve by…")</li>
+    </ul>
+
+    <h3 class="sub-heading">7.6 Mobile &amp; Accessibility</h3>
+    <ul>
+      <li>Mobile-optimized or native mobile client</li>
+      <li>Offline mode with sync</li>
+      <li>Push notifications for new pattern insights</li>
+      <li>Accessibility improvements (screen reader optimization)</li>
+    </ul>
+  </section>
+
+</div>
+</main>
+
+<button id="back-to-top" title="Back to top">↑</button>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

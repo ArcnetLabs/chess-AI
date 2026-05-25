@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Technical FRD — ChessIQ Docs</title>
+  <link rel="stylesheet" href="shared.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <div class="topbar-right">
+    <span class="topbar-title">Technical FRD</span>
+    <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
+  </div>
+</header>
+
+<div class="sidebar-overlay"></div>
+
+<nav class="sidebar" aria-label="Table of contents">
+  <span class="toc-label">Contents</span>
+  <ul class="toc-list">
+    <li class="toc-item"><a href="#s1" class="toc-link"><span class="toc-num">1</span>Architecture Overview</a></li>
+    <li class="toc-item"><a href="#s2" class="toc-link"><span class="toc-num">2</span>Data Model (Supabase)</a></li>
+    <li class="toc-item toc-sub"><a href="#s2-1" class="toc-link"><span class="toc-num">2.1–2.4</span>Core Tables</a></li>
+    <li class="toc-item toc-sub"><a href="#s2-5" class="toc-link"><span class="toc-num">2.5–2.9</span>Extended Tables</a></li>
+    <li class="toc-item"><a href="#s3" class="toc-link"><span class="toc-num">3</span>Backend Config &amp; DB</a></li>
+    <li class="toc-item"><a href="#s4" class="toc-link"><span class="toc-num">4</span>Stockfish Analysis Pipeline</a></li>
+    <li class="toc-item"><a href="#s5" class="toc-link"><span class="toc-num">5</span>Game Fetching &amp; Caching</a></li>
+    <li class="toc-item"><a href="#s6" class="toc-link"><span class="toc-num">6</span>Analysis Orchestration</a></li>
+    <li class="toc-item"><a href="#s7" class="toc-link"><span class="toc-num">7</span>Pattern Recognition Engine</a></li>
+    <li class="toc-item"><a href="#s8" class="toc-link"><span class="toc-num">8</span>Move Timing &amp; Behavioral Analysis</a></li>
+    <li class="toc-item"><a href="#s9" class="toc-link"><span class="toc-num">9</span>AI Coach Service</a></li>
+    <li class="toc-item"><a href="#s10" class="toc-link"><span class="toc-num">10</span>Recommendation Logic</a></li>
+    <li class="toc-item"><a href="#s11" class="toc-link"><span class="toc-num">11</span>Frontend Architecture</a></li>
+    <li class="toc-item"><a href="#s12" class="toc-link"><span class="toc-num">12</span>API Specification</a></li>
+    <li class="toc-item"><a href="#s13" class="toc-link"><span class="toc-num">13</span>Testing Strategy</a></li>
+    <li class="toc-item"><a href="#s14" class="toc-link"><span class="toc-num">14</span>Failure Modes</a></li>
+    <li class="toc-item"><a href="#s15" class="toc-link"><span class="toc-num">15</span>Summary</a></li>
+  </ul>
+</nav>
+
+<div class="doc-header">
+  <h1 class="doc-title">FRD — ChessIQ (Technical / Engineering)</h1>
+  <div class="meta-pills">
+    <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
+    <span class="meta-pill"><span class="pill-label">Status</span>Active</span>
+    <span class="meta-pill"><span class="pill-label">Audience</span>Backend, AI/ML, Frontend Engineers</span>
+  </div>
+  <p class="confidentiality-note">Confidential — Internal Use Only · ArcnetLabs</p>
+  <nav class="doc-nav">
+    <span class="doc-nav-label">Suite:</span>
+    <a href="index.html" class="doc-hub-link">Hub</a>
+    <a href="frd_product.html">Product FRD</a>
+    <span class="doc-current">Technical FRD</span>
+    <a href="ai_model_strategy.html">AI Model Strategy</a>
+    <a href="memory_retrieval_context_architecture.html">Memory &amp; Retrieval</a>
+    <a href="pricing_monetization_strategy.html">Pricing</a>
+  </nav>
+</div>
+
+<main class="main-content">
+<div class="content-inner">
+
+  <!-- Section 1 -->
+  <section class="section-block">
+    <div id="s1" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">1</span>
+      <h2 class="section-title">Architecture Overview</h2>
+    </div>
+    <div class="section-divider"></div>
+    <p>ChessIQ uses a <strong>layered intelligence architecture</strong> that separates engine analysis (Stockfish) from pattern recognition and AI coaching. This enables reusability of Stockfish analysis for pattern detection, scalable pattern computation across large game histories, and context-aware AI coaching that synthesizes multiple data sources.</p>
+
+    <h3 class="sub-heading">1.1 Stack</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Frontend</strong></td><td>Next.js (React, TypeScript), React Query, Axios, TailwindCSS — AI Coach chat, pattern visualization, interactive training board</td></tr>
+          <tr><td><strong>API Gateway</strong></td><td>FastAPI, SQLAlchemy, Pydantic v2</td></tr>
+          <tr><td><strong>Analysis Layer</strong></td><td>Stockfish engine wrapper, Pattern Recognition Engine, AI Coach Service</td></tr>
+          <tr><td><strong>Background Workers</strong></td><td>Celery (distributed analysis and pattern detection)</td></tr>
+          <tr><td><strong>Primary Database</strong></td><td>Supabase Postgres — games, analyses, patterns, profiles</td></tr>
+          <tr><td><strong>Cache / Queue</strong></td><td>Redis — job queues, rate limiting, session cache</td></tr>
+          <tr><td><strong>Vector Store</strong></td><td>pgvector extension — pattern similarity search</td></tr>
+          <tr><td><strong>External</strong></td><td>Chess.com API (source of truth for raw games), OpenAI/Anthropic (Elite tier fallback), Stockfish binary</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">1.2 High-Level Architecture Diagram</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">ChessIQ System Architecture</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph Frontend["Frontend (Next.js)"]
+        UI[Dashboard UI]
+        CHAT[AI Coach Chat]
+        PATTERN[Pattern Dashboard]
+        TRAIN[Training Mode]
+    end
+    subgraph APILayer["API Layer (FastAPI)"]
+        API[API Gateway]
+        AUTH[Auth Service]
+        COACH[AI Coach API]
+        PATTERN_API[Pattern API]
+    end
+    subgraph AnalysisLayer["Analysis Layer"]
+        STOCK[Stockfish Engine]
+        PATTERN_ENG[Pattern Recognition Engine]
+        TIME_ENG[Move Timing Analyzer]
+        PROFILE[Player Profile Generator]
+    end
+    subgraph Workers["Background Workers (Celery)"]
+        W1[Analysis Worker]
+        W2[Pattern Worker]
+        W3[Profile Worker]
+    end
+    subgraph DataLayer["Data Layer"]
+        DB[(Supabase Postgres)]
+        REDIS[(Redis)]
+        LLM[(OpenAI/Anthropic API)]
+    end
+    subgraph External["External APIs"]
+        CHESSCOM[Chess.com API]
+    end
+    UI --> API
+    CHAT --> COACH
+    PATTERN --> PATTERN_API
+    COACH --> LLM
+    COACH --> DB
+    API --> W1
+    W1 --> STOCK
+    W1 --> DB
+    W1 --> W2
+    W2 --> PATTERN_ENG
+    W2 --> TIME_ENG
+    W2 --> DB
+    W2 --> W3
+    W3 --> PROFILE
+    W3 --> DB
+    API --> CHESSCOM
+    API --> REDIS
+      </pre>
+    </div>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="section-block">
+    <div id="s2" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">2</span>
+      <h2 class="section-title">Data Model (Supabase)</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div id="s2-1"></div>
+    <h3 class="sub-heading">2.1 <code class="inline">users</code></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  chesscom_username TEXT NOT NULL UNIQUE,
+  display_name TEXT,
+  email TEXT,
+  total_games INT DEFAULT 0,
+  analyzed_games INT DEFAULT 0,
+  last_fetch_at TIMESTAMPTZ,
+  last_analysis_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_users_username_lower
+  ON users (LOWER(chesscom_username));</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.2 <code class="inline">games</code></h3>
+    <div class="callout secondary">
+      <span class="callout-label">Storage Philosophy</span>
+      <p>The <code class="inline">games</code> table is a <strong>lightweight temporary cache</strong>. Chess.com is the external source of truth for raw game history. Game analyses and detected patterns — ChessIQ's core intelligence — are stored permanently and never purged.</p>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE games (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  external_id TEXT NOT NULL,
+  pgn TEXT NOT NULL,
+  time_class TEXT NOT NULL,
+  rated BOOLEAN NOT NULL,
+  white_username TEXT NOT NULL,
+  black_username TEXT NOT NULL,
+  white_result TEXT,
+  black_result TEXT,
+  end_time TIMESTAMPTZ,
+  chesscom_url TEXT,
+  is_analyzed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, external_id)
+);
+CREATE INDEX idx_games_user_time ON games (user_id, end_time DESC);</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.3 <code class="inline">game_analyses</code></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE game_analyses (
+  id BIGSERIAL PRIMARY KEY,
+  game_id BIGINT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  acpl DOUBLE PRECISION,
+  accuracy_score DOUBLE PRECISION,
+  eval_opening DOUBLE PRECISION,
+  eval_middlegame DOUBLE PRECISION,
+  eval_endgame DOUBLE PRECISION,
+  blunders INT DEFAULT 0,
+  mistakes INT DEFAULT 0,
+  inaccuracies INT DEFAULT 0,
+  phase_blunders_opening INT DEFAULT 0,
+  phase_blunders_middlegame INT DEFAULT 0,
+  phase_blunders_endgame INT DEFAULT 0,
+  tactical_themes JSONB,
+  positional_themes JSONB,
+  critical_moments JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_game_analyses_user ON game_analyses (user_id, created_at DESC);</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.4 <code class="inline">user_insights</code></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE user_insights (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  period_days INT NOT NULL,
+  summary_json JSONB NOT NULL,
+  recommendations JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_user_insights_user ON user_insights (user_id, created_at DESC);</code></pre>
+    </div>
+
+    <div id="s2-5"></div>
+    <h3 class="sub-heading">2.5 <code class="inline">move_timing_data</code> <span class="badge-new">NEW</span></h3>
+    <p>Stores clock and timing information per move for behavioral analysis.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE move_timing_data (
+  id BIGSERIAL PRIMARY KEY,
+  game_id BIGINT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  move_number INT NOT NULL,
+  color TEXT NOT NULL,             -- 'white' or 'black'
+  think_time_seconds FLOAT,        -- calculated from clock data
+  clock_remaining_seconds FLOAT,
+  time_pressure BOOLEAN DEFAULT FALSE,
+  is_book_move BOOLEAN DEFAULT FALSE,
+  phase TEXT NOT NULL,             -- 'opening', 'middlegame', 'endgame'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_timing_user_game ON move_timing_data (user_id, game_id, move_number);
+CREATE INDEX idx_timing_pressure ON move_timing_data (user_id, time_pressure)
+  WHERE time_pressure = TRUE;</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.6 <code class="inline">player_patterns</code> <span class="badge-new">NEW</span></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE player_patterns (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pattern_type TEXT NOT NULL,      -- 'tactical', 'positional', 'opening', 'endgame', 'time_management', 'castling'
+  pattern_subtype TEXT NOT NULL,   -- e.g., 'knight_fork', 'rook_endgame', 'sicilian_dragon'
+  severity TEXT NOT NULL,          -- 'critical', 'significant', 'developing', 'historical'
+  confidence_score FLOAT NOT NULL, -- 0.0 to 1.0
+  occurrence_count INT NOT NULL,
+  affected_games_count INT NOT NULL,
+  affected_games_ratio FLOAT NOT NULL,
+  pattern_description TEXT NOT NULL,
+  example_positions JSONB,         -- [{game_id, move_number, fen, explanation}]
+  first_seen_at TIMESTAMPTZ,
+  last_seen_at TIMESTAMPTZ,
+  trend_direction TEXT,            -- 'improving', 'stable', 'declining'
+  is_strength BOOLEAN DEFAULT FALSE,
+  recommended_drill_type TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, pattern_type, pattern_subtype)
+);
+CREATE INDEX idx_patterns_user ON player_patterns (user_id, severity, confidence_score DESC);
+CREATE INDEX idx_patterns_strength ON player_patterns (user_id, is_strength, confidence_score DESC);</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.7 <code class="inline">player_profiles</code> <span class="badge-new">NEW</span></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE player_profiles (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  archetype TEXT,                  -- "The Tactician with Endgame Blind Spots"
+  primary_strengths JSONB,
+  primary_weaknesses JSONB,
+  style_indicators JSONB,          -- {positional_vs_tactical: "tactical", ...}
+  time_management_profile JSONB,
+  phase_performance JSONB,         -- {opening: 72, middlegame: 65, endgame: 58}
+  opening_repertoire JSONB,        -- {successful: [...], problematic: [...]}
+  tactical_themes JSONB,           -- {missed_forks: 14, ...}
+  games_analyzed_count INT DEFAULT 0,
+  patterns_detected_count INT DEFAULT 0,
+  profile_summary TEXT,
+  generated_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.8 <code class="inline">coach_conversations</code> <span class="badge-new">NEW</span></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE coach_conversations (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID DEFAULT gen_random_uuid(),
+  message_role TEXT NOT NULL,      -- 'user', 'assistant', 'system'
+  message_content TEXT NOT NULL,
+  message_type TEXT,               -- 'pattern_question', 'game_question', 'improvement_plan', 'general'
+  referenced_patterns JSONB,       -- array of pattern IDs
+  referenced_games JSONB,
+  prompt_tokens INT,
+  completion_tokens INT,
+  model_used TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_conversations_session ON coach_conversations (session_id, created_at);</code></pre>
+    </div>
+
+    <h3 class="sub-heading">2.9 <code class="inline">pattern_examples</code> <span class="badge-new">NEW</span></h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-sql">CREATE TABLE pattern_examples (
+  id BIGSERIAL PRIMARY KEY,
+  pattern_id BIGINT NOT NULL REFERENCES player_patterns(id) ON DELETE CASCADE,
+  game_id BIGINT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+  move_number INT NOT NULL,
+  fen_before TEXT NOT NULL,
+  fen_after TEXT,
+  user_move TEXT,
+  best_move TEXT,
+  user_eval FLOAT,
+  best_eval FLOAT,
+  eval_delta FLOAT,
+  context_description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="section-block">
+    <div id="s3" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">3</span>
+      <h2 class="section-title">Backend Configuration &amp; DB Connectivity</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">3.1 Settings (<code class="inline">app/core/config.py</code>)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class Settings(BaseSettings):
+    PROJECT_NAME: str = "IQChess"
+    SECRET_KEY: str
+    JWT_SECRET_KEY: str = ""
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+
+    DATABASE_URL: str
+    SQLALCHEMY_DATABASE_URI: str
+    POSTGRES_SERVER: str = "db.kkgdxjypcvvrnqtocazc.supabase.co"
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str = "postgres"
+    POSTGRES_PORT: int = 5432
+
+    SUPABASE_URL: str
+    SUPABASE_ANON_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: str
+
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+
+    STOCKFISH_PATH: str = "/usr/games/stockfish"
+    STOCKFISH_DEPTH: int = 15
+    STOCKFISH_TIME: float = 1.0
+
+    model_config = {
+        "case_sensitive": True,
+        "env_file": "../.env",
+        "env_file_encoding": "utf-8",
+    }</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="section-block">
+    <div id="s4" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">4</span>
+      <h2 class="section-title">PGN + Stockfish Analysis Pipeline</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">4.1 Pipeline Overview</h3>
+    <ol>
+      <li>Load <code class="inline">games.pgn</code></li>
+      <li>Parse PGN into move list using <code class="inline">python-chess</code></li>
+      <li>For each position before a move: evaluate with Stockfish, determine best move, compute eval delta</li>
+      <li>Classify move quality (good/inaccuracy/mistake/blunder)</li>
+      <li>Aggregate stats per game and by phase</li>
+      <li>Store results in <code class="inline">game_analyses</code>; mark game <code class="inline">is_analyzed = true</code></li>
+    </ol>
+
+    <h3 class="sub-heading">4.2 PGN Parsing</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">import chess, chess.pgn
+
+game = chess.pgn.read_game(io.StringIO(pgn_text))
+board = game.board()
+
+for move_number, move in enumerate(game.mainline_moves(), start=1):
+    fen_before = board.fen()
+    board.push(move)
+    fen_after = board.fen()
+    # Store fen_before, fen_after, move SAN/uci, etc.</code></pre>
+    </div>
+
+    <h3 class="sub-heading">4.2.2 Engine Evaluation</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">with chess.engine.SimpleEngine.popen_uci([settings.STOCKFISH_PATH]) as engine:
+    engine.configure({"Threads": 2, "Hash": 128})
+    info = engine.analyse(board, limit=chess.engine.Limit(depth=settings.STOCKFISH_DEPTH))
+    score = info["score"].pov(board.turn)
+    best_move = info.get("pv", [None])[0]</code></pre>
+    </div>
+
+    <h3 class="sub-heading">4.2.3 Move Quality Classification</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Classification</th><th>Eval Delta (centipawns)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="severity-badge critical">Blunder</span></td><td>≥ 200 cp or losing forced mate</td></tr>
+          <tr><td><span class="severity-badge significant">Mistake</span></td><td>≥ 100 cp</td></tr>
+          <tr><td><span class="severity-badge developing">Inaccuracy</span></td><td>≥ 50 cp</td></tr>
+          <tr><td>Good</td><td>Otherwise</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Where <code class="inline">eval_delta = eval_after_best - eval_after_user</code> (engine POV).</p>
+
+    <h3 class="sub-heading">4.2.4 ACPL &amp; Accuracy</h3>
+    <ul>
+      <li><strong>ACPL</strong> = average of <code class="inline">abs(eval_after_user - eval_before)</code> across all user moves</li>
+      <li><strong>Accuracy</strong> mapping: ACPL &lt;20 → 95–100 · 20–50 → 80–95 · 50–100 → 60–80 · &gt;100 → &lt;60</li>
+    </ul>
+
+    <h3 class="sub-heading">4.2.5 Phase-Based Metrics</h3>
+    <ul>
+      <li><strong>Opening:</strong> moves 1–12</li>
+      <li><strong>Middlegame:</strong> moves 13–30</li>
+      <li><strong>Endgame:</strong> moves &gt;30 or when material is sufficiently reduced</li>
+    </ul>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="section-block">
+    <div id="s5" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">5</span>
+      <h2 class="section-title">Game Fetching &amp; Caching</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">5.1 Chess.com Fetch Strategy</h3>
+    <ul>
+      <li>Endpoint: <code class="inline">https://api.chess.com/pub/player/{username}/games/{YYYY}/{MM}</code></li>
+      <li>Fetch in reverse chronological order until N games collected or date range exhausted</li>
+    </ul>
+
+    <h3 class="sub-heading">5.2 Redis Caching Layer</h3>
+    <ul>
+      <li><code class="inline">chesscom:archives:{username}:{year}:{month}</code> → archived JSON/PGN (TTL 1h)</li>
+      <li><code class="inline">chesscom:rate:{username}</code> → request counter per minute</li>
+      <li>On fetch: check rate key → check archive key → call Chess.com → cache result</li>
+    </ul>
+
+    <h3 class="sub-heading">5.3 Replace-All Semantics</h3>
+    <ol>
+      <li>Start DB transaction</li>
+      <li>Delete <code class="inline">game_analyses</code> for <code class="inline">user_id</code></li>
+      <li>Delete <code class="inline">games</code> for <code class="inline">user_id</code></li>
+      <li>Insert fetched games</li>
+      <li>Update <code class="inline">users.total_games</code> and <code class="inline">users.last_fetch_at</code></li>
+      <li>Commit</li>
+    </ol>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="section-block">
+    <div id="s6" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">6</span>
+      <h2 class="section-title">Analysis Orchestration (Celery + Redis)</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">6.1 Celery Configuration</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">celery_app = Celery(
+    "iqchess",
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
+)
+
+celery_app.conf.task_routes = {
+    "app.workers.tasks.analyze_game":           {"queue": "analysis"},
+    "app.workers.tasks.aggregate_user_insights": {"queue": "insights"},
+}</code></pre>
+    </div>
+
+    <h3 class="sub-heading">6.2.1 Task: <code class="inline">analyze_game(game_id, user_id)</code></h3>
+    <ol>
+      <li>Load game from DB</li>
+      <li>Run PGN + Stockfish pipeline</li>
+      <li>Write <code class="inline">game_analyses</code> entry</li>
+      <li>Set <code class="inline">games.is_analyzed = true</code></li>
+      <li>Increment <code class="inline">users.analyzed_games</code></li>
+    </ol>
+    <p><strong>Error handling:</strong> Retry on transient errors (max 3×, exponential backoff). On persistent failure, log and set <code class="inline">analysis_failed = true</code>.</p>
+
+    <h3 class="sub-heading">6.3 Redis Beyond Celery</h3>
+    <ul>
+      <li>Analysis summary per user: <code class="inline">cache:summary:{user_id}</code>, TTL 5–15 min</li>
+      <li>Player profile: <code class="inline">cache:profile:{user_id}</code>, TTL 30 min</li>
+      <li>Pattern detection results: <code class="inline">cache:patterns:{user_id}</code>, TTL 1 hour</li>
+      <li>Chat session state management and AI Coach rate limiting</li>
+    </ul>
+  </section>
+
+  <!-- Section 7 -->
+  <section class="section-block">
+    <div id="s7" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">7</span>
+      <h2 class="section-title">Pattern Recognition Engine <span class="badge-new">NEW</span></h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">7.1 Architecture</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Pattern Detection Flow</span>
+      <pre class="mermaid">
+flowchart LR
+    DB[(Game Analyses)] --> |Query| PRE[Pattern Engine]
+    PRE --> |Detect| PAT[Pattern Detectors]
+    PAT --> |Store| PDB[(Player Patterns)]
+    PDB --> |Generate| PROF[Player Profile]
+    PROF --> |Update| DB2[(Player Profiles)]
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">7.2 Detection Categories &amp; Algorithms</h3>
+    <h4 class="sub-sub-heading">Tactical Pattern Detector</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class TacticalPatternDetector:
+    def detect(self, user_analyses: List[GameAnalysis]) -> List[Pattern]:
+        patterns = []
+        theme_counts = defaultdict(list)
+
+        for analysis in user_analyses:
+            for moment in analysis.critical_moments:
+                if moment.error_type in ['blunder', 'mistake']:
+                    theme = self.classify_tactical_theme(moment)
+                    if theme:
+                        theme_counts[theme].append(moment)
+
+        for theme, occurrences in theme_counts.items():
+            if len(occurrences) >= MIN_PATTERN_THRESHOLD:
+                confidence = self.calculate_confidence(occurrences, len(user_analyses))
+                patterns.append(Pattern(
+                    type='tactical', subtype=theme,
+                    occurrences=len(occurrences),
+                    confidence=confidence, examples=occurrences[:5]
+                ))
+        return patterns</code></pre>
+    </div>
+
+    <h4 class="sub-sub-heading">Opening Pattern Detector</h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class OpeningPatternDetector:
+    def detect(self, user_analyses: List[GameAnalysis]) -> List[Pattern]:
+        opening_performance = defaultdict(lambda: {'games': [], 'results': []})
+
+        for analysis in user_analyses:
+            eco = analysis.opening_eco
+            opening_performance[eco]['games'].append(analysis)
+            opening_performance[eco]['results'].append(analysis.game.result)
+
+        for eco, data in opening_performance.items():
+            games, results = data['games'], data['results']
+            if len(games) >= MIN_OPENING_GAMES:
+                win_rate = results.count('win') / len(results)
+                if win_rate < 0.35:
+                    yield Pattern(type='opening', subtype=eco,
+                                  win_rate=win_rate, is_strength=False)
+                elif win_rate > 0.7:
+                    yield Pattern(type='opening', subtype=eco,
+                                  win_rate=win_rate, is_strength=True)</code></pre>
+    </div>
+
+    <h3 class="sub-heading">7.3 Pattern Confidence Scoring</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">def calculate_pattern_confidence(
+    occurrences: int, total_games: int, last_seen_days: int = None
+) -> float:
+    sample_confidence = min(occurrences / 10, 1.0)
+    prevalence_score  = min((occurrences / total_games) * 3, 1.0)
+
+    recency_multiplier = 1.0
+    if last_seen_days:
+        if last_seen_days > 90: recency_multiplier = 0.5
+        elif last_seen_days > 30: recency_multiplier = 0.8
+
+    return round(
+        (sample_confidence * 0.4 + prevalence_score * 0.6) * recency_multiplier, 2
+    )</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 8 -->
+  <section class="section-block">
+    <div id="s8" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">8</span>
+      <h2 class="section-title">Move Timing &amp; Behavioral Analysis <span class="badge-new">NEW</span></h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">8.1 Time Data Extraction</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class MoveTimingExtractor:
+    def extract_from_pgn(self, pgn: str, user_color: str) -> List[MoveTiming]:
+        game = chess.pgn.read_game(io.StringIO(pgn))
+        timings = []
+        prev_clock = None
+
+        for move_number, node in enumerate(game.mainline(), start=1):
+            clock_str = node.clock()
+            if clock_str is not None:
+                clock_remaining = self.parse_clock(clock_str)
+                think_time = (prev_clock - clock_remaining) if prev_clock else None
+                phase = self.determine_phase(move_number, node.board())
+                time_pressure = self.is_time_pressure(clock_remaining, game.time_control)
+
+                timings.append(MoveTiming(
+                    move_number=move_number,
+                    think_time_seconds=think_time,
+                    clock_remaining_seconds=clock_remaining,
+                    time_pressure=time_pressure,
+                    phase=phase
+                ))
+                prev_clock = clock_remaining
+        return timings</code></pre>
+    </div>
+
+    <h3 class="sub-heading">8.2 Behavioral Pattern Detection</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class TimingPatternDetector:
+    def detect(self, user_timings: List[MoveTiming]) -> TimingPatterns:
+        patterns = TimingPatterns()
+
+        long_thinks   = [t for t in user_timings if t.think_time_seconds > 120]
+        quick_moves   = [t for t in user_timings
+                         if t.think_time_seconds < 5 and not t.is_book_move]
+        pressure_moves = [t for t in user_timings if t.time_pressure]
+
+        patterns.overthink_tendency   = len(long_thinks)    / len(user_timings)
+        patterns.impulsive_tendency   = len(quick_moves)    / len(user_timings)
+        patterns.time_pressure_ratio  = len(pressure_moves) / len(user_timings)
+
+        phase_times = defaultdict(list)
+        for t in user_timings:
+            phase_times[t.phase].append(t.think_time_seconds)
+
+        patterns.phase_time_distribution = {
+            phase: mean(times) for phase, times in phase_times.items()
+        }
+        return patterns</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 9 -->
+  <section class="section-block">
+    <div id="s9" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">9</span>
+      <h2 class="section-title">AI Coach Service <span class="badge-new">NEW</span></h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">9.1 Architecture</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">AI Coach Service — Internal Flow</span>
+      <pre class="mermaid">
+flowchart TB
+    subgraph API["AI Coach API"]
+        ENDPOINT[Chat Endpoint]
+        PROMPT[Prompt Builder]
+        CONTEXT[Context Assembler]
+    end
+    subgraph LLM["LLM Integration"]
+        OPENAI[OpenAI/Anthropic API]
+    end
+    subgraph Data["Data Sources"]
+        PROFILE[(Player Profile)]
+        PATTERNS[(Player Patterns)]
+        GAMES[(Game Analyses)]
+        CHAT[(Chat History)]
+    end
+    ENDPOINT --> CONTEXT
+    CONTEXT --> PROFILE
+    CONTEXT --> PATTERNS
+    CONTEXT --> GAMES
+    CONTEXT --> CHAT
+    CONTEXT --> PROMPT
+    PROMPT --> OPENAI
+    OPENAI --> ENDPOINT
+      </pre>
+    </div>
+
+    <h3 class="sub-heading">9.2 Context Assembly Pipeline</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">class CoachContextAssembler:
+    def assemble_context(self, user_id, user_message, conversation_history):
+        context = CoachContext()
+        context.player_profile = self.db.get_player_profile(user_id)
+        all_patterns = self.db.get_player_patterns(user_id)
+        context.relevant_patterns = self.filter_patterns_by_query(all_patterns, user_message)
+
+        if self.is_game_specific_query(user_message):
+            context.recent_games = self.db.get_recent_analyses(user_id, limit=10)
+
+        context.conversation_history = conversation_history[-5:]
+        context.query_type = self.classify_query(user_message)
+        return context</code></pre>
+    </div>
+
+    <h3 class="sub-heading">9.3 Prompt Engineering</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">SYSTEM_PROMPT = """You are ChessIQ, an expert chess coach AI. Your role is to provide personalized, evidence-based coaching.
+
+Guidelines:
+- Always reference the player's actual data and patterns
+- Be encouraging but honest about weaknesses
+- Provide specific, actionable recommendations
+- Use conversational, natural language (not heavy notation)
+- Include concrete examples from the player's games when relevant
+- Suggest specific drills or studies when appropriate
+"""</code></pre>
+    </div>
+
+    <h3 class="sub-heading">9.4 Main Chat Endpoint</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">@router.post("/coach/chat")
+async def chat_with_coach(request: CoachChatRequest, current_user: User = Depends(get_current_user)):
+    context = CoachContextAssembler(db).assemble_context(
+        user_id=current_user.id,
+        user_message=request.message,
+        conversation_history=request.session_id
+    )
+    prompt = CoachPromptBuilder().build_prompt(context)
+    llm_response = await openai_client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "system", "content": prompt},
+                  {"role": "user", "content": request.message}],
+        temperature=0.7, max_tokens=1000
+    )
+    response_text = llm_response.choices[0].message.content
+    store_conversation(current_user.id, request.session_id,
+                       request.message, response_text,
+                       [p.id for p in context.relevant_patterns])
+    return CoachChatResponse(
+        message=response_text,
+        referenced_patterns=context.relevant_patterns,
+        suggested_drills=extract_drill_recommendations(response_text)
+    )</code></pre>
+    </div>
+
+    <h3 class="sub-heading">9.5 Streaming Support</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">@router.post("/coach/chat/stream")
+async def chat_with_coach_stream(request: CoachChatRequest):
+    async def generate_stream():
+        context = await assemble_context_async(current_user.id, request.message)
+        stream = await openai_client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": build_prompt(context)}],
+            stream=True
+        )
+        async for chunk in stream:
+            if chunk.choices[0].delta.content:
+                yield f"data: {chunk.choices[0].delta.content}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 10 -->
+  <section class="section-block">
+    <div id="s10" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">10</span>
+      <h2 class="section-title">Updated Recommendation Logic</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">10.2 Pattern-Based Recommendations</h3>
+    <p><strong>Priority order:</strong> Critical patterns → Significant patterns → Strength building</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">def build_recommendations_from_patterns(patterns, profile):
+    sorted_patterns = sorted(
+        patterns, key=lambda p: (p.severity != 'critical', -p.confidence_score)
+    )
+    recs = []
+    for pattern in sorted_patterns[:7]:
+        if pattern.is_strength:
+            rec = Recommendation(
+                category=f"Leverage Your {pattern.pattern_type.title()} Strength",
+                title=f"You're strong at {pattern.pattern_subtype}",
+                severity="positive", recommendation_type="strength_building",
+                confidence=pattern.confidence_score
+            )
+        else:
+            rec = Recommendation(
+                category=pattern.pattern_type.title(),
+                title=f"Work on {pattern.pattern_subtype}",
+                severity=pattern.severity, recommendation_type="weakness_correction",
+                drill_type=pattern.recommended_drill_type,
+                confidence=pattern.confidence_score
+            )
+        recs.append(rec)
+    return recs</code></pre>
+    </div>
+
+    <h3 class="sub-heading">10.3 Time-Based Recommendations</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-python">def build_time_management_recommendations(timing_patterns):
+    recs = []
+    if timing_patterns.overthink_tendency > 0.3:
+        recs.append(Recommendation(
+            category="Time Management",
+            title="Overthinking is hurting your play",
+            description=f"You spend 2+ minutes on {timing_patterns.overthink_tendency:.0%} of moves. "
+                        "Practice setting a 1-minute limit for non-critical positions.",
+            drill_type="timed_decision_practice"
+        ))
+    if timing_patterns.impulsive_tendency > 0.4:
+        recs.append(Recommendation(
+            category="Time Management",
+            title="You're playing too quickly",
+            description=f"{timing_patterns.impulsive_tendency:.0%} of your moves are played in under 5 seconds. "
+                        "Force yourself to spend at least 15 seconds on every move.",
+            drill_type="slow_play_training"
+        ))
+    return recs</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 11 -->
+  <section class="section-block">
+    <div id="s11" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">11</span>
+      <h2 class="section-title">Frontend Architecture (Next.js)</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">11.1 API Service Layer (<code class="inline">services/api.ts</code>)</h3>
+    <ul>
+      <li><code class="inline">users.getByUsername(username)</code>, <code class="inline">users.create(payload)</code></li>
+      <li><code class="inline">games.fetchRecent(userId, filters)</code>, <code class="inline">games.getForUser(userId)</code></li>
+      <li><code class="inline">analysis.analyzeGames(userId)</code>, <code class="inline">analysis.getSummary(userId)</code></li>
+      <li><code class="inline">patterns.getPlayerPatterns(userId)</code>, <code class="inline">patterns.getPlayerProfile(userId)</code></li>
+      <li><code class="inline">coach.sendMessage(userId, message, sessionId)</code>, <code class="inline">coach.getConversationHistory(userId, sessionId)</code></li>
+      <li><code class="inline">timing.getTimeAnalysis(userId)</code></li>
+    </ul>
+
+    <h3 class="sub-heading">11.2 Key Pages</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Page</th><th>Key Components</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><code class="inline">pages/index.tsx</code></td><td>Login form, filter selection, game fetch</td><td>States: <code class="inline">loading</code>, <code class="inline">pollingStatus</code></td></tr>
+          <tr><td><code class="inline">pages/dashboard.tsx</code></td><td>AI Coach Card, Pattern Summary, Performance Cards, Phase Charts</td><td>React Query for all data sources</td></tr>
+          <tr><td><code class="inline">pages/patterns.tsx</code> <span class="badge-new">NEW</span></td><td><code class="inline">PatternList</code>, <code class="inline">PatternCard</code>, <code class="inline">PatternFilterBar</code>, <code class="inline">PatternDetailModal</code></td><td>Filterable by type/severity/strength</td></tr>
+          <tr><td><code class="inline">pages/coach.tsx</code> <span class="badge-new">NEW</span></td><td><code class="inline">ChatInterface</code>, <code class="inline">MessageBubble</code>, <code class="inline">SuggestionChips</code>, <code class="inline">DrillSuggestionCard</code></td><td>Optional streaming responses</td></tr>
+          <tr><td><code class="inline">pages/timing.tsx</code> <span class="badge-new">NEW</span></td><td><code class="inline">TimeDistributionChart</code>, <code class="inline">TimePressureMap</code>, <code class="inline">BehavioralInsightsCard</code></td><td>Think-time vs. accuracy correlation</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">11.3 New Component Interfaces</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-typescript">interface PatternCardProps {
+  pattern: PlayerPattern;
+  onViewDetails: () => void;
+  onStartDrill: () => void;
+  // Color-coded severity badge, confidence score, occurrence count,
+  // mini FEN preview, trend arrow (improving/stable/declining)
+}
+
+interface CoachChatProps {
+  userId: number;
+  sessionId?: string;
+  initialSuggestions?: string[];
+  // Message threading with history, markdown rendering,
+  // pattern citation links, typing indicator
+}
+
+interface PlayerArchetypeBadgeProps {
+  archetype: string;
+  strengths: string[];
+  weaknesses: string[];
+  // Icon based on archetype, style indicator bars
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 12 -->
+  <section class="section-block">
+    <div id="s12" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">12</span>
+      <h2 class="section-title">API Specification</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">12.1 Pattern Recognition APIs</h3>
+
+    <h4 class="sub-sub-heading">GET <code class="inline">/api/v1/patterns/{user_id}</code></h4>
+    <p>Fetch all detected patterns. Query params: <code class="inline">type</code>, <code class="inline">severity</code>, <code class="inline">is_strength</code>, <code class="inline">limit</code>.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">{
+  "user_id": 123,
+  "total_patterns": 15,
+  "patterns": [{
+    "id": 456,
+    "pattern_type": "tactical",
+    "pattern_subtype": "missed_knight_forks",
+    "severity": "critical",
+    "confidence_score": 0.87,
+    "occurrence_count": 12,
+    "affected_games_count": 8,
+    "affected_games_ratio": 0.42,
+    "trend_direction": "stable",
+    "is_strength": false,
+    "recommended_drill_type": "knight_fork_tactics",
+    "example_positions": [{
+      "game_id": 789, "move_number": 24,
+      "fen": "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 5",
+      "explanation": "Knight fork on d5 would win material"
+    }]
+  }]
+}</code></pre>
+    </div>
+
+    <h4 class="sub-sub-heading">GET <code class="inline">/api/v1/patterns/{user_id}/profile</code></h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">{
+  "user_id": 123,
+  "archetype": "The Tactician with Endgame Blind Spots",
+  "primary_strengths": ["tactical_vision", "attacking_play"],
+  "primary_weaknesses": ["endgame_technique", "pawn_endgames"],
+  "style_indicators": {
+    "positional_vs_tactical": "tactical",
+    "open_vs_closed": "open",
+    "aggressive_vs_conservative": "aggressive"
+  },
+  "phase_performance": { "opening": 72, "middlegame": 78, "endgame": 58 },
+  "profile_summary": "You're a strong tactical player who thrives in open positions...",
+  "games_analyzed_count": 156
+}</code></pre>
+    </div>
+
+    <h3 class="sub-heading">12.2 AI Coach APIs</h3>
+
+    <h4 class="sub-sub-heading">POST <code class="inline">/api/v1/coach/chat</code></h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">// Request
+{ "message": "Why do I keep missing knight forks?", "session_id": "uuid-123" }
+
+// Response
+{
+  "message": "Based on your game history, you've missed 12 knight fork opportunities...",
+  "referenced_patterns": [{ "id": 456, "type": "tactical" }],
+  "suggested_drills": [{
+    "type": "knight_fork_tactics",
+    "description": "Practice recognizing knight fork patterns",
+    "estimated_time": "15 minutes"
+  }],
+  "session_id": "uuid-123"
+}</code></pre>
+    </div>
+
+    <h4 class="sub-sub-heading">GET <code class="inline">/api/v1/coach/suggestions</code></h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">{
+  "suggestions": [
+    { "type": "pattern_based", "text": "Why do I keep missing knight forks?", "pattern_id": 456 },
+    { "type": "opening", "text": "How can I improve my French Defense?", "pattern_id": 789 },
+    { "type": "general", "text": "What should I focus on to improve?" }
+  ]
+}</code></pre>
+    </div>
+
+    <h3 class="sub-heading">12.3 Move Timing API</h3>
+    <h4 class="sub-sub-heading">GET <code class="inline">/api/v1/timing/{user_id}</code></h4>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-json">{
+  "timing_patterns": {
+    "overthink_tendency": 0.25,
+    "impulsive_tendency": 0.15,
+    "time_pressure_ratio": 0.30,
+    "avg_think_time_by_phase": { "opening": 8.5, "middlegame": 45.2, "endgame": 12.1 }
+  },
+  "think_time_accuracy_correlation": {
+    "under_10_seconds": 0.58, "10_to_30_seconds": 0.72,
+    "30_to_60_seconds": 0.78, "over_60_seconds": 0.74
+  }
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- Section 13 -->
+  <section class="section-block">
+    <div id="s13" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">13</span>
+      <h2 class="section-title">Testing Strategy</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">13.1 Backend</h3>
+    <ul>
+      <li><strong>Unit tests:</strong> PGN parsing and move classification, ACPL/accuracy calculations, phase segmentation</li>
+      <li><strong>API tests</strong> (pytest + httpx): User creation/fetching, games fetch (mocked Chess.com), analysis endpoints (mocked Stockfish)</li>
+      <li><strong>Integration tests:</strong> End-to-end: fetch games → enqueue analysis → produce summary</li>
+    </ul>
+
+    <h3 class="sub-heading">13.2 Frontend</h3>
+    <ul>
+      <li><strong>Unit/Component tests</strong> (Jest + React Testing Library): Dashboard charts with mocked data, games list collapse/expand, analyze button states</li>
+      <li><strong>E2E tests</strong> (Playwright/Cypress, optional): Landing → fetch games → dashboard flow</li>
+    </ul>
+  </section>
+
+  <!-- Section 14 -->
+  <section class="section-block">
+    <div id="s14" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">14</span>
+      <h2 class="section-title">Failure Modes &amp; Handling</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Failure Mode</th><th>Detection</th><th>Handling</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Malformed PGNs</strong></td><td>Parse exception</td><td>Log error with game id, skip game, mark <code class="inline">invalid_pgn</code>, continue batch</td></tr>
+          <tr><td><strong>Chess.com Rate Limit</strong></td><td>HTTP 429</td><td>Set Redis cooldown for username, return 503 to frontend with friendly message</td></tr>
+          <tr><td><strong>Supabase / DB Issues</strong></td><td>Connection error</td><td>Exponential backoff, log, return 503: "Service temporarily unavailable"</td></tr>
+          <tr><td><strong>LLM Service Failure</strong> <span class="badge-new">NEW</span></td><td>HTTP 429/500 from provider</td><td>Return cached fallback; show "AI Coach temporarily unavailable"; queue for retry</td></tr>
+          <tr><td><strong>Pattern Detection Failure</strong> <span class="badge-new">NEW</span></td><td>Celery task failure after max retries</td><td>Log failure; still show Stockfish results; schedule retry in 1 hour; alert engineering</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="sub-heading">14.7 End-to-End Analysis Data Flow</h3>
+    <div class="diagram-wrapper">
+      <span class="diagram-label">Complete Data Flow: Game Fetch → Analysis → Pattern → Coach</span>
+      <pre class="mermaid">
+flowchart TB
+    FE[Next.js Frontend]
+
+    subgraph APILayer["API Layer"]
+        API[FastAPI Gateway]
+        COACH[AI Coach API]
+        PATTERN[Pattern API]
+    end
+    subgraph Workers["Background Workers"]
+        CELERYQ[(Celery Queue)]
+        W1[Analysis Worker]
+        W2[Pattern Worker]
+        W3[Profile Worker]
+    end
+    subgraph External["External Services"]
+        CHESSCOM[Chess.com API]
+        STOCKFISH[Stockfish Engine]
+        LLM[OpenAI/Anthropic API]
+    end
+    subgraph DataLayer["Data Layer"]
+        DB[(Supabase Postgres)]
+        REDIS[(Redis Cache)]
+    end
+
+    FE -->|1. Fetch Games| API
+    API -->|2. GET games| CHESSCOM
+    CHESSCOM -->|3. Return games| API
+    API -->|4. Store games| DB
+
+    FE -->|5. Analyze Request| API
+    API -->|6. Enqueue| CELERYQ
+    CELERYQ -->|7. Dequeue| W1
+    W1 -->|8. Run analysis| STOCKFISH
+    W1 -->|9. Store results| DB
+    W1 -->|10. Trigger| W2
+    W2 -->|11. Detect patterns| DB
+    W2 -->|12. Store patterns| DB
+    W2 -->|13. Trigger| W3
+    W3 -->|14. Generate profile| DB
+
+    FE -->|15. Chat request| COACH
+    COACH -->|16. Context lookup| DB
+    COACH -->|17. LLM call| LLM
+    LLM -->|18. Response| COACH
+    COACH -->|19. Store conversation| DB
+
+    FE -->|20. Pattern query| PATTERN
+    PATTERN -->|21. Read + Cache| REDIS
+    FE -->|22. Poll summary| API
+    API -->|23. Read| DB
+    API --> FE
+      </pre>
+    </div>
+  </section>
+
+  <!-- Section 15 -->
+  <section class="section-block">
+    <div id="s15" class="section-anchor"></div>
+    <div class="section-heading">
+      <span class="section-ghost-num">15</span>
+      <h2 class="section-title">Summary</h2>
+    </div>
+    <div class="section-divider"></div>
+
+    <h3 class="sub-heading">Core Innovation: Layered Intelligence Architecture</h3>
+    <ol>
+      <li><strong>Stockfish Analysis Layer</strong> — Position-by-position engine evaluation</li>
+      <li><strong>Pattern Recognition Engine</strong> — Longitudinal pattern detection across game history</li>
+      <li><strong>AI Coach Service</strong> — Conversational synthesis with context-aware prompting</li>
+    </ol>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Component</th><th>Key Points</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Data Layer</strong></td><td>5 new tables: <code class="inline">move_timing_data</code>, <code class="inline">player_patterns</code>, <code class="inline">player_profiles</code>, <code class="inline">coach_conversations</code>, <code class="inline">pattern_examples</code></td></tr>
+          <tr><td><strong>Analysis Pipeline</strong></td><td>Multi-stage Celery workflow: Stockfish → Patterns → Profile → AI Coach</td></tr>
+          <tr><td><strong>AI Integration</strong></td><td>Context assembly, prompt engineering, session management, optional streaming</td></tr>
+          <tr><td><strong>Frontend</strong></td><td>New pages: <code class="inline">/patterns</code>, <code class="inline">/coach</code>, <code class="inline">/timing</code>; new component library</td></tr>
+          <tr><td><strong>Scalability</strong></td><td>Redis caching (30-min profiles), exponential backoff, rate limiting on all external calls</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:28px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text-muted)"><strong>Document Version:</strong> 1.0 · <strong>Last Updated:</strong> 2025-01-12</p>
+  </section>
+
+</div>
+</main>
+
+<button id="back-to-top" title="Back to top">↑</button>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>
