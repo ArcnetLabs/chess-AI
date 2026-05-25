@@ -105,6 +105,11 @@ development:  feature/<topic>, fix/<topic>,
    gh api -X PATCH repos/ArcnetLabs/chess-AI -F delete_branch_on_merge=true
    ```
 
+   **If `staging` is accidentally deleted from GitHub** (verify with `gh api repos/ArcnetLabs/chess-AI/branches --jq '.[].name'`), restore it immediately:
+   ```bash
+   git checkout staging && git push origin staging
+   ```
+
 6. **Always delete PR (feature) branches after a successful merge.** GitHub is configured with `delete_branch_on_merge: true` for normal feature-branch PRs. If you delete manually, clean up both sides:
    ```bash
    git branch -D <branch>
@@ -123,6 +128,7 @@ development:  feature/<topic>, fix/<topic>,
 - Keep PRs small and focused. If a PR grows beyond a single concern, split it.
 - PR titles should accurately reflect the actual scope of the change — do not label a feature PR as "docs" or vice versa.
 - **PowerShell note:** bash heredocs (`$(cat <<'EOF' ... EOF)`) do not work in PowerShell. Write multi-line commit messages to a temp file and use `git commit -F <file>`.
+- **Remote URL note:** The repository moved from `CIPHER-000/chess-AI` to `ArcnetLabs/chess-AI`. If push/PR commands fail with "Head repository can't be blank", fix the remote: `git remote set-url origin https://github.com/ArcnetLabs/chess-AI.git`.
 
 ---
 
