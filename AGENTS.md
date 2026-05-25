@@ -30,19 +30,34 @@ development:  feature/<topic>, fix/<topic>,
 **Rules:**
 
 1. **Never push directly to `main` or `staging`.** Always create a feature branch, open a PR, and merge through the GitHub UI or `gh pr merge`.
-2. **Feature branches target `staging`** for normal work. Promote `staging` → `main` only when releasing a tested set of changes, and only when the user explicitly asks for a release.
-3. **Auto-merge PRs targeting `staging` without waiting for confirmation.** When you (the agent) open a PR into `staging` as part of completing a requested task, merge it as soon as it is pushed and any required checks pass. Do **not** pause to ask the user. Exceptions:
-   - The user explicitly told you to wait, hold, or "open the PR but don't merge."
-   - The PR introduces a destructive / irreversible change (history rewrite, schema-destructive migration, secret rotation, mass deletion).
-   - CI has not yet been configured but is requested for this change.
-4. **PRs targeting `main` always require explicit user approval before merging.** `main` is production; do not auto-merge into it.
-5. **Always delete PR branches after a successful merge.** GitHub is configured with `delete_branch_on_merge: true`, so merged PR branches auto-delete remotely. If you delete manually, clean up both sides:
+2. **Feature branches target `staging`** for normal work. Promote `staging` → `main` whenever `staging` is ahead of `main` and represents a coherent, shippable state (i.e. the requested task is complete). You do not need to wait for the user to ask for a release — the auto-merge policy in rule 3 applies.
+3. **Auto-merge every PR you open without waiting for the user.** This applies to PRs targeting **`staging`** (integration) and PRs targeting **`main`** (release / promotion). The user has explicitly opted into this fast workflow — do not pause to ask "should I merge now?" or "is this OK to promote?". As soon as the PR is pushed and any required checks pass, merge it.
+
+   **Exceptions where you must NOT auto-merge:**
+   - The user explicitly told you to wait, hold, "open the PR but don't merge yet", or any equivalent.
+   - The PR contains a destructive / irreversible change: history rewrite, force-push to a shared branch, schema-destructive migration (data loss), secret rotation, or mass deletion of tracked content. This is a hard agent-safety rule and overrides this auto-merge policy.
+   - CI is configured for this repo and the required checks have not yet passed (let the auto-merge queue handle it, or wait).
+
+4. **`main` releases are still proper releases.** Even though `main` auto-merges, the PR title and body should describe the release scope. Promote `staging` → `main` only when `staging` represents a coherent shippable state (not a half-done refactor).
+
+5. **Long-lived branches (`main`, `staging`) must not be deleted on merge.** When opening a `staging` → `main` PR, temporarily disable `delete_branch_on_merge` at the repo level so that the merge does not delete `staging`. Re-enable it immediately after.
+
+   ```bash
+   # before staging -> main merge
+   gh api -X PATCH repos/ArcnetLabs/chess-AI -F delete_branch_on_merge=false
+   # after staging -> main merge
+   gh api -X PATCH repos/ArcnetLabs/chess-AI -F delete_branch_on_merge=true
+   ```
+
+6. **Always delete PR (feature) branches after a successful merge.** GitHub is configured with `delete_branch_on_merge: true` for normal feature-branch PRs. If you delete manually, clean up both sides:
    ```bash
    git branch -D <branch>
    git push origin --delete <branch>
    ```
-6. **Never force-push `main` or `staging`.** Force-push only your own feature branches, and only when necessary.
-7. **Never rewrite history that has been pushed to a shared branch.**
+
+7. **Never force-push `main` or `staging`.** Force-push only your own feature branches, and only when necessary.
+
+8. **Never rewrite history that has been pushed to a shared branch.**
 
 ---
 
