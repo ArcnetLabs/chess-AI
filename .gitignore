@@ -288,6 +288,11 @@ commit-*.ps1
 # IDE specific
 .windsurf/
 
+# Cursor internal state — track rules but not the rest
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+
 # Stockfish binaries (download separately)
 backend/stockfish/*.exe
 backend/stockfish/stockfish
@@ -295,6 +300,16 @@ backend/stockfish/stockfish
 
 # Design prompts (local reference only)
 STITCHES_DESIGN_PROMPT.md
+
+# Reference source clones — too large to commit; READMEs are tracked
+reference/*/ssr-source/
+reference/*/supabase-js-src/
+reference/stockfish/python-chess/
+reference/chess/python-chess/
+reference/nextjs-patterns/nextjs-repo/
+reference/queue-workers/celery-source/
+reference/websocket-patterns/fastapi-source/
+reference/websocket-patterns/nextjs-ws/
 
 # Backup / scratch files
 *.bak

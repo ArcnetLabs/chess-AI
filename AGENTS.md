@@ -13,6 +13,62 @@ This file encodes conventions that are not (or cannot be) enforced by branch pro
 - `docs/` — Canonical documentation. Start at [`docs/README.md`](docs/README.md). Historical / implementation-status notes are archived under `docs/archive/`.
 - `docker-compose.yml` — Local dev stack (postgres, redis, backend, frontend, celery worker).
 - `docker-compose.production.yml`, `render.yaml`, `netlify.toml` — Production deployment configs.
+- `.cursor/rules/` — Persistent Cursor rules applied to every session in this repo (see below).
+- `skills/` — Reusable agent workflow guides for ChessIQ-specific tasks.
+- `workflows/` — Engineering workflow documentation (backend, frontend, review, multi-agent).
+- `reference/` — Source code references for libraries; agents search here before guessing APIs.
+
+---
+
+## Agentic Engineering Structure
+
+### Cursor Rules (`.cursor/rules/`)
+
+Always-active rules enforced on every session:
+
+| File | Scope | Enforces |
+|------|-------|---------|
+| `architecture.mdc` | always | Layered service design, Stockfish/LLM access points, no duplicate logic |
+| `backend.mdc` | `backend/**/*.py` | FastAPI patterns, Celery tasks, engine pool usage |
+| `frontend.mdc` | `frontend/**/*.{ts,tsx}` | Pages Router, Supabase auth patterns, api.ts boundary |
+| `review-loops.mdc` | always | PR scope discipline, grep checks, merge checklist |
+
+### Skills (`skills/`)
+
+Load the relevant skill file at the start of each task type:
+
+| Skill | Use when |
+|-------|---------|
+| `feature-planning.md` | Before implementing any non-trivial feature |
+| `code-cleanup.md` | After a feature is merged — separate cleanup PR |
+| `review-loop.md` | Iterating on PR feedback |
+| `source-context.md` | Integrating a library where docs may be stale |
+| `backend-implementation.md` | Adding a FastAPI route/service/task |
+| `frontend-implementation.md` | Adding a page/component/hook |
+| `chess-analysis-workflow.md` | Any Stockfish, pattern recognition, or LLM coaching work |
+| `grep-loop-review.md` | Pre-merge architecture and security inspection |
+
+### Workflows (`workflows/`)
+
+| Workflow | Read when |
+|---------|---------|
+| `backend-workflow.md` | Implementing backend features |
+| `frontend-workflow.md` | Implementing frontend features |
+| `review-workflow.md` | Reviewing or merging a PR |
+| `grep-review-workflow.md` | Running the full grep inspection suite |
+| `multi-agent-coordination.md` | Multiple agents working in parallel |
+
+### Reference (`reference/`)
+
+Source code references — search here before guessing library APIs:
+- `chess/` — python-chess, PGN parsing
+- `stockfish/` — UCI protocol, engine pool patterns
+- `supabase/` — `@supabase/ssr` cookie API, RLS patterns
+- `nextjs-patterns/` — Pages Router patterns, middleware
+- `websocket-patterns/` — Real-time analysis streaming (future)
+- `queue-workers/` — Celery task patterns, Redis queues
+
+See [`reference/README.md`](reference/README.md) for setup instructions.
 
 ---
 
