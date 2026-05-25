@@ -72,3 +72,37 @@ npx supabase gen types typescript --project-id zfcidmlsstfgykpnnyjp > frontend/s
 ```
 
 Replace the `Database = Record<string, any>` placeholder.
+
+---
+
+## How Agents Should Inspect This Reference
+
+```bash
+# Find current cookie handler API in @supabase/ssr
+rg "parseCookieHeader\|serializeCookieHeader\|getAll\|setAll" reference/supabase/ssr-source/ --type ts
+
+# Find createServerClient signature
+rg "export.*createServerClient\|CookieOptions" reference/supabase/ssr-source/ --type ts
+
+# Find createBrowserClient
+rg "export.*createBrowserClient" reference/supabase/ssr-source/ --type ts
+
+# Verify existing ChessIQ client setup before touching it
+rg "createServerClient\|createBrowserClient\|parseCookieHeader" frontend/src/ --type ts
+```
+
+## Reuse Safeguards — Never Duplicate These
+
+| Pattern | Lives in ChessIQ | Never recreate in |
+|---------|-----------------|-------------------|
+| Browser Supabase client | `frontend/src/lib/supabase/client.ts` | Components, hooks, pages |
+| Server Supabase client | `frontend/src/lib/supabase/server.ts` | `getServerSideProps` (use `withAuth` instead) |
+| Session validation | `frontend/src/lib/auth/session.ts` → `getServerUser()` | Direct `supabase.auth.getUser()` calls in pages |
+| Protected page HOC | `frontend/src/lib/auth/withAuth.ts` | Manual redirect logic in pages |
+| Token refresh | `frontend/src/middleware.ts` | Individual pages or API routes |
+
+```bash
+# Check for auth pattern duplication before adding auth logic:
+rg "supabase\.auth\." frontend/src/pages/ --type ts
+# Should return nothing — pages use withAuth(), not direct auth calls
+```

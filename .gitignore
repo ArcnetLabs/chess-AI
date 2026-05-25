@@ -314,6 +314,9 @@ reference/nextjs-patterns/nextjs-repo/
 reference/queue-workers/celery-source/
 reference/websocket-patterns/fastapi-source/
 reference/websocket-patterns/nextjs-ws/
+reference/ai-chat/ollama-source/
+reference/ai-chat/openai-source/
+reference/ai-chat/anthropic-source/
 
 # Backup / scratch files
 *.bak

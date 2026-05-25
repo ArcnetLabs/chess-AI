@@ -114,3 +114,34 @@ CELERY_RESULT_SERIALIZER=json
 
 In local development: `celery -A app.celery_app flower --port=5555`
 In production: configure Flower behind authentication or use the Render dashboard.
+
+---
+
+## How Agents Should Inspect This Reference
+
+```bash
+# Find task retry patterns in Celery source
+rg "self\.retry\|max_retries\|countdown" reference/queue-workers/celery-source/ --type py -l
+
+# Find chain/chord/group patterns
+rg "chain\|chord\|group\|canvas" reference/queue-workers/celery-source/celery/ --type py -l
+
+# Verify existing ChessIQ tasks before adding new ones
+rg "@celery_app.task\|@app.task" backend/app/tasks/ --type py
+rg "\.delay\(\|\.apply_async\(" backend/app/ --type py -l
+```
+
+## Reuse Safeguards — Never Duplicate These
+
+| Pattern | Lives in ChessIQ | Never recreate in |
+|---------|-----------------|-------------------|
+| Task definitions | `backend/app/tasks/analysis_tasks.py` | New task files per feature |
+| Celery app configuration | `backend/app/celery_app.py` | Route files or service files |
+| Task result polling endpoint | `/api/v1/tasks/{id}/status` | Custom polling implementations |
+| Retry logic pattern | Standardized in `analysis_tasks.py` | Inline in service functions |
+
+```bash
+# Verify no inline delay() calls outside proper task wiring:
+rg "\.delay\(\|\.apply_async\(" backend/app/api/ --type py
+# Routes may call .delay() — but the task definition must be in analysis_tasks.py
+```

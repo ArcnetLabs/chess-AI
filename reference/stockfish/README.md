@@ -68,3 +68,33 @@ Override per-request in service calls:
 ```python
 result = await pool.analyze(board, depth=18, time_limit=2.0)  # for critical positions
 ```
+
+---
+
+## How Agents Should Inspect This Reference
+
+```bash
+# Find engine UCI protocol handling in python-chess
+rg "class.*Engine\|async def analyze\|def popen" reference/stockfish/python-chess/chess/engine.py
+
+# Find analysis result structure
+rg "class.*Info\|class.*PovScore\|bestmove\|score" reference/stockfish/python-chess/chess/engine.py
+
+# Verify engine pool API before using it
+rg "def analyze\|def batch_analyze\|async def" backend/app/services/engine/ --type py
+```
+
+## Reuse Safeguards — Never Duplicate These
+
+| Pattern | Lives in ChessIQ | Never recreate in |
+|---------|-----------------|-------------------|
+| Engine process management | `engine_pool.py` | Routes, tasks, or any other service |
+| CP evaluation thresholds | `engine_pool.py` / `unified_analyzer.py` | Hardcoded values anywhere else |
+| Depth/time defaults | Environment variables | Hardcoded literals in function calls |
+| Batch analysis loop | `unified_analyzer.py` | Routes or Celery tasks |
+
+```bash
+# Verify no Stockfish access outside the pool:
+rg "SimpleEngine\|popen_uci\|chess\.engine\." backend/app/ --type py
+# Should only return results inside engine_pool.py itself
+```
