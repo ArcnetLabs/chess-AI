@@ -34,7 +34,8 @@ docs/
 │   ├── pricing_monetization_strategy.html
 │   ├── shared.css
 │   └── shared.js
-└── archive/                        # Historical implementation notes & status reports
+└── archive/                        # Historical implementation notes & reference guides
+    └── legacy-docs/                # Generated reports, phase notes, one-off fix summaries
 ```
 
 ---
@@ -80,7 +81,12 @@ For the Render.com configuration, see the root `render.yaml`.
 A self-contained, statically-rendered HTML version of the document suite (product, technical, AI model, memory architecture, pricing). Open `html/index.html` in a browser to navigate.
 
 ### Archive (`archive/`)
-Historical implementation reports, phase completion notes, design prompts, status reports, and debugging summaries that have been superseded by the documents above but are retained for context. **Do not treat archive contents as current truth.** Files are prefixed with their original location when moved from `backend/`, `frontend/`, or the repo root.
+Historical documents that have been superseded by the active docs above but retain reference value — Stockfish guides, Celery manuals, setup walkthroughs, user flow maps, and chatbot design docs. **Do not treat archive contents as current truth.** Files are prefixed with their original location when moved from `backend/`, `frontend/`, or the repo root.
+
+Also contains archived Python scripts and SQL utilities (prefixed `backend_`) that were used for manual diagnostics during early development.
+
+#### `archive/legacy-docs/`
+Pure noise: generated phase-completion reports, status snapshots, one-off bugfix notes, and design tool artifacts. Retained only as an audit trail. Never reference these in active development.
 
 ---
 
