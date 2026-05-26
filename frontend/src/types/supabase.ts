@@ -12,8 +12,7 @@
  * placeholder block.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Database = Record<string, any>
+export type Database = Record<string, unknown>
 
 /**
  * Convenience re-exports so the rest of the codebase can import auth types
