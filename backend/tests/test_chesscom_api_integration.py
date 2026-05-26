@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from app.services.chesscom_api import ChessComAPI, ChessComAPIError
+from app.services.integration.chesscom_api import ChessComAPI, ChessComAPIError
 
 
 @pytest.mark.asyncio

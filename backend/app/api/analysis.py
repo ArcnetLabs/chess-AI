@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from ..core.database import get_db
 from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis
-from ..services.analysis.unified_analyzer import UnifiedChessAnalyzer
 from ..services.tier_service import get_tier_service
 from ..core.config import settings
 from ..tasks.analysis_tasks import analyze_game_task, analyze_batch_games_task

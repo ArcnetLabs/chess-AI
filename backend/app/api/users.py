@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from ..core.database import get_db
 from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import Game, User
-from ..services.chesscom_api import (
+from ..services.integration.chesscom_api import (
     ChessComAPIError,
     RateLimitExceeded,
     chesscom_api,
