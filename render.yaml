@@ -4,6 +4,8 @@ services:
     name: chess-insight-redis
     plan: free
     region: oregon
+    # Required by Render for Key Value / Redis. Empty list = internal-only (Render private network).
+    ipAllowList: []
 
   # Backend API Service
   - type: web
