@@ -91,7 +91,8 @@ services:
       pip install -r requirements.txt
     startCommand: |
       cd backend
-      celery -A app.celery_app worker --loglevel=info -Q analysis
+      python scripts/verify_celery_worker_env.py
+      celery -A app.celery_app:celery_app worker --loglevel=info -Q analysis --concurrency=1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0

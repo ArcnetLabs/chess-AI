@@ -12,12 +12,17 @@ if [ -x "${BINARY}" ]; then
 fi
 
 mkdir -p "${STOCKFISH_DIR}"
-cd "${STOCKFISH_DIR}"
+TMP_DIR="${STOCKFISH_DIR}/.build"
+rm -rf "${TMP_DIR}"
+mkdir -p "${TMP_DIR}"
+cd "${TMP_DIR}"
 
 wget -q https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar
 tar -xf stockfish-ubuntu-x86-64-avx2.tar
-mv stockfish/stockfish-ubuntu-x86-64-avx2 stockfish
-chmod +x stockfish
-rm -rf stockfish-ubuntu-x86-64-avx2.tar stockfish
 
+# Tar layout: stockfish/stockfish-ubuntu-x86-64-avx2 (single binary)
+mv stockfish/stockfish-ubuntu-x86-64-avx2 "${BINARY}"
+chmod +x "${BINARY}"
+
+rm -rf "${TMP_DIR}"
 echo "Stockfish installed at ${BINARY}"
