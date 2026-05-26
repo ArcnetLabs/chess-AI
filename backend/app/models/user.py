@@ -67,6 +67,12 @@ class User(Base):
     # Relationships
     games = relationship("Game", back_populates="user", cascade="all, delete-orphan")
     insights = relationship("UserInsight", back_populates="user", cascade="all, delete-orphan")
+    patterns = relationship(
+        "PlayerPattern", back_populates="user", cascade="all, delete-orphan"
+    )
+    pattern_occurrences = relationship(
+        "PatternOccurrence", back_populates="user", cascade="all, delete-orphan"
+    )
     
     @property
     def is_authenticated(self) -> bool:

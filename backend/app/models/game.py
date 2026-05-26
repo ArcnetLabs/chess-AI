@@ -46,6 +46,9 @@ class Game(Base):
     # Relationships
     user = relationship("User", back_populates="games")
     analysis = relationship("GameAnalysis", back_populates="game", uselist=False, cascade="all, delete-orphan")
+    pattern_occurrences = relationship(
+        "PatternOccurrence", back_populates="game", cascade="all, delete-orphan"
+    )
     
     def __repr__(self):
         return f"<Game(id='{self.chesscom_game_id}', {self.white_username} vs {self.black_username})>"
