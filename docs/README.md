@@ -26,7 +26,8 @@ docs/
 ├── deployment/                     # Deployment & operations
 │   ├── DEPLOYMENT_GUIDE.md
 │   ├── DOCKER_GUIDE.md
-│   └── NETLIFY_DEPLOYMENT.md
+│   ├── NETLIFY_DEPLOYMENT.md
+│   └── infrastructure-stabilization-report.md   # P0 infra sign-off (2026-05-26)
 ├── html/                           # Rendered HTML version of the doc suite
 │   ├── index.html
 │   ├── frd_product.html
@@ -59,7 +60,7 @@ docs/
 | New to the project | [`../README.md`](../README.md) → [`product/FRD_PRODUCT.md`](./product/FRD_PRODUCT.md) → [`audit/README.md`](./audit/README.md) |
 | **Picking up the codebase after recent changes** | [`audit/system-state-audit.md`](./audit/system-state-audit.md) — current health, broken systems, remediation plan |
 | Building a feature | [`audit/recommended-remediation-roadmap.md`](./audit/recommended-remediation-roadmap.md) (check P0 status first) → [`requirements/FRD_TECHNICAL.md`](./requirements/FRD_TECHNICAL.md) → relevant doc in [`architecture/`](./architecture/) |
-| Deploying or running ops | [`deployment/DEPLOYMENT_GUIDE.md`](./deployment/DEPLOYMENT_GUIDE.md) → [`deployment/DOCKER_GUIDE.md`](./deployment/DOCKER_GUIDE.md) or [`deployment/NETLIFY_DEPLOYMENT.md`](./deployment/NETLIFY_DEPLOYMENT.md) |
+| Deploying or running ops | [`deployment/infrastructure-stabilization-report.md`](./deployment/infrastructure-stabilization-report.md) → [`deployment/DEPLOYMENT_GUIDE.md`](./deployment/DEPLOYMENT_GUIDE.md) → [`deployment/DOCKER_GUIDE.md`](./deployment/DOCKER_GUIDE.md) |
 | Working on AI / RAG / memory | [`architecture/AI_MODEL_STRATEGY.md`](./architecture/AI_MODEL_STRATEGY.md) + [`architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`](./architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md) |
 | Working on pricing / packaging | [`strategy/PRICING_MONETIZATION_STRATEGY.md`](./strategy/PRICING_MONETIZATION_STRATEGY.md) |
 | Planning expansion | [`strategy/FUTURE_SERVICES_EXPANSION_STRATEGY.md`](./strategy/FUTURE_SERVICES_EXPANSION_STRATEGY.md) |

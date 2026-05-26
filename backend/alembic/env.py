@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # Load .env file before importing settings
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent.parent / '.env'
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 from app.core.config import settings
 from app.core.database import Base
@@ -38,6 +38,13 @@ def get_database_url():
     """Get database URL from environment — PostgreSQL only, no silent fallback."""
     db_url = os.getenv("DATABASE_URL") or settings.DATABASE_URL
     if db_url:
+        if db_url.startswith("sqlite") and os.getenv("TESTING") != "1":
+            raise RuntimeError(
+                "SQLite is not allowed for Alembic outside pytest. "
+                "Set DATABASE_URL to a PostgreSQL connection string."
+            )
+        if not db_url.startswith(("postgresql", "sqlite")):
+            raise RuntimeError(f"Unsupported DATABASE_URL scheme in {db_url[:20]}...")
         return db_url
 
     if os.getenv("POSTGRES_SERVER"):
