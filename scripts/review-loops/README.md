@@ -1,78 +1,132 @@
-# Review-Loop Scripts
+# `scripts/review-loops/`
 
-Executable PowerShell scripts that run the ChessIQ grep-loop review suite automatically.
-These scripts are the runnable counterpart to `skills/grep-loop-review.md` and `workflows/grep-review-process.md`.
+Automated grep-loop review suite for ChessIQ. These scripts enforce the
+architectural invariants declared in
+[`docs/architecture/repository-invariants.md`](../../docs/architecture/repository-invariants.md).
 
----
+They are designed to be:
 
-## Requirements
+- **Deterministic** — same inputs always produce the same outputs.
+- **Composable** — each check is a focused script you can run on its own.
+- **Reportable** — every check supports `-Report` to dump a markdown report
+  into `docs/review-reports/`.
+- **CI-friendly** — exit code `0` = clean, `1` = at least one hard violation.
 
-- `ripgrep` (`rg`) must be on your PATH — install via `winget install BurntSushi.ripgrep.MSVC` or `choco install ripgrep`
-- PowerShell 7+ (cross-platform; also works on PS 5.1 with minor colour differences)
-- Run from the **repository root** (the directory containing `backend/` and `frontend/`)
-
----
-
-## Script Reference
-
-| Script | Purpose | Run time |
-|--------|---------|----------|
-| `full-review.ps1` | Runs all checks and prints a consolidated report | ~10 s |
-| `check-architecture.ps1` | A-series: architecture violations (Stockfish, LLM, SessionLocal, service_role, getSession) | ~3 s |
-| `check-duplicates.ps1` | B-series: duplicate service logic, repeated patterns | ~3 s |
-| `check-security.ps1` | D-series: hardcoded secrets, unguarded routes, anon key leaks | ~3 s |
-| `check-naming.ps1` | C-series: naming inconsistencies across files | ~2 s |
-| `check-db-access.ps1` | E-series: N+1 patterns, missing indexes | ~2 s |
-| `check-sizes.ps1` | File-size guard: flags oversized files that need splitting | ~2 s |
+> The scripts only **inspect**. They never modify the codebase. Use the
+> findings to drive refactor work via `workflows/refactor-review-loop.md`.
 
 ---
 
-## Quickstart
+## The suite
+
+| Script                              | Concern                                                 | Exit non-zero when                                                 |
+|-------------------------------------|---------------------------------------------------------|--------------------------------------------------------------------|
+| `check-file-sizes.ps1`              | Per-file size limits (FS series)                        | Any file exceeds the hard limit for its category                   |
+| `check-duplicates.ps1`              | Duplicate AIClient / analyzer / HTTP client (DP series) | More than one canonical class/module                               |
+| `check-stockfish-violations.ps1`    | Stockfish access boundary (SF series)                   | Stockfish instantiated outside the engine pool                     |
+| `check-route-violations.ps1`        | Route-layer purity (RT series)                          | Routes import infrastructure (SessionLocal, engines, LLM clients)  |
+| `check-db-access-violations.ps1`    | DB-access boundary (DB series)                          | SessionLocal in routes / Supabase queries in components            |
+| `check-auth-guards.ps1`             | Auth dependency coverage (AG series)                    | Mutating endpoints without `Depends(get_current_user)`             |
+| `full-review.ps1`                   | Orchestrator                                            | Any child check fails                                              |
+
+Each script ships in both PowerShell (`.ps1`) and bash (`bash/*.sh`) form.
+The bash ports require [ripgrep](https://github.com/BurntSushi/ripgrep)
+to be on `PATH`.
+
+---
+
+## Quick start (PowerShell — Windows / cross-platform)
 
 ```powershell
-# From repo root — run the full suite
+# Run everything
 .\scripts\review-loops\full-review.ps1
 
-# Run only architecture checks (fastest pre-PR gate)
-.\scripts\review-loops\check-architecture.ps1
+# Run everything and generate markdown reports
+.\scripts\review-loops\full-review.ps1 -Report
 
-# Run only security checks
-.\scripts\review-loops\check-security.ps1
+# Run one focused check
+.\scripts\review-loops\check-auth-guards.ps1 -Report
 ```
 
-Exit codes:
-- `0` — all checks passed (zero real violations)
-- `1` — one or more real violations found
+## Quick start (bash — Linux / macOS / WSL / CI)
 
----
-
-## CI Integration
-
-Add to your CI pipeline before running tests:
-
-```yaml
-- name: Architecture Review
-  shell: pwsh
-  run: .\scripts\review-loops\check-architecture.ps1
+```bash
+chmod +x scripts/review-loops/bash/*.sh
+./scripts/review-loops/bash/full-review.sh
+./scripts/review-loops/bash/full-review.sh --report
+./scripts/review-loops/bash/check-auth-guards.sh --report
 ```
 
 ---
 
-## Adding New Checks
+## Reading the output
 
-1. Add the `rg` command to the appropriate `check-*.ps1` script.
-2. Update `skills/grep-loop-review.md` with the same check (keeps docs and scripts in sync).
-3. Update the quick-check block in `workflows/grep-review-workflow.md`.
-4. Run `full-review.ps1` to confirm the new check works.
+Every check follows the same line format:
+
+```
+  ✓ AG-1 PASS: <description>
+  ✗ AG-1 FAIL (3 matches): <description>
+        backend/app/api/users.py:42:@router.post(...)
+        ...
+    → Fix: Add 'current_user: User = Depends(get_current_user)' to each handler
+```
+
+`PASS` / `FAIL` / `WARN` are the only verdicts. A `WARN` does **not** affect
+exit code — it's a heads-up for the next refactor pass.
+
+When `-Report` is set, the report for each check lands at:
+
+```
+docs/review-reports/<concern>-YYYY-MM-DD-HHmm.md
+```
+
+The orchestrator also writes `full-review-YYYY-MM-DD-HHmm.md`.
 
 ---
 
-## Exemptions
+## Where the rules come from
 
-When a finding is intentional (e.g., `engine_pool.py` directly calling `popen_uci`), add a trailing comment to the source line:
+Each violation ID is grounded in a specific invariant. See:
 
-```python
-engine = chess.engine.SimpleEngine.popen_uci(path)  # grep-exempt: engine pool definition
-```
+- `docs/architecture/repository-invariants.md` — full rule list with rationale.
+- `.cursor/rules/architecture.mdc`, `backend.mdc`, `frontend.mdc`,
+  `review-loops.mdc` — IDE-enforced version of the same rules.
+- `workflows/implementation-review-loop.md` — when each check should run
+  during the development cycle.
 
-The review scripts do not filter exemptions automatically — triage them manually and note them in your PR description.
+If a rule produces too many false positives, **update the rule and the
+invariant doc together** — never silence the script in isolation.
+
+---
+
+## Out of scope (use other tools)
+
+The review suite is intentionally focused on **architecture** and
+**duplication**. It does **not** cover:
+
+| Concern                | Recommended tool             |
+|------------------------|------------------------------|
+| Secret scanning        | Gitleaks, TruffleHog         |
+| Python lint            | `ruff`, `mypy`               |
+| TypeScript lint        | `eslint`, `tsc --noEmit`     |
+| Test coverage          | `pytest --cov`, `vitest`     |
+| SQL injection / OWASP  | Semgrep, Bandit              |
+
+These should run in CI alongside the review-loops, not be re-implemented here.
+
+---
+
+## Adding a new check
+
+1. Pick a prefix that doesn't collide with the existing series
+   (FS / DP / SF / RT / DB / AG).
+2. Add the check to the existing PowerShell script that owns that concern,
+   or create a new focused script if the concern is genuinely new.
+3. Mirror the change in the bash port.
+4. Document the rule in `docs/architecture/repository-invariants.md`.
+5. Wire it into `full-review.ps1` / `full-review.sh` if it's a new script.
+6. Run `full-review.ps1 -Report` on a clean `staging` checkout to confirm
+   the baseline is still green.
+
+Refer to `workflows/architecture-review-loop.md` for the full rule-evolution
+workflow.

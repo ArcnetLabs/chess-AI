@@ -489,8 +489,9 @@ flowchart TD
 ## Acceptance Criteria for Phase Closure
 
 ### P0 closed when:
-- [ ] `scripts/review-loops/check-architecture.ps1` exits 0
-- [ ] `scripts/review-loops/check-security.ps1` exits 0
+- [ ] `scripts/review-loops/check-stockfish-violations.ps1` exits 0
+- [ ] `scripts/review-loops/check-route-violations.ps1` exits 0
+- [ ] `scripts/review-loops/check-auth-guards.ps1` exits 0
 - [ ] A fresh Render deploy of `main` succeeds end-to-end
 - [ ] All mutating API routes return 401 without a valid Supabase JWT
 - [ ] No SQLite file is created during normal production operation
@@ -498,7 +499,7 @@ flowchart TD
 
 ### P1 closed when:
 - [ ] `check-duplicates.ps1` exits 0
-- [ ] `check-sizes.ps1` reports zero hard failures
+- [ ] `check-file-sizes.ps1` reports zero hard failures
 - [ ] Stockfish access grep returns ≤ 2 sites (the pool + a documented exemption)
 - [ ] No stray `*.py` files at `backend/` root level
 - [ ] All Cursor rules match the actual code

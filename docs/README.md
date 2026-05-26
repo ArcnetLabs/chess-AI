@@ -14,7 +14,8 @@ docs/
 ├── architecture/                   # System architecture & technical design
 │   ├── AI_MODEL_STRATEGY.md
 │   ├── MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md
-│   └── reference-context-system.md
+│   ├── reference-context-system.md
+│   └── repository-invariants.md        # Authoritative architectural rules (paired with scripts/review-loops/)
 ├── product/                        # Product requirements
 │   └── FRD_PRODUCT.md
 ├── requirements/                   # Technical requirements
@@ -43,6 +44,8 @@ docs/
 │   ├── technical-debt-report.md
 │   ├── architecture-divergence-report.md
 │   └── recommended-remediation-roadmap.md
+├── review-reports/                 # Generated grep-loop review reports (per-run telemetry)
+│   └── README.md                       # How reports are produced and rotated
 └── archive/                        # Historical implementation notes & reference guides
     └── legacy-docs/                # Generated reports, phase notes, one-off fix summaries
 ```
@@ -70,6 +73,10 @@ Authoritative technical design documents that describe how subsystems work.
 - **`AI_MODEL_STRATEGY.md`** — Model selection, prompting, evaluation, and inference strategy for the AI subsystem.
 - **`MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`** — Long-term memory, retrieval, and context assembly architecture for the chatbot/coach.
 - **`reference-context-system.md`** — Why reference-driven development matters, how the `reference/` + `prompts/` system reduces agent hallucination, and how to maintain it.
+- **`repository-invariants.md`** — The authoritative list of architectural rules ChessIQ enforces. Paired with `scripts/review-loops/`, `.cursor/rules/`, and the review workflows. Changing a rule changes this document first.
+
+### Review reports (`review-reports/`)
+Generated, rotating telemetry from `scripts/review-loops/full-review.ps1 -Report`. See [`review-reports/README.md`](./review-reports/README.md) for filename patterns, retention policy, and how they feed back into the implementation / architecture / refactor review loops.
 
 ### Product (`product/`)
 - **`FRD_PRODUCT.md`** — Product functional requirements (features, user flows, target audience, success criteria).

@@ -1,20 +1,46 @@
-<#
+﻿<#
 .SYNOPSIS
-    B-series duplicate logic checks for ChessIQ.
-    Detects repeated implementations of game-fetching, analysis, auth, and API patterns.
+    Detect duplicate implementations across the repository.
 
-.OUTPUTS
-    Coloured pass/fail lines. Exit code 0 = clean, 1 = duplicates found.
+.DESCRIPTION
+    Enforces invariants:
+      DP-1: Only one AIClient class definition.
+      DP-2: Only one chess analyzer module.
+      DP-3: Only one game-fetching function (in services/integration/chesscom_api.py).
+      DP-4: PGN parsing centralised in services/chess_service.py.
+      DP-5: One Supabase client per surface (browser/server) — no inline instantiation.
+      DP-6: One HTTP client pattern in the frontend (axios via lib/api.ts).
+      DP-7: One auth-flow surface (withAuth + middleware) — no ad-hoc getUser() in pages.
+      DP-8: One Stockfish depth constant.
 
-.EXAMPLE
-    .\scripts\review-loops\check-duplicates.ps1
+.PARAMETER Report
+    Write a markdown report under docs/review-reports/.
 #>
+
+[CmdletBinding()]
+param(
+    [switch]$Report,
+    [string]$ReportDir = "docs/review-reports"
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$script:violations = 0
-$script:warnings = 0
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
+
+if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
+    Write-Host "ripgrep (rg) is required for this script." -ForegroundColor Red
+    Write-Host "  Windows:  winget install BurntSushi.ripgrep.MSVC   or   choco install ripgrep" -ForegroundColor Yellow
+    Write-Host "  macOS:    brew install ripgrep" -ForegroundColor Yellow
+    Write-Host "  Linux:    apt install ripgrep / pacman -S ripgrep / dnf install ripgrep" -ForegroundColor Yellow
+    exit 2
+}
+
+$script:violations = @()
+$script:warnings = @()
 
 function Write-Section { param([string]$title)
     Write-Host "`n── $title ──" -ForegroundColor Cyan
@@ -22,124 +48,226 @@ function Write-Section { param([string]$title)
 
 function Run-Check {
     param(
-        [string]$id,
-        [string]$description,
-        [string[]]$rgArgs,
-        [int]$threshold = 1,
-        [string]$fix,
-        [switch]$warn
+        [string]$Id,
+        [string]$Description,
+        [string[]]$RgArgs,
+        [int]$Threshold = 1,
+        [string]$Fix,
+        [switch]$Warn
     )
 
-    $output = & rg @rgArgs 2>&1
+    $output = & rg --line-number @RgArgs 2>$null
     $exitCode = $LASTEXITCODE
 
     if ($exitCode -eq 0 -and $output) {
         $count = ($output | Measure-Object -Line).Lines
-        if ($count -gt $threshold) {
-            if ($warn) {
-                Write-Host "  ⚠ $id WARN ($count definitions > threshold $threshold): $description" -ForegroundColor Yellow
-                $output | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
-                Write-Host "  → Consider: $fix" -ForegroundColor DarkYellow
-                $script:warnings++
-            } else {
-                Write-Host "  ✗ $id FAIL ($count definitions): $description" -ForegroundColor Red
-                $output | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkRed }
-                Write-Host "  → Fix: $fix" -ForegroundColor Yellow
-                $script:violations++
+        if ($count -gt $Threshold) {
+            $tag = if ($Warn) { "WARN" } else { "FAIL" }
+            $colour = if ($Warn) { "Yellow" } else { "Red" }
+            Write-Host "  ✗ $Id $tag ($count > threshold $Threshold): $Description" -ForegroundColor $colour
+            $output | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkRed }
+            Write-Host "  → Fix: $Fix" -ForegroundColor Yellow
+            $entry = [PSCustomObject]@{
+                Id          = $Id
+                Description = $Description
+                Count       = $count
+                Threshold   = $Threshold
+                Fix         = $Fix
+                Matches     = @($output)
             }
+            if ($Warn) { $script:warnings += $entry } else { $script:violations += $entry }
         } else {
-            Write-Host "  ✓ $id PASS ($count definition$(if ($count -ne 1){'s'})): $description" -ForegroundColor Green
+            Write-Host "  ✓ $Id PASS ($count ≤ $Threshold): $Description" -ForegroundColor Green
         }
     } elseif ($exitCode -eq 1) {
-        Write-Host "  ✓ $id PASS (0 matches): $description" -ForegroundColor Green
+        Write-Host "  ✓ $Id PASS (0 matches): $Description" -ForegroundColor Green
     } else {
-        Write-Host "  ? $id SKIP: rg error or path missing" -ForegroundColor DarkYellow
+        Write-Host "  ? $Id SKIP: rg error (exit $exitCode)" -ForegroundColor DarkYellow
     }
 }
 
 # ── Checks ─────────────────────────────────────────────────────────────────────
 
-Write-Host "ChessIQ Duplicate Logic Review — B-Series" -ForegroundColor White
+Write-Host "ChessIQ — Duplicate Implementations Check" -ForegroundColor White
 Write-Host "==========================================" -ForegroundColor White
 
-Write-Section "B1 — Duplicate game-fetching logic"
+Write-Section "DP-1 — Duplicate AIClient class definitions"
 Run-Check `
-    -id "B1" `
-    -description "Multiple fetch_game / get_game functions (should be one in chesscom_api.py)" `
-    -rgArgs @("def (fetch|get)_game", "backend/app/", "--type", "py") `
-    -threshold 1 `
-    -fix "Consolidate into backend/app/services/chesscom_api.py — delete duplicates"
+    -Id "DP-1" `
+    -Description "Multiple class AIClient definitions across the codebase" `
+    -RgArgs @("^class AIClient\b", "backend/app/", "--type", "py") `
+    -Threshold 1 `
+    -Fix "Keep exactly one AIClient in services/integration/ai_client.py. Delete duplicates (or keep a thin re-export shim if external imports must not break)."
 
-Write-Section "B2 — Analysis logic outside unified analyzer"
+Write-Section "DP-2 — Duplicate analyzer implementations"
 Run-Check `
-    -id "B2" `
-    -description "analyze_position or evaluate_position defined outside services/" `
-    -rgArgs @("def (analyze|evaluate)_(position|move|game)", "backend/app/api/", "backend/app/tasks/", "--type", "py") `
-    -threshold 0 `
-    -fix "Move analysis logic to backend/app/services/unified_analyzer.py"
+    -Id "DP-2" `
+    -Description "Multiple analyzer classes (ChessAnalyzer / UnifiedAnalyzer / ChessAnalysis)" `
+    -RgArgs @("^class (\w*Analyzer|ChessAnalysis)\b", "backend/app/", "--type", "py") `
+    -Threshold 1 `
+    -Fix "Keep one canonical analyzer in services/analysis/unified_analyzer.py. Move shared helpers into services/analysis/helpers/."
 
-Write-Section "B3 — Multiple Stockfish depth constants"
+Write-Section "DP-3 — Duplicate game-fetching functions"
 Run-Check `
-    -id "B3" `
-    -description "Hardcoded depth= values (should use a single ANALYSIS_DEPTH constant)" `
-    -rgArgs @("depth=\d+", "backend/app/", "--type", "py") `
-    -threshold 2 `
-    -warn `
-    -fix "Define ANALYSIS_DEPTH in backend/app/core/config.py and reference it everywhere"
+    -Id "DP-3" `
+    -Description "Multiple fetch_game / get_game function definitions" `
+    -RgArgs @("def (fetch|get)_game\b", "backend/app/", "--type", "py") `
+    -Threshold 1 `
+    -Fix "Consolidate in services/integration/chesscom_api.py. Delete shims after updating imports."
 
-Write-Section "B4 — Duplicate user-session retrieval patterns"
+Write-Section "DP-4 — Duplicate PGN parsing"
 Run-Check `
-    -id "B4" `
-    -description "Manual supabase.auth.getUser() calls in pages (should use withAuth HOC)" `
-    -rgArgs @("supabase\.auth\.getUser\(\)", "frontend/src/pages/", "--type", "ts") `
-    -threshold 0 `
-    -fix "Use withAuth HOC from frontend/src/lib/auth/withAuth.ts for all protected pages"
+    -Id "DP-4" `
+    -Description "chess.pgn / pgn.read_game called outside services/" `
+    -RgArgs @("chess\.pgn|pgn\.read_game", "backend/app/api/", "backend/app/tasks/", "--type", "py") `
+    -Threshold 0 `
+    -Fix "Centralise PGN parsing in services/chess_service.py."
 
-Write-Section "B5 — Duplicate Supabase client instantiation"
+Write-Section "DP-5 — Duplicate Supabase client instantiation"
 Run-Check `
-    -id "B5" `
-    -description "createClient()/createBrowserClient() called outside lib/supabase/ (should use shared client)" `
-    -rgArgs @("createBrowserClient|createServerClient", "frontend/src/pages/", "frontend/src/components/", "--type", "ts") `
-    -threshold 0 `
-    -fix "Import from frontend/src/lib/supabase/client.ts or server.ts — never instantiate inline"
+    -Id "DP-5" `
+    -Description "createBrowserClient/createServerClient called outside lib/supabase/" `
+    -RgArgs @("createBrowserClient|createServerClient", "frontend/src/pages/", "frontend/src/components/", "-g", "*.ts", "-g", "*.tsx") `
+    -Threshold 0 `
+    -Fix "Import from frontend/src/lib/supabase/client.ts (browser) or server.ts (SSR) — never instantiate inline."
 
-Write-Section "B6 — Duplicate API route handlers"
-Run-Check `
-    -id "B6" `
-    -description "Multiple route handlers for the same chess action (look for /analysis, /analyze)" `
-    -rgArgs @("@router\.(get|post)\(['\"]/(analyze|analysis)", "backend/app/api/", "--type", "py") `
-    -threshold 1 `
-    -warn `
-    -fix "Merge duplicate route handlers — one endpoint per action"
+Write-Section "DP-6 — Multiple HTTP client patterns (axios + fetch + custom)"
+$axiosFiles = & rg --files-with-matches "^import axios|from ['\""]axios['\""]" "frontend/src/" -g "*.ts" -g "*.tsx" 2>$null
+$fetchFiles = & rg --files-with-matches "\bfetch\(" "frontend/src/" -g "*.ts" -g "*.tsx" 2>$null
 
-Write-Section "B7 — Multiple React Query hooks for same resource"
-Run-Check `
-    -id "B7" `
-    -description "useQuery hooks with same key string defined in multiple files" `
-    -rgArgs @("useQuery\(\s*[\[{]", "frontend/src/pages/", "frontend/src/components/", "--type", "tsx") `
-    -threshold 3 `
-    -warn `
-    -fix "Centralise React Query hooks in frontend/src/hooks/ — one hook file per resource type"
+$axiosCount = if ($axiosFiles) { @($axiosFiles).Count } else { 0 }
+$fetchCount = if ($fetchFiles) { @($fetchFiles).Count } else { 0 }
 
-Write-Section "B8 — Duplicate PGN parsing logic"
+if ($axiosCount -gt 0 -and $fetchCount -gt 0) {
+    Write-Host "  ⚠ DP-6 WARN: Both axios ($axiosCount files) and fetch ($fetchCount files) are in use" -ForegroundColor Yellow
+    Write-Host "    Pick one HTTP client (recommended: axios via lib/api.ts) and migrate the other." -ForegroundColor DarkYellow
+    $script:warnings += [PSCustomObject]@{
+        Id          = "DP-6"
+        Description = "Multiple HTTP client patterns"
+        Count       = $axiosCount + $fetchCount
+        Threshold   = 0
+        Fix         = "Standardise on axios via lib/api.ts. Migrate fetch() usages."
+        Matches     = @("axios files: $axiosCount", "fetch files: $fetchCount")
+    }
+} else {
+    Write-Host "  ✓ DP-6 PASS: Single HTTP client pattern in use" -ForegroundColor Green
+}
+
+Write-Section "DP-7 — Ad-hoc supabase.auth.getUser() in pages"
 Run-Check `
-    -id "B8" `
-    -description "chess.pgn / PGN parsing called outside chess service layer" `
-    -rgArgs @("chess\.pgn\|io\.StringIO.*pgn\|pgn\.read_game", "backend/app/api/", "backend/app/tasks/", "--type", "py") `
-    -threshold 0 `
-    -fix "Centralise PGN parsing in backend/app/services/chess_service.py"
+    -Id "DP-7" `
+    -Description "Pages calling supabase.auth.getUser() manually instead of withAuth" `
+    -RgArgs @("supabase\.auth\.getUser\(\)", "frontend/src/pages/", "-g", "*.tsx") `
+    -Threshold 0 `
+    -Fix "Use the withAuth HOC from lib/auth/withAuth.ts or read user from a centralised auth hook."
+
+Write-Section "DP-8 — Hardcoded analysis depth constants"
+Run-Check `
+    -Id "DP-8" `
+    -Description "Multiple hardcoded depth=N values (should use ANALYSIS_DEPTH constant)" `
+    -RgArgs @("depth=\d+", "backend/app/", "--type", "py") `
+    -Threshold 2 `
+    -Fix "Define ANALYSIS_DEPTH in app/core/config.py and reference it everywhere." `
+    -Warn
+
+Write-Section "DP-9 — Duplicate Stockfish wrapper modules"
+Run-Check `
+    -Id "DP-9" `
+    -Description "Multiple files defining class Stockfish* or class EnginePool" `
+    -RgArgs @("^class (Stockfish\w*|EnginePool)\b", "backend/app/", "--type", "py") `
+    -Threshold 2 `
+    -Fix "Keep one engine pool. Stockfish wrapper class + pool class = 2 max." `
+    -Warn
+
+Write-Section "DP-10 — Backward-compatibility shim files (should be empty after migration)"
+$shimFiles = @()
+$candidates = @(
+    "backend/app/services/auth_service.py",
+    "backend/app/services/chesscom_api.py",
+    "backend/app/services/chess_analyzer.py",
+    "backend/app/services/chess_analysis.py",
+    "backend/app/core/ai_client.py"
+)
+foreach ($f in $candidates) {
+    if (Test-Path $f) {
+        $content = Get-Content $f -Raw
+        # Heuristic: shim = mostly re-exports
+        $lineCount = ($content -split "`n").Count
+        if ($content -match "from .*import \*|# (re-export|shim|backward)" -and $lineCount -lt 25) {
+            $shimFiles += "$f (still present — delete after consumers updated)"
+        }
+    }
+}
+if ($shimFiles.Count -gt 0) {
+    Write-Host "  ⚠ DP-10 WARN ($($shimFiles.Count)): Backward-compatibility shims still present" -ForegroundColor Yellow
+    $shimFiles | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
+    $script:warnings += [PSCustomObject]@{
+        Id          = "DP-10"
+        Description = "Backward-compatibility shim files still present"
+        Count       = $shimFiles.Count
+        Threshold   = 0
+        Fix         = "Update all consumers, then delete shim files."
+        Matches     = $shimFiles
+    }
+} else {
+    Write-Host "  ✓ DP-10 PASS: No legacy shim files" -ForegroundColor Green
+}
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 
 Write-Host "`n═══════════════════════════════════════════" -ForegroundColor White
-if ($script:violations -eq 0 -and $script:warnings -eq 0) {
-    Write-Host "B-SERIES: ALL CLEAN ✓" -ForegroundColor Green
-    exit 0
-} elseif ($script:violations -eq 0) {
-    Write-Host "B-SERIES: PASSED WITH $($script:warnings) WARNING$(if ($script:warnings -ne 1){'S'}) ⚠" -ForegroundColor Yellow
-    Write-Host "Review warnings before the staging → main release." -ForegroundColor DarkYellow
-    exit 0
+if ($script:violations.Count -eq 0 -and $script:warnings.Count -eq 0) {
+    Write-Host "DUPLICATES: ALL CLEAN ✓" -ForegroundColor Green
+    $exit = 0
+} elseif ($script:violations.Count -eq 0) {
+    Write-Host "DUPLICATES: PASSED WITH $($script:warnings.Count) WARNING$(if ($script:warnings.Count -ne 1){'S'}) ⚠" -ForegroundColor Yellow
+    $exit = 0
 } else {
-    Write-Host "B-SERIES: $($script:violations) VIOLATION$(if ($script:violations -ne 1){'S'}) + $($script:warnings) WARNING$(if ($script:warnings -ne 1){'S'}) ✗" -ForegroundColor Red
-    exit 1
+    Write-Host "DUPLICATES: $($script:violations.Count) HARD + $($script:warnings.Count) WARNING ✗" -ForegroundColor Red
+    Write-Host "Duplicate implementations breed bugs. Consolidate before merging." -ForegroundColor Yellow
+    $exit = 1
 }
+
+if ($Report) {
+    if (-not (Test-Path $ReportDir)) { New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null }
+    $stamp = Get-Date -Format "yyyy-MM-dd-HHmm"
+    $path  = Join-Path $ReportDir "duplicates-$stamp.md"
+    $lines = @("# Duplicates Report", "", "Generated: $(Get-Date -Format o)", "Branch: $(git rev-parse --abbrev-ref HEAD 2>$null)", "")
+
+    if ($script:violations.Count -eq 0 -and $script:warnings.Count -eq 0) {
+        $lines += "✅ No duplicates or warnings."
+    } else {
+        if ($script:violations.Count -gt 0) {
+            $lines += "## Hard violations"
+            foreach ($v in $script:violations) {
+                $lines += ""
+                $lines += "### $($v.Id) — $($v.Description)"
+                $lines += "- **Count:** $($v.Count) (threshold $($v.Threshold))"
+                $lines += "- **Fix:** $($v.Fix)"
+                $lines += ""
+                $lines += '```'
+                $lines += $v.Matches
+                $lines += '```'
+            }
+        }
+        if ($script:warnings.Count -gt 0) {
+            $lines += ""
+            $lines += "## Warnings"
+            foreach ($v in $script:warnings) {
+                $lines += ""
+                $lines += "### $($v.Id) — $($v.Description)"
+                $lines += "- **Count:** $($v.Count) (threshold $($v.Threshold))"
+                $lines += "- **Fix:** $($v.Fix)"
+                $lines += ""
+                $lines += '```'
+                $lines += $v.Matches
+                $lines += '```'
+            }
+        }
+    }
+
+    $lines -join "`n" | Out-File -FilePath $path -Encoding utf8
+    Write-Host "Report: $path" -ForegroundColor Cyan
+}
+
+exit $exit

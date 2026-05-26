@@ -92,8 +92,9 @@ This is the automated inspection gate. Run scripts from `scripts/review-loops/`.
 ### Quick Check (before every commit)
 
 ```powershell
-.\scripts\review-loops\check-architecture.ps1
-.\scripts\review-loops\check-security.ps1
+.\scripts\review-loops\check-stockfish-violations.ps1
+.\scripts\review-loops\check-route-violations.ps1
+.\scripts\review-loops\check-auth-guards.ps1
 ```
 
 Both must pass (exit 0) before pushing.
@@ -148,9 +149,9 @@ Run full-review.ps1
 
 ### Refactor Checklist
 
-- [ ] All Python files under 300 lines (`check-sizes.ps1 -Series F` returns no hard failures)
+- [ ] All Python files under 300 lines (`check-file-sizes.ps1` returns no hard failures)
 - [ ] All React components under 200 lines
-- [ ] Naming follows conventions (`check-naming.ps1` returns ≤ N warnings as at start of task)
+- [ ] Naming follows conventions (enforced via `ruff` / `eslint` rather than a custom grep check)
 - [ ] No `TODO: fix later` comments in new code
 - [ ] No commented-out debug code (`console.log`, `print()`, `breakpoint()`)
 - [ ] Imports are clean — no unused imports
@@ -228,7 +229,7 @@ Phases 1–6 above, always in sequence.
 ### Cleanup Loop (after every sprint)
 
 ```
-1. Run check-sizes.ps1 — identify files approaching limits
+1. Run check-file-sizes.ps1 — identify files approaching limits
 2. Run check-duplicates.ps1 — find emerging duplication
 3. File cleanup tasks before they become violations
 4. Execute skills/code-cleanup.md for each task
@@ -268,7 +269,7 @@ GPT-5.5 (Codex) excels at structured, algorithmic backend code. Optimise for it:
 ```
 1. Provide full file contents as context (not snippets)
 2. Specify exact service method signatures before asking for implementation
-3. After implementation: run check-architecture.ps1 and check-duplicates.ps1
+3. After implementation: run check-route-violations.ps1, check-stockfish-violations.ps1, check-db-access-violations.ps1, check-auth-guards.ps1, check-duplicates.ps1
 4. Use GPT-5.5 for: route handlers, service methods, Celery tasks, SQL queries
 5. Do NOT use GPT-5.5 for: architectural decisions, refactor strategy, naming
 ```
@@ -291,7 +292,7 @@ Claude Opus excels at reasoning, architecture, and complex UI logic. Optimise fo
 ```
 1. Provide component tree context (which components exist, how they relate)
 2. Specify the data shape (TypeScript interface) before asking for component
-3. After implementation: run check-architecture.ps1 and check-sizes.ps1
+3. After implementation: run check-route-violations.ps1 and check-file-sizes.ps1
 4. Use Opus for: complex components, custom hooks, layout decisions, accessibility
 5. Do NOT use Opus for: boilerplate data fetching, simple utility functions
 ```
@@ -336,7 +337,7 @@ Re-run until READY TO MERGE.
 Run the refactor loop on the implementation in: [file paths]
 Apply skills/refactor-loop.md convergence protocol.
 Confirm all files are within size limits.
-Clean all warnings from check-naming.ps1.
+Clean all naming-convention warnings reported by `ruff` / `eslint`.
 ```
 
 ### Invoke Architecture Health Cycle
