@@ -180,16 +180,11 @@ def main() -> int:
             "Supabase DATABASE_URL (no Render Postgres pserv)",
         )
     )
-    celery_worker = (repo_root / "docs" / "deployment" / "render-celery-worker.yaml").read_text(
-        encoding="utf-8"
-    )
-    has_render_worker = "chess-insight-celery" in render and "app.celery_app" in render
-    has_paid_worker_doc = "chess-insight-celery" in celery_worker and "app.celery_app" in celery_worker
     checks.append(
         _check(
             "deploy:render_celery_worker",
-            has_render_worker or has_paid_worker_doc,
-            "Celery worker in render.yaml or docs/deployment/render-celery-worker.yaml (paid plan)",
+            "chess-insight-celery" in render and "app.celery_app" in render,
+            "Celery worker service defined in render.yaml",
         )
     )
     checks.append(
