@@ -4,6 +4,7 @@ import chess
 from typing import List, Optional, Dict, Any
 from loguru import logger
 
+from ..engine.engine_pool import get_pooled_engine
 from ..engine.stockfish_engine import StockfishEngine, StockfishEngineError
 from . import (
     MoveRecommendation,
@@ -26,9 +27,32 @@ class MoveRecommender:
         Initialize move recommender.
         
         Args:
-            stockfish_engine: Stockfish engine instance (creates new if None)
+            stockfish_engine: Optional injected engine (tests only).
+                Production code leaves this None and uses the global pool.
         """
-        self.engine = stockfish_engine or StockfishEngine(depth=18, threads=2)
+        self._engine = stockfish_engine
+
+    @property
+    def engine(self) -> Optional[StockfishEngine]:
+        """Resolved engine handle, if already acquired from pool or injection."""
+        return self._engine
+
+    async def _get_engine(self) -> StockfishEngine:
+        """Acquire the pooled engine or use an injected test engine."""
+        if self._engine is None:
+            self._engine = await get_pooled_engine()
+        elif not self._engine.is_initialized():
+            await self._engine.initialize()
+        return self._engine
+
+    async def evaluate_board(
+        self,
+        board: chess.Board,
+        depth: int = 18,
+    ) -> Dict[str, Any]:
+        """Evaluate a position using the pooled engine."""
+        engine = await self._get_engine()
+        return await engine.evaluate_position(board, depth=depth)
     
     async def analyze_position(
         self,
@@ -50,14 +74,11 @@ class MoveRecommender:
         try:
             # Parse position
             board = chess.Board(fen)
-            
-            # Initialize engine if needed
-            if not self.engine.is_initialized():
-                await self.engine.initialize()
+            engine = await self._get_engine()
             
             # Get multi-PV analysis (top N moves)
             candidate_moves = await self._get_candidate_moves(
-                board, num_moves, depth
+                board, num_moves, depth, engine
             )
             
             # Detect game phase
@@ -97,7 +118,8 @@ class MoveRecommender:
         self,
         board: chess.Board,
         num_moves: int,
-        depth: int
+        depth: int,
+        engine: StockfishEngine,
     ) -> List[MoveRecommendation]:
         """Get top N candidate moves with analysis."""
         
@@ -116,7 +138,7 @@ class MoveRecommender:
             temp_board.push(move)
             
             # Evaluate resulting position
-            eval_result = await self.engine.evaluate_position(temp_board, depth=depth)
+            eval_result = await engine.evaluate_position(temp_board, depth=depth)
             
             # Flip evaluation (we want it from current player's perspective)
             if eval_result["evaluation_cp"] is not None:
@@ -516,9 +538,7 @@ class MoveRecommender:
             Comparison dictionary with explanations
         """
         board = chess.Board(fen)
-        
-        if not self.engine.is_initialized():
-            await self.engine.initialize()
+        engine = await self._get_engine()
         
         comparisons = []
         
@@ -534,7 +554,7 @@ class MoveRecommender:
                 temp_board = board.copy()
                 temp_board.push(move)
                 
-                eval_result = await self.engine.evaluate_position(temp_board, depth=depth)
+                eval_result = await engine.evaluate_position(temp_board, depth=depth)
                 evaluation = -eval_result["evaluation_cp"] / 100.0 if eval_result["evaluation_cp"] is not None else 0
                 
                 comparisons.append({

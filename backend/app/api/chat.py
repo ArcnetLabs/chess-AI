@@ -16,7 +16,7 @@ from loguru import logger
 from ..middleware.auth_middleware import get_current_user
 from ..models import User
 from ..services.chat.chess_coach import ChessCoach
-from ..services.engine.stockfish_engine import StockfishEngine
+from ..services.engine.engine_pool import check_engine_health
 
 
 router = APIRouter(tags=["chat"])
@@ -45,36 +45,25 @@ class ChatMessageResponse(BaseModel):
 
 
 # Dependency for chess coach
-_coach_instance = None
-_engine_instance = None
-_initialization_lock = False
+_coach_instance: Optional[ChessCoach] = None
+
 
 async def get_chess_coach() -> ChessCoach:
-    """Get chess coach instance (singleton)."""
-    global _coach_instance, _engine_instance, _initialization_lock
-    
-    if _coach_instance is None and not _initialization_lock:
-        _initialization_lock = True
+    """Get chess coach instance (singleton; engine acquired lazily via pool)."""
+    global _coach_instance
+
+    if _coach_instance is None:
         try:
             logger.info("Initializing Chess Coach...")
-            _engine_instance = StockfishEngine(depth=18, threads=2)
-            await _engine_instance.initialize()  # Initialize Stockfish engine
-            _coach_instance = ChessCoach(stockfish_engine=_engine_instance)
+            _coach_instance = ChessCoach()
             logger.info("Chess Coach initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Chess Coach: {e}")
-            _initialization_lock = False
             raise HTTPException(
                 status_code=500,
                 detail=f"Chess coach initialization failed: {str(e)}"
             )
-    
-    if _coach_instance is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Chess coach is still initializing, please try again"
-        )
-    
+
     return _coach_instance
 
 
@@ -263,17 +252,15 @@ async def get_history(
 async def health_check():
     """Check if chatbot service is working."""
     try:
-        # Try to get coach instance
         coach = await get_chess_coach()
-        
-        # Check if Stockfish is available
-        engine_status = "available" if coach.move_recommender.engine else "unavailable"
-        
+        stockfish_health = await check_engine_health()
+        engine_status = "available" if stockfish_health.get("available") else "unavailable"
+
         return {
-            "status": "healthy",
+            "status": "healthy" if engine_status == "available" else "degraded",
             "service": "chess-coach-chatbot",
             "stockfish": engine_status,
-            "active_sessions": len(coach.sessions)
+            "active_sessions": len(coach.sessions),
         }
     except Exception as e:
         return {

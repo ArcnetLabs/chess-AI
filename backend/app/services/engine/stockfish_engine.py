@@ -18,6 +18,9 @@ class StockfishEngine:
     """
     Unified Stockfish engine wrapper using python-chess UCI protocol.
     
+    **Instantiation:** Only ``engine_pool.py`` may construct this class in
+    application code. Services acquire engines via ``get_pooled_engine()``.
+    
     Features:
     - Cross-platform support (Windows, Linux, macOS)
     - Automatic path detection

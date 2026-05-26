@@ -15,7 +15,8 @@ docs/
 │   ├── AI_MODEL_STRATEGY.md
 │   ├── MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md
 │   ├── reference-context-system.md
-│   └── repository-invariants.md        # Authoritative architectural rules (paired with scripts/review-loops/)
+│   ├── repository-invariants.md        # Authoritative architectural rules (paired with scripts/review-loops/)
+│   └── stockfish-architecture.md       # Canonical Stockfish pool access (2026-05-26)
 ├── product/                        # Product requirements
 │   └── FRD_PRODUCT.md
 ├── requirements/                   # Technical requirements
@@ -75,6 +76,7 @@ Authoritative technical design documents that describe how subsystems work.
 - **`MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`** — Long-term memory, retrieval, and context assembly architecture for the chatbot/coach.
 - **`reference-context-system.md`** — Why reference-driven development matters, how the `reference/` + `prompts/` system reduces agent hallucination, and how to maintain it.
 - **`repository-invariants.md`** — The authoritative list of architectural rules ChessIQ enforces. Paired with `scripts/review-loops/`, `.cursor/rules/`, and the review workflows. Changing a rule changes this document first.
+- **`stockfish-architecture.md`** — Single canonical path for Stockfish via `engine_pool.py`; thread/queue safety and consumer map.
 
 ### Review reports (`review-reports/`)
 Generated, rotating telemetry from `scripts/review-loops/full-review.ps1 -Report`. See [`review-reports/README.md`](./review-reports/README.md) for filename patterns, retention policy, and how they feed back into the implementation / architecture / refactor review loops.

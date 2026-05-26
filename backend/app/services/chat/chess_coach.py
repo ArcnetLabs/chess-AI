@@ -8,7 +8,6 @@ from loguru import logger
 from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole
 from .intent_classifier import IntentClassifier
 from ..moves.move_recommender import MoveRecommender
-from ..engine.stockfish_engine import StockfishEngine
 
 
 class ChessCoach:
@@ -24,20 +23,18 @@ class ChessCoach:
     
     def __init__(
         self,
-        stockfish_engine: Optional[StockfishEngine] = None,
+        stockfish_engine: Optional[Any] = None,
         ai_client: Optional[Any] = None
     ):
         """
         Initialize chess coach.
         
         Args:
-            stockfish_engine: Stockfish engine instance
+            stockfish_engine: Optional injected engine (tests only).
             ai_client: AI client for LLM responses (optional)
         """
         self.intent_classifier = IntentClassifier()
-        self.move_recommender = MoveRecommender(
-            stockfish_engine=stockfish_engine or StockfishEngine(depth=18, threads=2)
-        )
+        self.move_recommender = MoveRecommender(stockfish_engine=stockfish_engine)
         self.ai_client = ai_client
         
         # In-memory session storage (replace with database in production)
