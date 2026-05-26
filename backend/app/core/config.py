@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-from pydantic import AnyHttpUrl, PostgresDsn, field_validator
-from pydantic_settings import BaseSettings
+from typing import Annotated, List, Union
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from dotenv import load_dotenv
 
 # Load .env file explicitly
@@ -39,8 +39,8 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be at least 32 characters long for security.")
         return v
     
-    # CORS - Dynamically configured based on environment
-    BACKEND_CORS_ORIGINS: List[str] = []
+    # CORS - comma-separated in env (Render dashboard), e.g. https://chessrun.netlify.app
+    BACKEND_CORS_ORIGINS: Annotated[Union[str, List[str]], NoDecode] = []
     
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
@@ -142,12 +142,12 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
-    model_config = {
-        "case_sensitive": True,
-        "env_file": ".env",  # Look in current directory (backend/.env)
-        "env_file_encoding": "utf-8",
-        "extra": "ignore"
-    }
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 # Global settings instance
