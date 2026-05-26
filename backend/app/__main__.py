@@ -14,7 +14,6 @@ if sys.platform == 'win32':
 
 from .core.config import settings
 from .api import users, games, analysis, insights, moves, chat
-from .core.database import engine, Base
 from .core.logging_config import configure_logging
 
 # Configure logging
@@ -23,9 +22,6 @@ logger.add(sys.stderr, level=settings.LOG_LEVEL)
 
 # Apply custom logging filters to reduce HTTP request verbosity
 configure_logging()
-
-# Create tables
-Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(
