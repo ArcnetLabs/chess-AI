@@ -1,15 +1,11 @@
-services:
-  # PostgreSQL Database
-  - type: pserv
-    name: chess-insight-postgres
-    env: python
+databases:
+  - name: chess-insight-db
+    databaseName: chessai
+    user: chessai
     plan: free
     region: oregon
-    databases:
-      - name: chess-insight-db
-        databaseName: chessai
-        user: chessai
 
+services:
   # Redis Cache
   - type: redis
     name: chess-insight-redis
@@ -28,10 +24,14 @@ services:
       python -m alembic upgrade head
     startCommand: |
       cd backend
-      uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chess-insight-db
+          property: connectionString
       - key: POSTGRES_SERVER
         fromDatabase:
           name: chess-insight-db
