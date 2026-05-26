@@ -14,6 +14,7 @@ from app.services.analysis.analysis_service import (
     analyze_game_for_user,
     persist_game_analysis,
 )
+from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
 
 
 @celery_app.task(
@@ -102,7 +103,9 @@ def analyze_game_task(self, game_id: int, user_id: int):
             f"Blunders={result.blunders}, Mistakes={result.mistakes}, "
             f"Inaccuracies={result.inaccuracies}"
         )
-        
+
+        schedule_pattern_detection_for_user(user_id)
+
         return {
             "status": "success",
             "game_id": game_id,
