@@ -1,10 +1,18 @@
-"""API endpoints for move recommendations and position analysis."""
+"""API endpoints for move recommendations and position analysis.
+
+All position-analysis endpoints require an authenticated Supabase user;
+they don't carry user-scoped data themselves but they exercise the
+Stockfish engine pool which is a finite shared resource. The ``/health``
+endpoint stays public so deployment platforms can probe it without a JWT.
+"""
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from loguru import logger
 
+from ..middleware.auth_middleware import get_current_user
+from ..models import User
 from ..services.moves.move_recommender import MoveRecommender
 from ..services.engine.stockfish_engine import StockfishEngine, StockfishEngineError
 
@@ -48,7 +56,8 @@ async def get_move_recommender() -> MoveRecommender:
 @router.post("/analyze", summary="Analyze position and get move recommendations")
 async def analyze_position(
     request: AnalyzePositionRequest,
-    recommender: MoveRecommender = Depends(get_move_recommender)
+    current_user: User = Depends(get_current_user),
+    recommender: MoveRecommender = Depends(get_move_recommender),
 ):
     """
     Analyze a chess position and return top move recommendations.
@@ -96,7 +105,8 @@ async def analyze_position(
 @router.post("/compare", summary="Compare multiple moves")
 async def compare_moves(
     request: CompareMoveRequest,
-    recommender: MoveRecommender = Depends(get_move_recommender)
+    current_user: User = Depends(get_current_user),
+    recommender: MoveRecommender = Depends(get_move_recommender),
 ):
     """
     Compare multiple moves from the same position.
@@ -138,7 +148,8 @@ async def compare_moves(
 async def get_best_move(
     fen: str,
     depth: int = 18,
-    recommender: MoveRecommender = Depends(get_move_recommender)
+    current_user: User = Depends(get_current_user),
+    recommender: MoveRecommender = Depends(get_move_recommender),
 ):
     """
     Get the best move for a position.
@@ -188,7 +199,8 @@ async def get_best_move(
 @router.post("/explain", summary="Get detailed explanation for a move")
 async def explain_move(
     request: ExplainMoveRequest,
-    recommender: MoveRecommender = Depends(get_move_recommender)
+    current_user: User = Depends(get_current_user),
+    recommender: MoveRecommender = Depends(get_move_recommender),
 ):
     """
     Get a detailed explanation for a specific move.
