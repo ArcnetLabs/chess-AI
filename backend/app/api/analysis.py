@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..core.database import get_db, SessionLocal
+from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis
 from ..services.analysis.unified_analyzer import UnifiedChessAnalyzer
 from ..services.tier_service import get_tier_service
@@ -177,9 +178,11 @@ async def analyze_single_game(
     user_id: int,
     game_id: int,
     force_reanalysis: bool = False,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Analyze a single game."""
+    """Analyze a single game. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -307,9 +310,11 @@ async def analyze_single_game(
 async def analyze_user_games(
     user_id: int,
     request: AnalysisRequest,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Analyze games for a user with tier-aware logic."""
+    """Analyze games for a user with tier-aware logic. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -412,9 +417,11 @@ async def get_user_analyses(
     user_id: int,
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Get analysis results for a user's games."""
+    """Get analysis results for a user's games. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -430,19 +437,34 @@ async def get_user_analyses(
 
 
 @router.get("/game/{game_id}", response_model=AnalysisResponse)
-async def get_game_analysis(game_id: int, db: Session = Depends(get_db)):
-    """Get analysis for a specific game."""
+async def get_game_analysis(
+    game_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get analysis for a specific game. Game-ownership checked."""
     
     analysis = db.query(GameAnalysis).filter(GameAnalysis.game_id == game_id).first()
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    # Enforce that the requester owns the underlying game.
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    require_ownership(current_user, game.user_id)
     
     return analysis
 
 
 @router.get("/{user_id}/summary")
-async def get_analysis_summary(user_id: int, days: int = 7, db: Session = Depends(get_db)):
-    """Get analysis summary for a user."""
+async def get_analysis_summary(
+    user_id: int,
+    days: int = 7,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get analysis summary for a user. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -526,20 +548,24 @@ async def get_analysis_summary(user_id: int, days: int = 7, db: Session = Depend
 
 
 @router.delete("/game/{game_id}")
-async def delete_game_analysis(game_id: int, db: Session = Depends(get_db)):
-    """Delete analysis for a specific game."""
+async def delete_game_analysis(
+    game_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete analysis for a specific game. Game-ownership checked."""
     
     analysis = db.query(GameAnalysis).filter(GameAnalysis.game_id == game_id).first()
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     
-    # Also mark the game as not analyzed
     game = db.query(Game).filter(Game.id == game_id).first()
-    if game:
-        game.is_analyzed = False
+    if not game:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    require_ownership(current_user, game.user_id)
+    game.is_analyzed = False
     
     db.delete(analysis)
     db.commit()
     
-    return {"message": "Analysis deleted successfully"}
     return {"message": "Analysis deleted successfully"}

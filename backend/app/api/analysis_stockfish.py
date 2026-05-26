@@ -13,6 +13,7 @@ from pydantic import BaseModel
 import asyncio
 
 from ..core.database import get_db, SessionLocal
+from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis
 from ..services.analysis.unified_analyzer import UnifiedChessAnalyzer
 from ..core.config import settings
@@ -212,7 +213,8 @@ async def analyze_user_games(
     user_id: int,
     request: AnalysisRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Queue games for Stockfish analysis.
@@ -224,6 +226,7 @@ async def analyze_user_games(
     
     The actual analysis happens in the background.
     """
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -272,7 +275,8 @@ async def analyze_user_games(
 async def get_game_analysis(
     user_id: int,
     game_id: int,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Get analysis results for a specific game.
@@ -283,6 +287,7 @@ async def get_game_analysis(
     - Phase analysis (opening/middlegame/endgame)
     - Opening information
     """
+    require_ownership(current_user, user_id)
     
     # Fetch analysis
     analysis = db.query(GameAnalysis).filter(
@@ -307,7 +312,8 @@ async def get_game_analysis(
 async def get_analysis_summary(
     user_id: int,
     days: int = 30,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Get summary statistics across all analyzed games.
@@ -319,6 +325,7 @@ async def get_analysis_summary(
     - Phase-specific statistics
     - Trends over time
     """
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -390,9 +397,11 @@ async def get_analysis_summary(
 async def delete_game_analysis(
     user_id: int,
     game_id: int,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Delete analysis for a specific game."""
+    """Delete analysis for a specific game. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify game belongs to user
     game = db.query(Game).filter(Game.id == game_id, Game.user_id == user_id).first()

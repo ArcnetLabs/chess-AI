@@ -1,10 +1,20 @@
-"""API endpoints for chess coaching chatbot."""
+"""API endpoints for chess coaching chatbot.
+
+All mutating endpoints require a Supabase session. Session-level
+ownership is currently scoped to "any authenticated user can touch any
+chat session" because sessions are in-memory and identified by UUID — a
+follow-up pass (tracked under the analysis-pipeline remediation) will
+persist sessions per ``current_user.id`` and add per-session ownership
+checks.
+"""
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from loguru import logger
 
+from ..middleware.auth_middleware import get_current_user
+from ..models import User
 from ..services.chat.chess_coach import ChessCoach
 from ..services.engine.stockfish_engine import StockfishEngine
 
@@ -71,7 +81,8 @@ async def get_chess_coach() -> ChessCoach:
 @router.post("/message", summary="Send a message to the chess coach")
 async def send_message(
     request: ChatMessageRequest,
-    coach: ChessCoach = Depends(get_chess_coach)
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
 ) -> ChatMessageResponse:
     """
     Send a message to the chess coach and get a response.
@@ -90,11 +101,13 @@ async def send_message(
     """
     try:
         logger.info(f"Processing message: {request.message[:50]}...")
-        
+        # Trust the authenticated identity, not the request body.
+        effective_user_id = current_user.id
+
         response = await coach.process_message(
             message=request.message,
             session_id=request.session_id,
-            user_id=request.user_id,
+            user_id=effective_user_id,
             position_fen=request.position_fen
         )
         
@@ -119,7 +132,8 @@ async def send_message(
 @router.post("/session", summary="Create a new chat session")
 async def create_session(
     request: CreateSessionRequest,
-    coach: ChessCoach = Depends(get_chess_coach)
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
 ):
     """
     Create a new chat session.
@@ -129,7 +143,8 @@ async def create_session(
     - Welcome message
     """
     try:
-        session = coach.create_session(user_id=request.user_id)
+        # Always create sessions under the authenticated user identity.
+        session = coach.create_session(user_id=current_user.id)
         
         welcome_message = """Hi! I'm your AI chess coach. I can help you with:
 
@@ -158,7 +173,8 @@ What would you like to work on today?"""
 @router.get("/session/{session_id}", summary="Get chat session details")
 async def get_session(
     session_id: str,
-    coach: ChessCoach = Depends(get_chess_coach)
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
 ):
     """
     Get details of a chat session.
@@ -185,7 +201,8 @@ async def get_session(
 @router.delete("/session/{session_id}", summary="Delete a chat session")
 async def delete_session(
     session_id: str,
-    coach: ChessCoach = Depends(get_chess_coach)
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
 ):
     """
     Delete a chat session and its history.
@@ -211,7 +228,8 @@ async def delete_session(
 async def get_history(
     session_id: str,
     limit: int = 20,
-    coach: ChessCoach = Depends(get_chess_coach)
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
 ):
     """
     Get conversation history for a session.
@@ -268,7 +286,8 @@ async def health_check():
 @router.post("/quick-analysis", summary="Quick position analysis (no session)")
 async def quick_analysis(
     position_fen: str,
-    coach: ChessCoach = Depends(get_chess_coach)
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
 ):
     """
     Quick position analysis without creating a session.

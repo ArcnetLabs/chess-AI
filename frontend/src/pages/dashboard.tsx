@@ -130,7 +130,6 @@ const CoachingInsightCard: React.FC<{
 
 const Dashboard: React.FC = () => {
   const router = useRouter();
-  const { username } = router.query;
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
@@ -147,12 +146,14 @@ const Dashboard: React.FC = () => {
   const [gamesCollapsed, setGamesCollapsed] = useState(false);
   const [analysisPollingInterval, setAnalysisPollingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // Fetch user data by username (ensure lowercase for consistency)
-  const normalizedUsername = username ? (username as string).toLowerCase() : '';
+  // Identity now comes from Supabase via the backend's /users/me endpoint
+  // (which auto-provisions the local row on first contact). The axios
+  // interceptor in lib/api.ts attaches the Supabase JWT automatically.
+  // We no longer key off a ?username= query param — that was the legacy
+  // pseudo-login flow and has been removed.
   const { data: userData, error: userError, isLoading: userLoading, refetch: refetchUserData } = useQuery({
-    queryKey: ['user', normalizedUsername],
-    queryFn: () => api.users.getByUsername(normalizedUsername),
-    enabled: !!normalizedUsername,
+    queryKey: ['me'],
+    queryFn: () => api.users.me(),
   });
 
   // Fetch analysis summary
@@ -184,28 +185,28 @@ const Dashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    // Handle missing username - redirect to home
     if (!router.isReady) return;
-    
-    if (!username) {
-      toast.error('No username provided. Redirecting to home...');
-      router.push('/');
-      return;
-    }
-    
-    // Handle user data loading states
+
     if (userData) {
+      // First Supabase login? The backend created the local row but
+      // chesscom_username is still null — bounce the user through the
+      // onboarding step before showing the dashboard.
+      if (!userData.chesscom_username) {
+        router.replace('/onboarding/link-chesscom');
+        return;
+      }
       setUser(userData);
       setLoading(false);
     } else if (userError) {
-      toast.error('Failed to load user data');
+      // 401 is already handled by the axios interceptor (redirect to
+      // /auth/login). Any other error is a real problem and surfaces
+      // here.
+      toast.error('Failed to load your profile.');
       setLoading(false);
-      router.push('/');
     } else if (!userLoading && !userData) {
-      // Query is enabled but no data and not loading = user not found
       setLoading(false);
     }
-  }, [userData, userError, userLoading, username, router]);
+  }, [userData, userError, userLoading, router]);
 
   const [isFetching, setIsFetching] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);

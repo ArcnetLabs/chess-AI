@@ -12,6 +12,8 @@ from pydantic import BaseModel, model_validator
 
 from ..core.database import get_db
 
+from ..middleware.auth_middleware import get_current_user, require_ownership
+
 from ..models import User, Game
 
 from ..services.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExceeded
@@ -172,13 +174,17 @@ async def filter_games(
 
     filter_request: GameFilterRequest,
 
+    current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
 
 ):
 
-    """Filter games from database with optimized queries."""
+    """Filter games from database with optimized queries. Ownership-checked."""
 
     from loguru import logger
+
+    require_ownership(current_user, user_id)
 
     
 
@@ -320,11 +326,15 @@ async def fetch_recent_games(
 
     background_tasks: BackgroundTasks,
 
+    current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
 
 ):
 
-    """Fetch recent games for a user from Chess.com."""
+    """Fetch recent games for a user from Chess.com. Ownership-checked."""
+
+    require_ownership(current_user, user_id)
 
     
 
@@ -645,11 +655,15 @@ async def get_user_games(
 
     analyzed_only: bool = False,
 
+    current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
 
 ):
 
-    """Get games for a user."""
+    """Get games for a user. Ownership-checked."""
+
+    require_ownership(current_user, user_id)
 
     
 
@@ -701,11 +715,15 @@ async def get_recent_games(
 
     days: int = 7,
 
+    current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
 
 ):
 
-    """Get recent games for a user."""
+    """Get recent games for a user. Ownership-checked."""
+
+    require_ownership(current_user, user_id)
 
     
 
@@ -745,9 +763,17 @@ async def get_recent_games(
 
 @router.get("/game/{game_id}", response_model=GameResponse)
 
-async def get_game(game_id: int, db: Session = Depends(get_db)):
+async def get_game(
 
-    """Get a specific game by ID."""
+    game_id: int,
+
+    current_user: User = Depends(get_current_user),
+
+    db: Session = Depends(get_db),
+
+):
+
+    """Get a specific game by ID. Game ownership is enforced."""
 
     
 
@@ -756,6 +782,8 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
     if not game:
 
         raise HTTPException(status_code=404, detail="Game not found")
+
+    require_ownership(current_user, game.user_id)
 
     
 
@@ -767,9 +795,19 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{user_id}/stats")
 
-async def get_user_game_stats(user_id: int, db: Session = Depends(get_db)):
+async def get_user_game_stats(
 
-    """Get game statistics for a user."""
+    user_id: int,
+
+    current_user: User = Depends(get_current_user),
+
+    db: Session = Depends(get_db),
+
+):
+
+    """Get game statistics for a user. Ownership-checked."""
+
+    require_ownership(current_user, user_id)
 
     
 
@@ -881,11 +919,15 @@ async def delete_user_games(
 
     older_than_days: Optional[int] = None,
 
+    current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
 
 ):
 
-    """Delete games for a user. Optionally only delete games older than specified days."""
+    """Delete games for a user. Ownership-checked."""
+
+    require_ownership(current_user, user_id)
 
     
 

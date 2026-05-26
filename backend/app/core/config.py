@@ -79,6 +79,15 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
     SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "chess-insight-files")
+
+    # Project JWT secret (Settings → API → JWT Secret in the Supabase dashboard).
+    # Used to verify the HS256 signature on incoming Supabase access tokens
+    # WITHOUT a round-trip to Supabase. Required in production; in development
+    # an empty value falls back to a slower SDK-based verification path.
+    SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
+    SUPABASE_JWT_ALGORITHM: str = os.getenv("SUPABASE_JWT_ALGORITHM", "HS256")
+    # The "aud" claim in Supabase access tokens is always "authenticated".
+    SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
     
     # Database connection URL
     DATABASE_URL: str = ""
