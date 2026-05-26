@@ -115,3 +115,23 @@ async def get_pooled_engine() -> StockfishEngine:
     """
     pool = StockfishEnginePool.get_instance()
     return await pool.get_engine()
+
+
+async def check_engine_health() -> dict:
+    """
+    Verify the pooled Stockfish engine can be acquired and initialized.
+
+    Used by route health probes — does not construct engines outside the pool.
+    """
+    try:
+        engine = await get_pooled_engine()
+        return {
+            "available": True,
+            "initialized": engine.is_initialized(),
+            "path": engine.stockfish_path,
+        }
+    except StockfishEngineError as e:
+        return {"available": False, "error": str(e)}
+    except Exception as e:
+        logger.warning(f"Stockfish health check failed: {e}")
+        return {"available": False, "error": str(e)}

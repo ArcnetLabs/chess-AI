@@ -14,7 +14,8 @@ from loguru import logger
 from ..middleware.auth_middleware import get_current_user
 from ..models import User
 from ..services.moves.move_recommender import MoveRecommender
-from ..services.engine.stockfish_engine import StockfishEngine, StockfishEngineError
+from ..services.engine.engine_pool import check_engine_health
+from ..services.engine.stockfish_engine import StockfishEngineError
 
 
 router = APIRouter(prefix="/moves", tags=["moves"])
@@ -44,13 +45,8 @@ class ExplainMoveRequest(BaseModel):
 
 # Dependency for move recommender
 async def get_move_recommender() -> MoveRecommender:
-    """Get move recommender instance."""
-    engine = StockfishEngine(depth=18, threads=2)
-    recommender = MoveRecommender(stockfish_engine=engine)
-    try:
-        yield recommender
-    finally:
-        await engine.close()
+    """Get move recommender backed by the global engine pool."""
+    yield MoveRecommender()
 
 
 @router.post("/analyze", summary="Analyze position and get move recommendations")
@@ -248,7 +244,7 @@ async def explain_move(
             temp_board = board.copy()
             temp_board.push(move)
             
-            eval_result = await recommender.engine.evaluate_position(temp_board, depth=request.depth)
+            eval_result = await recommender.evaluate_board(temp_board, depth=request.depth)
             evaluation = -eval_result["evaluation_cp"] / 100.0 if eval_result["evaluation_cp"] is not None else 0
             
             return {
@@ -278,21 +274,16 @@ async def explain_move(
 @router.get("/health", summary="Check move analysis service health")
 async def health_check():
     """Check if move analysis service is working."""
-    try:
-        # Try to initialize engine
-        engine = StockfishEngine()
-        await engine.initialize()
-        await engine.close()
-        
+    health = await check_engine_health()
+    if health.get("available"):
         return {
             "status": "healthy",
             "service": "move-analysis",
-            "stockfish": "available"
+            "stockfish": "available",
         }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "service": "move-analysis",
-            "stockfish": "unavailable",
-            "error": str(e)
-        }
+    return {
+        "status": "unhealthy",
+        "service": "move-analysis",
+        "stockfish": "unavailable",
+        "error": health.get("error", "unknown"),
+    }
