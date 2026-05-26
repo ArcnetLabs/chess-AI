@@ -1,153 +1,184 @@
-<#
+﻿<#
 .SYNOPSIS
-    ChessIQ Full Grep-Loop Review — runs all A–F check scripts and produces a consolidated report.
+    Run the entire ChessIQ grep-loop review suite.
 
 .DESCRIPTION
-    Orchestrates all review scripts in order of severity:
-      A — Architecture violations  (BLOCKING: must be 0)
-      D — Security                 (BLOCKING: must be 0)
-      B — Duplicate logic          (BLOCKING for FAIL; warnings OK for PR)
-      E — Database access          (BLOCKING for FAIL; warnings OK for PR)
-      C — Naming consistency       (Warnings only — non-blocking)
-      F — File sizes               (BLOCKING for FAIL; warnings non-blocking)
+    Sequentially executes all focused review checks and aggregates the
+    results. Each child script writes its own per-check output and (when
+    -Report is set) a markdown report into docs/review-reports/.
+
+    Order is deliberate:
+      1. check-file-sizes.ps1          (cheapest signal of design rot)
+      2. check-duplicates.ps1          (catches duplicated abstractions)
+      3. check-stockfish-violations.ps1
+      4. check-route-violations.ps1
+      5. check-db-access-violations.ps1
+      6. check-auth-guards.ps1
 
     Exit codes:
-      0 — all blocking checks passed (PR is safe to merge)
-      1 — one or more blocking checks failed (do not merge)
+      0  — all checks clean
+      1  — at least one hard violation found
 
-.PARAMETER Quick
-    Run only the A-series (architecture) and D-series (security) checks.
-    Use before every commit. Full suite reserved for pre-merge.
+.PARAMETER Report
+    Pass through to each child script; also writes a master summary report.
 
-.PARAMETER Series
-    Run a single series by letter: A, B, C, D, E, or F.
+.PARAMETER ContinueOnFail
+    Run every check even if an earlier one failed. Useful for surface-area
+    audits. Default behaviour runs every check (we always want the full
+    picture before refactoring).
+
+.PARAMETER ReportDir
+    Where reports are written. Defaults to docs/review-reports.
 
 .EXAMPLE
-    # Full suite (pre-merge)
+    # Local quick run
     .\scripts\review-loops\full-review.ps1
 
-    # Quick check (pre-commit)
-    .\scripts\review-loops\full-review.ps1 -Quick
-
-    # Single series
-    .\scripts\review-loops\full-review.ps1 -Series B
+    # CI / pre-merge run with reports
+    .\scripts\review-loops\full-review.ps1 -Report
 #>
 
+[CmdletBinding()]
 param(
-    [switch]$Quick,
-    [ValidateSet("A","B","C","D","E","F","")]
-    [string]$Series = ""
+    [switch]$Report,
+    [string]$ReportDir = "docs/review-reports"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$root = $PSScriptRoot
-$startTime = Get-Date
-$results = [ordered]@{}
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
 
-function Run-Script {
-    param([string]$label, [string]$script, [bool]$blocking)
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-    Write-Host "`n" -NoNewline
-    Write-Host ("═" * 60) -ForegroundColor DarkGray
-    Write-Host "  Running $label" -ForegroundColor White
-    Write-Host ("═" * 60) -ForegroundColor DarkGray
-
-    & "$root\$script"
-    $exit = $LASTEXITCODE
-
-    $results[$label] = [PSCustomObject]@{
-        Script   = $script
-        ExitCode = $exit
-        Blocking = $blocking
-        Status   = if ($exit -eq 0) { "✓ PASS" } else { if ($blocking) { "✗ FAIL (BLOCKING)" } else { "⚠ WARN" } }
-    }
-}
-
-# ── Verify rg is available ──────────────────────────────────────────────────────
-
-if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
-    Write-Host "ERROR: ripgrep (rg) is not installed or not on PATH." -ForegroundColor Red
-    Write-Host "Install: winget install BurntSushi.ripgrep.MSVC" -ForegroundColor Yellow
-    exit 2
-}
-
-# ── Verify we are at repo root ──────────────────────────────────────────────────
-
-if (-not (Test-Path "backend") -and -not (Test-Path "frontend")) {
-    Write-Host "WARNING: Neither 'backend/' nor 'frontend/' found in current directory." -ForegroundColor Yellow
-    Write-Host "Run this script from the repository root." -ForegroundColor Yellow
-}
-
-Write-Host "`nChessIQ Full Grep-Loop Review" -ForegroundColor Cyan
-Write-Host "Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGray
-if ($Quick)  { Write-Host "Mode: QUICK (A + D series only)" -ForegroundColor DarkGray }
-elseif ($Series) { Write-Host "Mode: SINGLE SERIES ($Series)" -ForegroundColor DarkGray }
-else         { Write-Host "Mode: FULL SUITE (A–F)" -ForegroundColor DarkGray }
-
-# ── Run scripts ────────────────────────────────────────────────────────────────
-
-if ($Quick) {
-    Run-Script "A — Architecture"  "check-architecture.ps1"  $true
-    Run-Script "D — Security"       "check-security.ps1"       $true
-} elseif ($Series) {
-    $map = @{
-        "A" = @{ script = "check-architecture.ps1"; blocking = $true }
-        "B" = @{ script = "check-duplicates.ps1";   blocking = $true }
-        "C" = @{ script = "check-naming.ps1";        blocking = $false }
-        "D" = @{ script = "check-security.ps1";      blocking = $true }
-        "E" = @{ script = "check-db-access.ps1";     blocking = $true }
-        "F" = @{ script = "check-sizes.ps1";          blocking = $true }
-    }
-    $entry = $map[$Series]
-    Run-Script "$Series — $Series series" $entry.script $entry.blocking
-} else {
-    Run-Script "A — Architecture"  "check-architecture.ps1"  $true
-    Run-Script "D — Security"       "check-security.ps1"       $true
-    Run-Script "B — Duplicates"     "check-duplicates.ps1"     $true
-    Run-Script "E — DB Access"      "check-db-access.ps1"      $true
-    Run-Script "C — Naming"         "check-naming.ps1"         $false
-    Run-Script "F — File Sizes"     "check-sizes.ps1"          $true
-}
-
-# ── Consolidated Report ─────────────────────────────────────────────────────────
-
-$elapsed = [int]((Get-Date) - $startTime).TotalSeconds
-$blockingFailed = $results.Values | Where-Object { $_.Blocking -and $_.ExitCode -ne 0 }
-$warnOnly       = $results.Values | Where-Object { -not $_.Blocking -and $_.ExitCode -ne 0 }
-
-Write-Host "`n"
-Write-Host ("═" * 60) -ForegroundColor White
-Write-Host "  REVIEW SUMMARY — ChessIQ Grep-Loop" -ForegroundColor White
-Write-Host ("═" * 60) -ForegroundColor White
-Write-Host ""
-
-foreach ($label in $results.Keys) {
-    $r = $results[$label]
-    $color = if ($r.ExitCode -eq 0) { "Green" } elseif ($r.Blocking) { "Red" } else { "Yellow" }
-    Write-Host "  $($r.Status.PadRight(25)) $label" -ForegroundColor $color
-}
+$checks = @(
+    @{ Name = "File Sizes";              Script = "check-file-sizes.ps1" }
+    @{ Name = "Duplicates";              Script = "check-duplicates.ps1" }
+    @{ Name = "Stockfish Violations";    Script = "check-stockfish-violations.ps1" }
+    @{ Name = "Route Violations";        Script = "check-route-violations.ps1" }
+    @{ Name = "DB Access Violations";    Script = "check-db-access-violations.ps1" }
+    @{ Name = "Auth Guards";             Script = "check-auth-guards.ps1" }
+)
 
 Write-Host ""
-Write-Host ("─" * 60) -ForegroundColor DarkGray
+Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor White
+Write-Host "║    ChessIQ — Full Grep-Loop Review Suite             ║" -ForegroundColor White
+Write-Host "║    Branch: $((git rev-parse --abbrev-ref HEAD 2>$null).PadRight(42, ' '))║" -ForegroundColor White
+Write-Host "║    Started: $((Get-Date -Format 'yyyy-MM-dd HH:mm:ss').PadRight(41, ' '))║" -ForegroundColor White
+Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor White
 
-if ($blockingFailed.Count -eq 0) {
-    Write-Host "  RESULT: READY TO MERGE ✓" -ForegroundColor Green
-    if ($warnOnly.Count -gt 0) {
-        Write-Host "  ($($warnOnly.Count) non-blocking warning$(if ($warnOnly.Count -ne 1){'s'}) — address before next release)" -ForegroundColor DarkYellow
-    }
-} else {
-    Write-Host "  RESULT: BLOCKED — $($blockingFailed.Count) check$(if ($blockingFailed.Count -ne 1){'s'}) failed ✗" -ForegroundColor Red
+$results = @()
+
+foreach ($check in $checks) {
+    $path = Join-Path $scriptDir $check.Script
     Write-Host ""
-    Write-Host "  Failing checks:" -ForegroundColor Red
-    $blockingFailed | ForEach-Object { Write-Host "    • $($_.Script)" -ForegroundColor DarkRed }
-    Write-Host ""
-    Write-Host "  Fix all blocking violations, re-run this script, then open the PR." -ForegroundColor Yellow
+    Write-Host "▶ Running: $($check.Name) ($($check.Script))" -ForegroundColor White
+    Write-Host ("─" * 60) -ForegroundColor DarkGray
+
+    if (-not (Test-Path $path)) {
+        Write-Host "  ✗ Script not found: $path" -ForegroundColor Red
+        $results += [PSCustomObject]@{
+            Name   = $check.Name
+            Script = $check.Script
+            Status = "MISSING"
+            Code   = -1
+        }
+        continue
+    }
+
+    try {
+        if ($Report) {
+            & $path -Report -ReportDir $ReportDir
+        } else {
+            & $path
+        }
+        $code = $LASTEXITCODE
+    } catch {
+        Write-Host "  ✗ Script threw: $_" -ForegroundColor Red
+        $code = 1
+    }
+
+    $status = if ($code -eq 0) { "PASS" } else { "FAIL" }
+    $results += [PSCustomObject]@{
+        Name   = $check.Name
+        Script = $check.Script
+        Status = $status
+        Code   = $code
+    }
 }
 
-Write-Host ""
-Write-Host "  Completed in $($elapsed)s — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGray
-Write-Host ("═" * 60) -ForegroundColor White
+# ── Summary ────────────────────────────────────────────────────────────────────
 
-exit $(if ($blockingFailed.Count -gt 0) { 1 } else { 0 })
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor White
+Write-Host "║                  SUITE SUMMARY                       ║" -ForegroundColor White
+Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor White
+
+foreach ($r in $results) {
+    $colour = switch ($r.Status) {
+        "PASS"    { "Green" }
+        "FAIL"    { "Red" }
+        default   { "Yellow" }
+    }
+    $glyph = switch ($r.Status) {
+        "PASS"    { "✓" }
+        "FAIL"    { "✗" }
+        default   { "?" }
+    }
+    Write-Host ("  {0}  {1,-28} {2}" -f $glyph, $r.Name, $r.Status) -ForegroundColor $colour
+}
+
+$failCount = ($results | Where-Object { $_.Status -ne "PASS" }).Count
+
+Write-Host ""
+if ($failCount -eq 0) {
+    Write-Host "  All checks passed. PR is structurally clean." -ForegroundColor Green
+    $exit = 0
+} else {
+    Write-Host "  $failCount check$(if ($failCount -ne 1){'s'}) failed. Address all hard violations before merging." -ForegroundColor Red
+    $exit = 1
+}
+
+if ($Report) {
+    if (-not (Test-Path $ReportDir)) { New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null }
+    $stamp = Get-Date -Format "yyyy-MM-dd-HHmm"
+    $path  = Join-Path $ReportDir "full-review-$stamp.md"
+
+    $lines = @(
+        "# ChessIQ Full Review Report",
+        "",
+        "Generated: $(Get-Date -Format o)",
+        "Branch: $(git rev-parse --abbrev-ref HEAD 2>$null)",
+        "Commit: $(git rev-parse HEAD 2>$null)",
+        "",
+        "## Suite results",
+        "",
+        "| Check | Script | Status | Code |",
+        "|-------|--------|--------|------|"
+    )
+    foreach ($r in $results) {
+        $glyph = switch ($r.Status) { "PASS" { "✅" }; "FAIL" { "❌" }; default { "⚠️" } }
+        $lines += "| $glyph $($r.Name) | ``$($r.Script)`` | $($r.Status) | $($r.Code) |"
+    }
+    $lines += ""
+    $lines += "## Per-check reports"
+    $lines += ""
+    $lines += "Each check writes its own report into ``$ReportDir/``."
+    $lines += ""
+    $lines += "Open the most recent file matching each pattern for full detail:"
+    $lines += "- ``file-sizes-*.md``"
+    $lines += "- ``duplicates-*.md``"
+    $lines += "- ``stockfish-violations-*.md``"
+    $lines += "- ``route-violations-*.md``"
+    $lines += "- ``db-access-*.md``"
+    $lines += "- ``auth-guards-*.md``"
+
+    $lines -join "`n" | Out-File -FilePath $path -Encoding utf8
+    Write-Host ""
+    Write-Host "  Master report: $path" -ForegroundColor Cyan
+}
+
+exit $exit

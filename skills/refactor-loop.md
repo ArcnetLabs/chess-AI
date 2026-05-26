@@ -51,7 +51,7 @@ Stop the loop when ALL of the following are true:
 
 ### Playbook 1: Split an oversized service file
 
-**Trigger:** `check-sizes.ps1` reports `backend/app/services/chess_service.py` > 300 lines.
+**Trigger:** `check-file-sizes.ps1` reports `backend/app/services/chess_service.py` > 300 lines.
 
 ```bash
 # Step 1: Map responsibilities
@@ -70,7 +70,8 @@ rg "from app.services.chess_service import" backend/ --type py
 # Update each import site to import from the new module
 
 # Step 5: Run grep checks
-.\scripts\review-loops\check-architecture.ps1
+.\scripts\review-loops\check-stockfish-violations.ps1
+.\scripts\review-loops\check-route-violations.ps1
 .\scripts\review-loops\check-duplicates.ps1
 
 # Step 6: Run tests
@@ -79,7 +80,7 @@ cd backend && pytest tests/ -x -q -k "pgn or chess"
 
 ### Playbook 2: Extract a React component
 
-**Trigger:** `check-sizes.ps1` reports `frontend/src/components/ChessBoard.tsx` > 200 lines.
+**Trigger:** `check-file-sizes.ps1` reports `frontend/src/components/ChessBoard.tsx` > 200 lines.
 
 ```bash
 # Step 1: Map rendering sections
@@ -97,7 +98,7 @@ cd backend && pytest tests/ -x -q -k "pgn or chess"
 # Replace inline renderSquare call with <BoardSquare ... />
 
 # Step 5: Check component sizes
-.\scripts\review-loops\check-sizes.ps1
+.\scripts\review-loops\check-file-sizes.ps1
 
 # Step 6: Smoke test
 cd frontend && npm test -- --testPathPattern=ChessBoard --watchAll=false
@@ -123,7 +124,7 @@ rg "useState|useEffect|useCallback|useMemo" frontend/src/pages/dashboard.tsx
 # Page renders data — no fetch logic remaining
 
 # Step 5: Verify size
-.\scripts\review-loops\check-sizes.ps1
+.\scripts\review-loops\check-file-sizes.ps1
 ```
 
 ### Playbook 4: Consolidate duplicate service logic
@@ -155,7 +156,7 @@ rg "def fetch_game\|from.*import.*fetch_game" backend/ --type py
 
 ### Playbook 5: Consolidate duplicated Stockfish logic
 
-**Trigger:** `check-architecture.ps1` finds `popen_uci` in two files, or `check-duplicates.ps1` finds multiple engine depth constants.
+**Trigger:** `check-stockfish-violations.ps1` finds `popen_uci` / `StockfishEngine(` outside the engine pool, or `check-duplicates.ps1` finds multiple engine depth constants.
 
 ```bash
 # Step 1: Locate all Stockfish call sites
@@ -175,7 +176,7 @@ rg "depth=\d+" backend/ --type py
 # engine = chess.engine.SimpleEngine.popen_uci(path)  # grep-exempt: engine pool definition
 
 # Step 6: Verify
-.\scripts\review-loops\check-architecture.ps1
+.\scripts\review-loops\check-stockfish-violations.ps1
 ```
 
 ---
@@ -203,7 +204,7 @@ refactor: extract pgn_parser from chess_service
 - Update 3 import sites
 - No behaviour change — all existing tests pass
 
-Resolves: check-sizes.ps1 F1 finding (chess_service.py was 387 lines)
+Resolves: check-file-sizes.ps1 FS-1 finding (chess_service.py was 387 lines)
 ```
 
 ---
