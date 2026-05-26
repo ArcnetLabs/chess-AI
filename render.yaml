@@ -12,9 +12,10 @@ services:
     name: chess-insight-backend
     env: python
     region: oregon
-    plan: free
+    plan: starter
     buildCommand: |
       cd backend
+      bash scripts/render_install_stockfish.sh .
       pip install -r requirements.txt
       alembic upgrade head
     startCommand: |
@@ -63,7 +64,7 @@ services:
       - key: MAX_GAMES_PER_ANALYSIS
         value: 50
       - key: STOCKFISH_PATH
-        value: /usr/games/stockfish
+        value: stockfish/stockfish
       - key: STOCKFISH_DEPTH
         value: 15
       - key: STOCKFISH_TIME
@@ -74,7 +75,62 @@ services:
         value: /tmp/reports
       - key: ANALYSIS_CACHE_EXPIRE_HOURS
         value: 24
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
     healthCheckPath: /api/v1/health
 
-# Celery worker omitted: Render free tier does not support `type: worker`.
-# Async analysis needs a paid plan — see docs/deployment/render-celery-worker.yaml
+  # Celery worker — async game analysis (requires Render Starter+ for type: worker)
+  - type: worker
+    name: chess-insight-celery
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: |
+      cd backend
+      bash scripts/render_install_stockfish.sh .
+      pip install -r requirements.txt
+    startCommand: |
+      cd backend
+      celery -A app.celery_app worker --loglevel=info -Q analysis
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: chess-insight-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: chess-insight-redis
+          property: port
+      - key: REDIS_DB
+        value: "0"
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: chess-insight-backend
+          envVarKey: SECRET_KEY
+      - key: STOCKFISH_PATH
+        value: stockfish/stockfish
+      - key: STOCKFISH_DEPTH
+        value: 15
+      - key: STOCKFISH_TIME
+        value: 1.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+      - key: REPORTS_DIR
+        value: /tmp/reports
