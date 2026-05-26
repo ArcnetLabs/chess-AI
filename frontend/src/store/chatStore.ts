@@ -13,6 +13,7 @@ interface ChatState {
   
   // Session State
   sessionId: string | null;
+  userId: number | undefined;
   messages: Message[];
   isTyping: boolean;
   unreadCount: number;
@@ -46,6 +47,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isOpen: false,
   isMinimized: false,
   sessionId: null,
+  userId: undefined,
   messages: [],
   isTyping: false,
   unreadCount: 0,
@@ -87,10 +89,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Session Actions
   initializeSession: async (userId?: number) => {
     try {
-      set({ error: null });
+      set({ error: null, userId });
+      chatService.setUserId(userId);
       const response = await chatService.createSession(userId);
-      
-      set({ 
+
+      set({
         sessionId: response.session_id,
         messages: [{
           id: `welcome-${Date.now()}`,
@@ -151,7 +154,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Send to backend
       const response = await chatService.sendMessage(
         content,
-        positionFen || state.currentPosition || undefined
+        positionFen || state.currentPosition || undefined,
+        state.userId,
       );
 
       // Add assistant response

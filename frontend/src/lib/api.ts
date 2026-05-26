@@ -12,6 +12,14 @@ import {
   GenerateInsightsResponse,
   Recommendation,
 } from '@/types';
+import {
+  ChatHistoryResponse,
+  CreateSessionRequest,
+  CreateSessionResponse,
+  Message,
+  SendMessageRequest,
+  SendMessageResponse,
+} from '@/types/chat.types';
 import { createClient } from '@/lib/supabase/client';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -293,11 +301,50 @@ export const insightsApi = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Chat API
+// ---------------------------------------------------------------------------
+
+export const chatApi = {
+  createSession: async (request?: CreateSessionRequest): Promise<CreateSessionResponse> => {
+    const response = await apiClient.post<CreateSessionResponse>('/chat/session', request ?? {});
+    return response.data;
+  },
+
+  sendMessage: async (request: SendMessageRequest): Promise<SendMessageResponse> => {
+    const response = await apiClient.post<SendMessageResponse>('/chat/message', request);
+    return response.data;
+  },
+
+  getHistory: async (sessionId: string, limit = 20): Promise<Message[]> => {
+    const response = await apiClient.get<ChatHistoryResponse>(
+      `/chat/session/${sessionId}/history`,
+      { params: { limit } },
+    );
+    return response.data.messages.map((msg) => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp),
+    }));
+  },
+
+  deleteSession: async (sessionId: string): Promise<void> => {
+    await apiClient.delete(`/chat/session/${sessionId}`);
+  },
+
+  quickAnalysis: async (positionFen: string): Promise<SendMessageResponse> => {
+    const response = await apiClient.post<SendMessageResponse>('/chat/quick-analysis', {
+      position_fen: positionFen,
+    });
+    return response.data;
+  },
+};
+
 const api = {
   users: userApi,
   games: gamesApi,
   analysis: analysisApi,
   insights: insightsApi,
+  chat: chatApi,
 };
 
 export default api;
