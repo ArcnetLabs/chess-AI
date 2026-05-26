@@ -27,7 +27,7 @@ The backend now **fails fast** when:
 | 4 | Remove silent SQLite fallback | **Done** | `backend/app/core/database.py` — `_validate_database_url()` raises on SQLite unless `TESTING=1` |
 | 5 | Remove `Base.metadata.create_all` on startup | **Done** | Removed from `backend/app/__main__.py` |
 | 6 | Verify Alembic-only schema flow | **Done** | Migrations via `alembic upgrade head` in Render build; no runtime DDL; fixed `add_game_filter_indexes` (removed indexes on non-existent `games.rated` column) |
-| 7 | Verify Celery worker startup | **Partial (free tier)** | Worker omitted from `render.yaml` — Render free plan blocks `type: worker`. Use `docs/deployment/render-celery-worker.yaml` when upgrading. Local: `docker compose --profile celery` |
+| 7 | Verify Celery worker startup | **Done (Starter+)** | `chess-insight-celery` in `render.yaml`; queue `analysis` |
 | 8 | Verify Redis connectivity | **Done** | Required in prod/staging at import; health endpoint reports Redis status |
 | 9 | Verify environment consistency | **Done** | `load_dotenv(..., override=True)` so `backend/.env` wins over stale shell vars locally; Render uses injected env only |
 
@@ -112,7 +112,7 @@ Build step runs `alembic upgrade head` against Supabase before the web service s
 1. **Alembic + transaction pooler:** Some DDL may prefer direct connection; if `upgrade head` fails on pooler port 6543, use Supabase direct URI in Render build env only.
 2. **Schema applied outside Alembic:** If tables were created via Supabase MCP/SQL before Alembic ran, stamp once: `alembic stamp head` (Chessrun project stamped at `0005` on 2026-05-26). Fresh deploys use `upgrade head` only.
 3. **Local Redis:** Optional in development; start `docker compose up redis` before Celery or analysis queue tests.
-4. **Render free tier:** Background workers (`type: worker`) are not available. Blueprint deploys Redis + backend only; async analysis returns 503 until you add the worker from `render-celery-worker.yaml` on a paid plan.
+4. **Render free tier:** Background workers require Starter+. `render.yaml` includes `chess-insight-celery` on `plan: starter`.
 5. **pytest:** Still uses in-memory SQLite via `TESTING=1` in `conftest.py` — isolated from production paths.
 
 ---
