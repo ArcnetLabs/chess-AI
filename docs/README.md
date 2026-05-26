@@ -29,6 +29,8 @@ docs/
 │   ├── DOCKER_GUIDE.md
 │   ├── NETLIFY_DEPLOYMENT.md
 │   └── infrastructure-stabilization-report.md   # P0 infra sign-off (2026-05-26)
+├── frontend/                       # Frontend architecture & remediation
+│   └── frontend-remediation-report.md           # Dashboard refactor + hooks layer (2026-05-26)
 ├── html/                           # Rendered HTML version of the doc suite
 │   ├── index.html
 │   ├── frd_product.html
