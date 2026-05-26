@@ -16,7 +16,7 @@ from ..middleware.auth_middleware import get_current_user, require_ownership
 
 from ..models import User, Game
 
-from ..services.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExceeded
+from ..services.integration.chesscom_api import chesscom_api, ChessComAPIError, RateLimitExceeded
 
 from ..services.filter_service import GameFilter, FilterService, get_filter_service
 

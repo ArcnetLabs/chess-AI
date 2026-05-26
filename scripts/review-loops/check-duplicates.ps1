@@ -182,11 +182,8 @@ Run-Check `
 Write-Section "DP-10 — Backward-compatibility shim files (should be empty after migration)"
 $shimFiles = @()
 $candidates = @(
-    "backend/app/services/auth_service.py",
-    "backend/app/services/chesscom_api.py",
     "backend/app/services/chess_analyzer.py",
     "backend/app/services/chess_analysis.py",
-    "backend/app/core/ai_client.py"
 )
 foreach ($f in $candidates) {
     if (Test-Path $f) {
