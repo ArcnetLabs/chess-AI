@@ -1,12 +1,5 @@
-databases:
-  - name: chess-insight-db
-    databaseName: chessai
-    user: chessai
-    plan: free
-    region: oregon
-
 services:
-  # Redis Cache
+  # Redis Cache (Celery broker + app cache)
   - type: redis
     name: chess-insight-redis
     plan: free
@@ -28,30 +21,23 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: ENVIRONMENT
+        value: production
+      # Supabase Postgres + Auth — set in Render dashboard (never commit real values)
       - key: DATABASE_URL
-        fromDatabase:
-          name: chess-insight-db
-          property: connectionString
-      - key: POSTGRES_SERVER
-        fromDatabase:
-          name: chess-insight-db
-          property: host
-      - key: POSTGRES_PORT
-        fromDatabase:
-          name: chess-insight-db
-          property: port
-      - key: POSTGRES_USER
-        fromDatabase:
-          name: chess-insight-db
-          property: user
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: chess-insight-db
-          property: password
-      - key: POSTGRES_DB
-        fromDatabase:
-          name: chess-insight-db
-          property: database
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_JWT_ALGORITHM
+        value: HS256
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
       - key: REDIS_HOST
         fromService:
           type: redis
