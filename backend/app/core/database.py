@@ -1,71 +1,75 @@
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-import redis
 import os
+import redis
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env file before importing settings
-env_path = Path(__file__).parent.parent.parent / '.env'
-load_dotenv(env_path)
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 
 from .config import settings
 
-# PostgreSQL/Supabase Database
-# Use SQLite file for local development if Supabase not accessible
-database_url = str(settings.SQLALCHEMY_DATABASE_URI) if settings.SQLALCHEMY_DATABASE_URI else None
 
-# Try PostgreSQL first, fall back to SQLite file on connection error
-if database_url and database_url != "None" and database_url.startswith("postgresql"):
-    try:
-        # Try to connect to PostgreSQL
-        engine = create_engine(
-            database_url,
-            pool_pre_ping=True,
-            connect_args={"connect_timeout": 5},
-            echo=settings.LOG_LEVEL == "DEBUG"
+def _validate_database_url(url: str) -> str:
+    """Reject missing, SQLite, or non-Postgres URLs outside pytest.
+
+    Production and staging must never silently fall back to SQLite.
+    """
+    if not url or url == "None":
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Set DATABASE_URL to a PostgreSQL "
+            "connection string (Supabase dashboard or managed Postgres)."
         )
-        # Test connection
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        print(f"✅ Connected to PostgreSQL: {engine.url.host}")
-    except Exception as e:
-        # Fall back to local SQLite file
-        print(f"⚠️ PostgreSQL connection failed: {e}")
-        print("📁 Using local SQLite database: ./chess_ai.db")
-        database_url = "sqlite:///./chess_ai.db"
-        engine = create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-            echo=settings.LOG_LEVEL == "DEBUG"
+
+    normalized = url.split(":", 1)[0].lower()
+    if normalized == "sqlite":
+        if os.getenv("TESTING") == "1":
+            return url
+        raise RuntimeError(
+            "SQLite DATABASE_URL is forbidden outside pytest (TESTING=1). "
+            "Configure PostgreSQL via DATABASE_URL — the app must fail fast, "
+            "not silently degrade."
         )
-else:
-    # Use local SQLite file for development
-    database_url = "sqlite:///./chess_ai.db"
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
-        echo=settings.LOG_LEVEL == "DEBUG"
-    )
-    print(f"📁 Using local SQLite database: ./chess_ai.db")
+
+    if not url.startswith("postgresql"):
+        raise RuntimeError(
+            f"Unsupported DATABASE_URL scheme ({normalized!r}). "
+            "Only postgresql:// URLs are supported."
+        )
+
+    return url
+
+
+database_url = _validate_database_url(settings.SQLALCHEMY_DATABASE_URI)
+
+engine = create_engine(
+    database_url,
+    pool_pre_ping=True,
+    connect_args={"connect_timeout": 5} if database_url.startswith("postgresql") else {},
+    echo=settings.LOG_LEVEL == "DEBUG",
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# Redis connection (optional for development)
+# Redis (required in production/staging for Celery + cache)
 redis_client = None
 try:
-    redis_client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1)
-    # Test connection with timeout
+    redis_client = redis.Redis.from_url(
+        settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2
+    )
     redis_client.ping()
-    print("✅ Redis connected successfully")
-except (redis.ConnectionError, redis.TimeoutError, Exception) as e:
-    # Redis not available - continue without it for development
-    print(f"⚠️ Redis not available: {e}. Continuing without Redis (development mode).")
-    redis_client = None
+except (redis.ConnectionError, redis.TimeoutError, OSError, Exception) as e:
+    if settings.ENVIRONMENT in ("production", "staging"):
+        raise RuntimeError(
+            f"Redis is unreachable at {settings.REDIS_URL} but is required in "
+            f"{settings.ENVIRONMENT}. Celery and cache depend on Redis."
+        ) from e
+    print(f"Warning: Redis not available: {e}. Continuing without Redis (development).")
 
 
 def get_db():

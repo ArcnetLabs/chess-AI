@@ -63,7 +63,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - backend
+      - redis
     restart: unless-stopped
     profiles: [ "frontend" ] # Optional service, enable with --profile frontend
 
@@ -71,7 +71,7 @@ services:
   celery-worker:
     build: ./backend
     container_name: chess-insight-celery
-    command: celery -A app.workers.celery_app worker --loglevel=info
+    command: celery -A app.celery_app worker --loglevel=info
     env_file:
       - .env
     environment:

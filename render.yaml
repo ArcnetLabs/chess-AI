@@ -1,16 +1,5 @@
 services:
-  # PostgreSQL Database
-  - type: pserv
-    name: chess-insight-postgres
-    env: python
-    plan: free
-    region: oregon
-    databases:
-      - name: chess-insight-db
-        databaseName: chessai
-        user: chessai
-
-  # Redis Cache
+  # Redis Cache (Celery broker + app cache)
   - type: redis
     name: chess-insight-redis
     plan: free
@@ -25,33 +14,30 @@ services:
     buildCommand: |
       cd backend
       pip install -r requirements.txt
-      python -m alembic upgrade head
+      alembic upgrade head
     startCommand: |
       cd backend
-      uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: POSTGRES_SERVER
-        fromDatabase:
-          name: chess-insight-db
-          property: host
-      - key: POSTGRES_PORT
-        fromDatabase:
-          name: chess-insight-db
-          property: port
-      - key: POSTGRES_USER
-        fromDatabase:
-          name: chess-insight-db
-          property: user
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: chess-insight-db
-          property: password
-      - key: POSTGRES_DB
-        fromDatabase:
-          name: chess-insight-db
-          property: database
+      - key: ENVIRONMENT
+        value: production
+      # Supabase Postgres + Auth — set in Render dashboard (never commit real values)
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_JWT_ALGORITHM
+        value: HS256
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
       - key: REDIS_HOST
         fromService:
           type: redis
@@ -62,6 +48,8 @@ services:
           type: redis
           name: chess-insight-redis
           property: port
+      - key: REDIS_DB
+        value: "0"
       - key: SECRET_KEY
         generateValue: true
       - key: LOG_LEVEL
@@ -85,3 +73,52 @@ services:
       - key: ANALYSIS_CACHE_EXPIRE_HOURS
         value: 24
     healthCheckPath: /api/v1/health
+
+  # Celery worker (game analysis queue)
+  - type: worker
+    name: chess-insight-celery
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt
+    startCommand: |
+      cd backend
+      celery -A app.celery_app worker --loglevel=info -Q analysis
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: chess-insight-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: chess-insight-redis
+          property: port
+      - key: REDIS_DB
+        value: "0"
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: chess-insight-backend
+          envVarKey: SECRET_KEY
+      - key: STOCKFISH_PATH
+        value: /usr/games/stockfish
+      - key: STOCKFISH_DEPTH
+        value: 15
+      - key: LOG_LEVEL
+        value: INFO

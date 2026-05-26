@@ -1,5 +1,20 @@
 """Pytest configuration and fixtures for Chess Insight AI."""
 import os
+
+# Must be set before importing app (database.py fails fast without DATABASE_URL).
+os.environ.setdefault("TESTING", "1")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "sqlite:///:memory:",
+)
+os.environ.setdefault(
+    "SECRET_KEY",
+    "test-secret-key-for-pytest-only-min-32-chars-long",
+)
+os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
+os.environ.setdefault("SUPABASE_ANON_KEY", "test-anon-key")
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key")
+
 import pytest
 from typing import Generator
 import asyncio
@@ -14,12 +29,6 @@ from app.core.database import Base, get_db
 from app.models.user import User
 from app.models.game import Game
 from app.models.insights import UserInsight
-
-# Set test environment
-os.environ["TESTING"] = "1"
-os.environ["SUPABASE_URL"] = "https://test.supabase.co"
-os.environ["SUPABASE_ANON_KEY"] = "test-anon-key"
-os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test-service-role-key"
 
 # Test database setup
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
