@@ -35,6 +35,14 @@ docs/
 │   ├── pricing_monetization_strategy.html
 │   ├── shared.css
 │   └── shared.js
+├── audit/                          # System state audit (2026-05-26)
+│   ├── README.md                       # Audit index — START HERE
+│   ├── system-state-audit.md           # Master findings doc
+│   ├── backend-audit.md
+│   ├── frontend-audit.md
+│   ├── technical-debt-report.md
+│   ├── architecture-divergence-report.md
+│   └── recommended-remediation-roadmap.md
 └── archive/                        # Historical implementation notes & reference guides
     └── legacy-docs/                # Generated reports, phase notes, one-off fix summaries
 ```
@@ -45,8 +53,9 @@ docs/
 
 | If you are… | Read |
 | --- | --- |
-| New to the project | [`../README.md`](../README.md) → [`product/FRD_PRODUCT.md`](./product/FRD_PRODUCT.md) |
-| Building a feature | [`requirements/FRD_TECHNICAL.md`](./requirements/FRD_TECHNICAL.md) → relevant doc in [`architecture/`](./architecture/) |
+| New to the project | [`../README.md`](../README.md) → [`product/FRD_PRODUCT.md`](./product/FRD_PRODUCT.md) → [`audit/README.md`](./audit/README.md) |
+| **Picking up the codebase after recent changes** | [`audit/system-state-audit.md`](./audit/system-state-audit.md) — current health, broken systems, remediation plan |
+| Building a feature | [`audit/recommended-remediation-roadmap.md`](./audit/recommended-remediation-roadmap.md) (check P0 status first) → [`requirements/FRD_TECHNICAL.md`](./requirements/FRD_TECHNICAL.md) → relevant doc in [`architecture/`](./architecture/) |
 | Deploying or running ops | [`deployment/DEPLOYMENT_GUIDE.md`](./deployment/DEPLOYMENT_GUIDE.md) → [`deployment/DOCKER_GUIDE.md`](./deployment/DOCKER_GUIDE.md) or [`deployment/NETLIFY_DEPLOYMENT.md`](./deployment/NETLIFY_DEPLOYMENT.md) |
 | Working on AI / RAG / memory | [`architecture/AI_MODEL_STRATEGY.md`](./architecture/AI_MODEL_STRATEGY.md) + [`architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`](./architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md) |
 | Working on pricing / packaging | [`strategy/PRICING_MONETIZATION_STRATEGY.md`](./strategy/PRICING_MONETIZATION_STRATEGY.md) |
