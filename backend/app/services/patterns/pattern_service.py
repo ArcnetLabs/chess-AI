@@ -142,3 +142,21 @@ def persist_pattern_snapshots(
         f"(run patterns={result.pattern_count})"
     )
     return saved
+
+
+def list_user_patterns(
+    db: Session,
+    user_id: int,
+    *,
+    skip: int = 0,
+    limit: int = 50,
+) -> List[PlayerPattern]:
+    """Return persisted pattern rows for a user, newest first."""
+    return (
+        db.query(PlayerPattern)
+        .filter(PlayerPattern.user_id == user_id)
+        .order_by(PlayerPattern.updated_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
