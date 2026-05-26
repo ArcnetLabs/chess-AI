@@ -8,6 +8,11 @@ supabase==2.22.0
 # postgrest-py and gotrue are auto-installed as dependencies
 # Removed explicit versions to let supabase manage sub-dependencies
 
+# JWT validation for Supabase access tokens.
+# We verify Supabase JWTs locally (HS256, project JWT secret) rather than
+# round-tripping to Supabase on every request. PyJWT is the canonical lib.
+PyJWT[crypto]==2.9.0
+
 # Database (SQLAlchemy still used for ORM)
 sqlalchemy>=2.0.23
 alembic>=1.13.0

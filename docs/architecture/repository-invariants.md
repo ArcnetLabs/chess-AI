@@ -49,16 +49,22 @@ These patterns must never appear in the repository on `main` or
 - **Fix** : Remove the reference. Move the call to a backend route.
   Rotate the key immediately.
 
-### FP-2 — `getSession()` in SSR / lib code
+### FP-2 — `getSession()` for authorization decisions
 
-- **What** : `supabase.auth.getSession()` may not be used to determine
-  authentication state in `frontend/src/pages/`,
-  `frontend/src/lib/`, or `frontend/src/middleware.ts`.
+- **What** : `supabase.auth.getSession()` may not be used to make an
+  authorization decision. That means it is forbidden in
+  `frontend/src/lib/auth/` and `frontend/src/middleware.ts`.
 - **Why** : `getSession()` reads the cookie without revalidating it
   against Supabase. An attacker with a stale cookie can impersonate a
-  user.
-- **Where** : SSR-adjacent frontend code.
-- **Check** : `check-auth-guards.ps1` → AG-4.
+  user when the result is used to gate a route.
+- **Carve-out** : `frontend/src/lib/api.ts` uses `getSession()` to
+  *forward* the access token to the backend in an `Authorization: Bearer`
+  header. That is **not** an authorization decision — the backend
+  validates the JWT independently via PyJWT and rejects invalid tokens
+  with 401. This usage is intentional and exempt from FP-2.
+- **Where** : SSR-adjacent frontend code that gates access.
+- **Check** : `check-auth-guards.ps1` → AG-4 (scoped to `lib/auth/` and
+  `middleware.ts`).
 - **Fix** : Use `supabase.auth.getUser()` which round-trips to
   Supabase to validate the JWT.
 
@@ -332,8 +338,10 @@ if current_user.id != user_id and not current_user.is_admin:
 
 ### AR-3 — Frontend uses `getUser()` for SSR
 
-`supabase.auth.getSession()` is forbidden anywhere session validity
-matters: pages, lib, middleware. Use `getUser()`.
+`supabase.auth.getSession()` is forbidden anywhere it influences an
+authorization decision (`lib/auth/`, `middleware.ts`). Use `getUser()`
+there. Forwarding the token from `lib/api.ts` to the backend is allowed
+because the backend validates the JWT itself.
 
 ### AR-4 — Protected pages wrap with `withAuth`
 

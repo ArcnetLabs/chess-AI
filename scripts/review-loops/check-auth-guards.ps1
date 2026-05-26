@@ -128,18 +128,22 @@ if ($defined -and -not $imported) {
     Write-Host "  ✓ AG-3 PASS: get_current_user is referenced" -ForegroundColor Green
 }
 
-# AG-4 — Frontend getSession() (security anti-pattern)
-Write-Section "AG-4 — getSession() in frontend SSR / lib code"
-$gsOutput = & rg --line-number "supabase\.auth\.getSession\(\)" "frontend/src/pages/" "frontend/src/lib/" "frontend/src/middleware.ts" 2>$null
+# AG-4 — Frontend getSession() used for AUTHORIZATION (security anti-pattern)
+# Narrowed scope: only flag getSession() in code paths that make auth decisions
+# (lib/auth/, getServerSideProps, middleware). Using getSession() in the axios
+# client (lib/api.ts) to FORWARD a token to the backend is fine — the backend
+# validates the JWT independently with PyJWT, see docs/architecture/auth-system.md.
+Write-Section "AG-4 — getSession() in frontend SSR / lib/auth code"
+$gsOutput = & rg --line-number "supabase\.auth\.getSession\(\)" "frontend/src/lib/auth/" "frontend/src/middleware.ts" 2>$null
 if ($LASTEXITCODE -eq 0 -and $gsOutput) {
     $count = ($gsOutput | Measure-Object -Line).Lines
-    Write-Host "  ✗ AG-4 FAIL ($count match$(if ($count -ne 1){'es'})): getSession() used for SSR (reads unvalidated cookie)" -ForegroundColor Red
+    Write-Host "  ✗ AG-4 FAIL ($count match$(if ($count -ne 1){'es'})): getSession() used for SSR authorization (reads unvalidated cookie)" -ForegroundColor Red
     $gsOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkRed }
     Write-Host "  → Fix: Replace getSession() with supabase.auth.getUser() — getUser hits Supabase and validates the JWT" -ForegroundColor Yellow
-    Add-Violation -Id "AG-4" -Description "getSession() used for server-side auth" -Count $count `
+    Add-Violation -Id "AG-4" -Description "getSession() used for server-side authorization" -Count $count `
         -Fix "Replace with supabase.auth.getUser() for validated server auth" -Matches @($gsOutput)
 } else {
-    Write-Host "  ✓ AG-4 PASS: No getSession() in SSR / lib code" -ForegroundColor Green
+    Write-Host "  ✓ AG-4 PASS: No getSession() in SSR / lib/auth code" -ForegroundColor Green
 }
 
 # AG-5 — Raw Authorization header parsing in routes

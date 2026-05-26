@@ -5,15 +5,33 @@ from ..core.database import Base
 
 
 class User(Base):
-    """User model for storing Chess.com user information."""
-    
+    """Local user record.
+
+    Identity is owned by Supabase Auth — ``supabase_user_id`` is the
+    canonical foreign key into the Supabase ``auth.users`` table. Local
+    rows are auto-provisioned on first authenticated request (see
+    :mod:`app.middleware.auth_middleware`).
+
+    ``chesscom_username`` is linked profile data, not identity. It is
+    nullable for users who sign up via Supabase but have not yet linked
+    a Chess.com account.
+    """
+
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    chesscom_username = Column(String, unique=True, index=True, nullable=False)
+
+    # Supabase identity (canonical). UUIDv4 stored as VARCHAR(36) so the
+    # column is portable between Postgres (production) and SQLite (dev
+    # fallback). See migration 0005.
+    supabase_user_id = Column(String(36), unique=True, index=True, nullable=True)
+
+    # Chess.com linked profile data. Optional until the user completes the
+    # /onboarding/link-chesscom flow.
+    chesscom_username = Column(String, unique=True, index=True, nullable=True)
     display_name = Column(String)
     email = Column(String, unique=True, index=True, nullable=True)
-    
+
     # Authentication and connection status
     connection_type = Column(String, default="username_only")  # "username_only", "oauth", "api_key"
     is_chesscom_connected = Column(Boolean, default=False)
@@ -101,4 +119,7 @@ class User(Base):
                 self.trial_exhausted_at = datetime.now(timezone.utc)
     
     def __repr__(self):
-        return f"<User(username='{self.chesscom_username}', tier='{self.tier}', connection='{self.connection_type}')>"
+        return (
+            f"<User(id={self.id}, supabase_user_id='{self.supabase_user_id}', "
+            f"chesscom_username='{self.chesscom_username}', tier='{self.tier}')>"
+        )

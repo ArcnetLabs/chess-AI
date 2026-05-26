@@ -1,7 +1,13 @@
 // User types
 export interface User {
   id: number;
-  chesscom_username: string;
+  // Supabase identity (canonical). Optional in the response so older
+  // builds still type-check, but always present once the backend resolves
+  // a logged-in user.
+  supabase_user_id?: string | null;
+  // Linked Chess.com profile data. Null until the user completes the
+  // /onboarding/link-chesscom flow.
+  chesscom_username: string | null;
   display_name?: string;
   email?: string;
   is_active: boolean;

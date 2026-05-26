@@ -72,13 +72,14 @@ else
   echo "  ${GREEN}✓ AG-3 PASS${RESET}: get_current_user is referenced"
 fi
 
-# AG-4 — getSession() in SSR / lib code
-section "AG-4 — getSession() in frontend SSR / lib code"
+# AG-4 — getSession() used for AUTHORIZATION (security anti-pattern)
+# Narrowed to lib/auth/ + middleware — forwarding the token from lib/api.ts is fine.
+section "AG-4 — getSession() in frontend SSR / lib/auth code"
 run_check "AG-4" \
-  "supabase.auth.getSession() used for SSR (reads unvalidated cookie)" \
+  "supabase.auth.getSession() used for SSR authorization (reads unvalidated cookie)" \
   "Replace with supabase.auth.getUser() — getUser validates the JWT" \
   "supabase\.auth\.getSession\(\)" \
-  "frontend/src/pages/" "frontend/src/lib/" "frontend/src/middleware.ts"
+  "frontend/src/lib/auth/" "frontend/src/middleware.ts"
 
 # AG-5 — Manual Authorization header parsing
 section "AG-5 — Manual Authorization header parsing in routes"

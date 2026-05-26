@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from ..core.database import get_db
+from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis, UserInsight
 
 router = APIRouter()
@@ -306,9 +307,11 @@ async def generate_insights(
     user_id: int,
     request: InsightRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Generate insights for a user."""
+    """Generate insights for a user. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -341,9 +344,11 @@ async def get_user_insights(
     user_id: int,
     skip: int = 0,
     limit: int = 10,
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """Get insights for a user."""
+    """Get insights for a user. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -359,8 +364,13 @@ async def get_user_insights(
 
 
 @router.get("/{user_id}/latest")
-async def get_latest_insight(user_id: int, db: Session = Depends(get_db)):
-    """Get the most recent insight for a user."""
+async def get_latest_insight(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the most recent insight for a user. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
@@ -379,19 +389,29 @@ async def get_latest_insight(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/insight/{insight_id}", response_model=InsightResponse)
-async def get_insight(insight_id: int, db: Session = Depends(get_db)):
-    """Get a specific insight by ID."""
+async def get_insight(
+    insight_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a specific insight by ID. Insight-ownership checked."""
     
     insight = db.query(UserInsight).filter(UserInsight.id == insight_id).first()
     if not insight:
         raise HTTPException(status_code=404, detail="Insight not found")
+    require_ownership(current_user, insight.user_id)
     
     return insight
 
 
 @router.get("/{user_id}/recommendations")
-async def get_recommendations(user_id: int, db: Session = Depends(get_db)):
-    """Get current recommendations for a user."""
+async def get_recommendations(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get current recommendations for a user. Ownership-checked."""
+    require_ownership(current_user, user_id)
     
     try:
         # Verify user exists
@@ -436,13 +456,13 @@ async def get_recommendations(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}/coaching-plan")
-async def get_coaching_plan(user_id: int, db: Session = Depends(get_db)):
-    """
-    Get detailed coaching plan with prioritized recommendations.
-    
-    Returns enhanced recommendations with actionable steps, priority scores,
-    and detected patterns from the latest insight period.
-    """
+async def get_coaching_plan(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Detailed coaching plan with prioritized recommendations. Ownership-checked."""
+    require_ownership(current_user, user_id)
     # Verify user exists
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -476,12 +496,17 @@ async def get_coaching_plan(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/insight/{insight_id}")
-async def delete_insight(insight_id: int, db: Session = Depends(get_db)):
-    """Delete a specific insight."""
+async def delete_insight(
+    insight_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a specific insight. Insight-ownership checked."""
     
     insight = db.query(UserInsight).filter(UserInsight.id == insight_id).first()
     if not insight:
         raise HTTPException(status_code=404, detail="Insight not found")
+    require_ownership(current_user, insight.user_id)
     
     db.delete(insight)
     db.commit()
