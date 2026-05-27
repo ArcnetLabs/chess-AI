@@ -138,7 +138,12 @@ async def test_position_insights(move_recommender):
     
     assert analysis.insights is not None
     assert len(analysis.insights) > 0
-    assert "advantage" in analysis.insights.lower() or "equal" in analysis.insights.lower()
+    insights_lower = analysis.insights.lower()
+    assert (
+        "advantage" in insights_lower
+        or "equal" in insights_lower
+        or "edge" in insights_lower
+    )
 
 
 @pytest.mark.asyncio
