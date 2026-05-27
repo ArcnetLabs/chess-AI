@@ -60,6 +60,7 @@ class Recommendation:
     related_games: Optional[List[int]] = None
     resources: Optional[List[str]] = None
     pattern_match: Optional[PatternMatch] = None
+    pattern_id: Optional[int] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -71,6 +72,9 @@ class Recommendation:
             "description": self.description,
             "actionable_steps": self.actionable_steps
         }
+
+        if self.pattern_id is not None:
+            result["pattern_id"] = self.pattern_id
         
         if self.related_games:
             result["related_games"] = self.related_games
