@@ -100,6 +100,7 @@ class ChatResponse:
     analysis: Optional[Dict[str, Any]] = None
     suggestions: List[str] = None
     position_fen: Optional[str] = None
+    session_id: Optional[str] = None
     
     def __post_init__(self):
         if self.suggestions is None:
@@ -112,5 +113,6 @@ class ChatResponse:
             "intent": self.intent.value,
             "analysis": self.analysis,
             "suggestions": self.suggestions,
-            "position_fen": self.position_fen
+            "position_fen": self.position_fen,
+            "session_id": self.session_id,
         }

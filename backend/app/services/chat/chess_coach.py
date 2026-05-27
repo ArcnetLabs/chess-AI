@@ -1,12 +1,13 @@
 """Chess coaching chatbot with Stockfish + LLM hybrid intelligence."""
 
 import uuid
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from datetime import datetime
 from loguru import logger
 
 from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole
 from .intent_classifier import IntentClassifier
+from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
 
 
@@ -24,7 +25,8 @@ class ChessCoach:
     def __init__(
         self,
         stockfish_engine: Optional[Any] = None,
-        ai_client: Optional[Any] = None
+        ai_client: Optional[Any] = None,
+        session_store: Optional[ChatSessionStore] = None,
     ):
         """
         Initialize chess coach.
@@ -32,13 +34,12 @@ class ChessCoach:
         Args:
             stockfish_engine: Optional injected engine (tests only).
             ai_client: AI client for LLM responses (optional)
+            session_store: Optional session store (tests / DI)
         """
         self.intent_classifier = IntentClassifier()
         self.move_recommender = MoveRecommender(stockfish_engine=stockfish_engine)
         self.ai_client = ai_client
-        
-        # In-memory session storage (replace with database in production)
-        self.sessions: Dict[str, ChatContext] = {}
+        self.session_store = session_store or ChatSessionStore()
     
     async def process_message(
         self,
@@ -60,16 +61,16 @@ class ChessCoach:
             ChatResponse with message and analysis
         """
         # Get or create session
-        if session_id and session_id in self.sessions:
-            context = self.sessions[session_id]
-        else:
+        context = self.session_store.get(session_id) if session_id else None
+        if context is None:
             session_id = session_id or str(uuid.uuid4())
             context = ChatContext(
                 session_id=session_id,
                 user_id=user_id,
-                current_position=position_fen
+                current_position=position_fen,
             )
-            self.sessions[session_id] = context
+        elif user_id is not None and context.user_id is None:
+            context.user_id = user_id
         
         # Update current position if provided
         if position_fen:
@@ -122,7 +123,10 @@ class ChessCoach:
             metadata={"analysis": response.analysis}
         )
         context.add_message(assistant_message)
-        
+
+        self.session_store.save(context)
+
+        response.session_id = session_id
         return response
     
     async def _handle_analyze_position(
@@ -458,18 +462,15 @@ Would you like me to analyze one of your recent games to give more specific advi
     
     def get_session(self, session_id: str) -> Optional[ChatContext]:
         """Get a chat session by ID."""
-        return self.sessions.get(session_id)
-    
+        return self.session_store.get(session_id)
+
     def create_session(self, user_id: Optional[int] = None) -> ChatContext:
         """Create a new chat session."""
         session_id = str(uuid.uuid4())
         context = ChatContext(session_id=session_id, user_id=user_id)
-        self.sessions[session_id] = context
+        self.session_store.save(context)
         return context
-    
+
     def delete_session(self, session_id: str) -> bool:
         """Delete a chat session."""
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-            return True
-        return False
+        return self.session_store.delete(session_id)
