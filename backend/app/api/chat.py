@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from loguru import logger
 
+from sqlalchemy.orm import Session
+
+from ..core.database import get_db
 from ..middleware.auth_middleware import get_current_user
 from ..models import User
 from ..services.chat.chess_coach import ChessCoach
@@ -72,6 +75,7 @@ async def send_message(
     request: ChatMessageRequest,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ) -> ChatMessageResponse:
     """
     Send a message to the chess coach and get a response.
@@ -97,7 +101,8 @@ async def send_message(
             message=request.message,
             session_id=request.session_id,
             user_id=effective_user_id,
-            position_fen=request.position_fen
+            position_fen=request.position_fen,
+            db=db,
         )
         
         # Get session context
