@@ -2,10 +2,10 @@
 
 All mutating endpoints require a Supabase session. Session-level
 ownership is currently scoped to "any authenticated user can touch any
-chat session" because sessions are in-memory and identified by UUID — a
-follow-up pass (tracked under the analysis-pipeline remediation) will
-persist sessions per ``current_user.id`` and add per-session ownership
-checks.
+chat session" because sessions are Redis-backed (or in-memory fallback in
+dev) and identified by UUID — a follow-up pass (tracked under the
+analysis-pipeline remediation) will persist sessions per
+``current_user.id`` and add per-session ownership checks.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -101,11 +101,14 @@ async def send_message(
         )
         
         # Get session context
-        session = coach.get_session(response.position_fen or request.session_id or "")
-        
+        effective_session_id = response.session_id or request.session_id
+        session = (
+            coach.get_session(effective_session_id) if effective_session_id else None
+        )
+
         return ChatMessageResponse(
             success=True,
-            session_id=session.session_id if session else "unknown",
+            session_id=effective_session_id or (session.session_id if session else "unknown"),
             response=response.to_dict(),
             context=session.to_dict() if session else None
         )
@@ -260,7 +263,7 @@ async def health_check():
             "status": "healthy" if engine_status == "available" else "degraded",
             "service": "chess-coach-chatbot",
             "stockfish": engine_status,
-            "active_sessions": len(coach.sessions),
+            "active_sessions": coach.session_store.active_session_count(),
         }
     except Exception as e:
         return {
