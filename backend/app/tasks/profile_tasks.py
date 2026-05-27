@@ -6,6 +6,7 @@ Debouncing strategy (P1-PP-02):
 - Redis SET NX ensures at most one pending profile job per user within the debounce
   window, so rapid pattern reruns queue one delayed build instead of many.
 - Without Redis (local dev), each call enqueues directly with countdown.
+- Manual refresh: ``POST /api/v1/users/{user_id}/profile/build`` (P1-PP-03).
 """
 from __future__ import annotations
 
