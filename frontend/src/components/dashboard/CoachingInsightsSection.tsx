@@ -7,6 +7,18 @@ interface CoachingInsightsSectionProps {
   insights: Recommendation[];
 }
 
+function normalizePriority(
+  priority: Recommendation['priority'],
+): 'high' | 'medium' | 'low' {
+  if (priority === 'high' || priority === 'medium' || priority === 'low') {
+    return priority;
+  }
+  if (priority === 'critical') {
+    return 'high';
+  }
+  return 'medium';
+}
+
 export const CoachingInsightsSection: React.FC<CoachingInsightsSectionProps> = ({ insights }) => (
   <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8">
     <div className="flex items-center space-x-2 mb-6">
@@ -19,9 +31,9 @@ export const CoachingInsightsSection: React.FC<CoachingInsightsSectionProps> = (
           <CoachingInsightCard
             key={index}
             category={insight.category}
-            priority={insight.priority}
+            priority={normalizePriority(insight.priority)}
             description={insight.description}
-            improvement={insight.improvement}
+            improvement={insight.improvement ?? insight.title ?? ''}
           />
         ))
       ) : (
