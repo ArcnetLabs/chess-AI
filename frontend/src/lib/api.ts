@@ -20,6 +20,14 @@ import {
   SendMessageRequest,
   SendMessageResponse,
 } from '@/types/chat.types';
+import {
+  PatternAnalyzeResponse,
+  PlayerPattern,
+} from '@/types/pattern.types';
+import {
+  PlayerProfile,
+  ProfileBuildResponse,
+} from '@/types/profile.types';
 import { createClient } from '@/lib/supabase/client';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -302,6 +310,58 @@ export const insightsApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Patterns API (deterministic backend patterns — no UI in this layer)
+// ---------------------------------------------------------------------------
+
+export const patternApi = {
+  list: async (
+    userId: number,
+    options?: { skip?: number; limit?: number },
+  ): Promise<PlayerPattern[]> => {
+    const response = await apiClient.get<PlayerPattern[]>(`/users/${userId}/patterns`, {
+      params: { skip: options?.skip ?? 0, limit: options?.limit ?? 50 },
+    });
+    return response.data;
+  },
+
+  triggerAnalysis: async (userId: number): Promise<PatternAnalyzeResponse> => {
+    const response = await apiClient.post<PatternAnalyzeResponse>(
+      `/users/${userId}/patterns/analyze`,
+    );
+    return response.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Player profiles API (longitudinal snapshots — no UI in this layer)
+// ---------------------------------------------------------------------------
+
+export const profileApi = {
+  getLatest: async (userId: number): Promise<PlayerProfile> => {
+    const response = await apiClient.get<PlayerProfile>(`/users/${userId}/profile`);
+    return response.data;
+  },
+
+  getHistory: async (
+    userId: number,
+    options?: { skip?: number; limit?: number },
+  ): Promise<PlayerProfile[]> => {
+    const response = await apiClient.get<PlayerProfile[]>(
+      `/users/${userId}/profile/history`,
+      { params: { skip: options?.skip ?? 0, limit: options?.limit ?? 50 } },
+    );
+    return response.data;
+  },
+
+  triggerBuild: async (userId: number): Promise<ProfileBuildResponse> => {
+    const response = await apiClient.post<ProfileBuildResponse>(
+      `/users/${userId}/profile/build`,
+    );
+    return response.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Chat API
 // ---------------------------------------------------------------------------
 
@@ -344,6 +404,8 @@ const api = {
   games: gamesApi,
   analysis: analysisApi,
   insights: insightsApi,
+  patterns: patternApi,
+  profiles: profileApi,
   chat: chatApi,
 };
 
