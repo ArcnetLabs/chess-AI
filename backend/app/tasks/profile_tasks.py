@@ -1,16 +1,59 @@
 """
-Celery task for manual and scheduled player profile snapshot builds.
+Celery tasks for debounced player profile snapshots after pattern detection.
 
-P1-PP-02 adds debounced scheduling from pattern detection; this module provides
-the core ``build_profile_task`` consumed by the profile API (P1-PP-03).
+Debouncing strategy (P1-PP-02):
+- ``detect_patterns_task`` calls :func:`schedule_profile_build_for_user` on success.
+- Redis SET NX ensures at most one pending profile job per user within the debounce
+  window, so rapid pattern reruns queue one delayed build instead of many.
+- Without Redis (local dev), each call enqueues directly with countdown.
+- Manual refresh: ``POST /api/v1/users/{user_id}/profile/build`` (P1-PP-03).
 """
 from __future__ import annotations
 
 from loguru import logger
 
 from app.celery_app import celery_app
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, redis_client
 from app.services.profiles.profile_builder import build_player_profile
+
+PROFILE_BUILD_DEBOUNCE_KEY_PREFIX = "profile_build_scheduled"
+PROFILE_BUILD_DEBOUNCE_TTL_SECONDS = 120
+PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS = 60
+
+
+def schedule_profile_build_for_user(
+    user_id: int,
+    *,
+    countdown: int = PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS,
+) -> bool:
+    """
+    Enqueue profile build for a user, debounced per user_id.
+
+    Returns True when a new Celery task was scheduled, False when suppressed
+    by an active debounce key (another run is already pending).
+    """
+    if redis_client is None:
+        build_profile_task.apply_async(args=[user_id], countdown=countdown)
+        logger.debug(
+            f"Scheduled profile build for user_id={user_id} "
+            f"(no Redis debounce, countdown={countdown}s)"
+        )
+        return True
+
+    debounce_key = f"{PROFILE_BUILD_DEBOUNCE_KEY_PREFIX}:{user_id}"
+    if not redis_client.set(debounce_key, "1", nx=True, ex=PROFILE_BUILD_DEBOUNCE_TTL_SECONDS):
+        logger.debug(
+            f"Profile build debounced for user_id={user_id} "
+            f"(pending within {PROFILE_BUILD_DEBOUNCE_TTL_SECONDS}s window)"
+        )
+        return False
+
+    build_profile_task.apply_async(args=[user_id], countdown=countdown)
+    logger.info(
+        f"Scheduled debounced profile build for user_id={user_id} "
+        f"(countdown={countdown}s)"
+    )
+    return True
 
 
 @celery_app.task(

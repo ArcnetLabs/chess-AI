@@ -29,7 +29,7 @@ Thin FastAPI routes under `/api/v1/users/{user_id}/profile*` mirror the patterns
 
 - **Routes:** validation, auth, HTTP status mapping only
 - **Service:** `get_latest_profile`, `list_profile_history` (read-only)
-- **Tasks:** Minimal `build_profile_task` added (P1-PP-02 debounce scheduling not yet on staging)
+- **Tasks:** `build_profile_task` from P1-PP-02; API POST calls `.delay()` directly (no debounce on manual refresh)
 
 ## Tests
 
