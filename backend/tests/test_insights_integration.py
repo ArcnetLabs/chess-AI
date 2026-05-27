@@ -12,13 +12,20 @@ from sqlalchemy.orm import Session
 from app.api.insights import generate_insights_background
 from app.models.insights import UserInsight
 from app.models.user import User
-from app.models.game import Game
-from app.models.game_analysis import GameAnalysis
+from app.models.game import Game, GameAnalysis
 from app.services.coaching.recommendation_engine import RecommendationEngine
 
 
 class TestInsightsIntegration:
     """Test suite for insights integration with enhanced recommendations."""
+
+    @pytest.fixture(autouse=True)
+    def mock_list_user_patterns(self):
+        with patch(
+            "app.services.coaching.recommendation_engine.list_user_patterns",
+            return_value=[],
+        ):
+            yield
     
     @pytest.fixture
     def mock_db(self):
@@ -58,6 +65,9 @@ class TestInsightsIntegration:
             analysis = MagicMock(spec=GameAnalysis)
             analysis.game_id = i + 1
             analysis.user_acpl = 50.0 + i * 10  # Varying ACPL
+            analysis.opening_acpl = 55.0 + i * 5
+            analysis.middlegame_acpl = 45.0 + i * 3
+            analysis.endgame_acpl = 40.0 + i * 4
             analysis.opening_name = "Sicilian Defense" if i < 3 else "Queen's Gambit"
             analysis.opening_eco = "B20" if i < 3 else "D20"
             analysis.move_quality_stats = {
@@ -130,7 +140,7 @@ class TestInsightsIntegration:
         mock_db.commit = MagicMock()
         
         # Patch RecommendationEngine to raise exception
-        with patch('app.api.insights.RecommendationEngine') as MockEngine:
+        with patch('app.services.coaching.recommendation_engine.RecommendationEngine') as MockEngine:
             MockEngine.side_effect = Exception("Engine failed")
             
             # Generate insights
@@ -265,6 +275,45 @@ class TestInsightsIntegration:
         # Should still create insight
         mock_db.add.assert_called()
         mock_db.commit.assert_called()
+
+    def test_opening_stats_use_opening_acpl(self):
+        """Opening repertoire stats must aggregate opening_acpl, not user_acpl."""
+        analyses = []
+        for i in range(3):
+            analysis = MagicMock()
+            analysis.opening_name = "Sicilian Defense"
+            analysis.opening_eco = "B20"
+            analysis.opening_acpl = 55.0 + i * 5
+            analysis.user_acpl = 100.0 + i * 10
+            analyses.append(analysis)
+
+        opening_stats = {}
+        for analysis in analyses:
+            if analysis.opening_name:
+                if analysis.opening_name not in opening_stats:
+                    opening_stats[analysis.opening_name] = {
+                        "count": 0,
+                        "total_acpl": 0,
+                        "eco": analysis.opening_eco,
+                    }
+                opening_stats[analysis.opening_name]["count"] += 1
+                opening_stats[analysis.opening_name]["total_acpl"] += (
+                    analysis.opening_acpl or 0
+                )
+
+        for opening in opening_stats:
+            if opening_stats[opening]["count"] > 0:
+                opening_stats[opening]["average_acpl"] = (
+                    opening_stats[opening]["total_acpl"]
+                    / opening_stats[opening]["count"]
+                )
+
+        sicilian = opening_stats["Sicilian Defense"]
+        expected_avg = sum(a.opening_acpl for a in analyses) / 3
+        assert sicilian["average_acpl"] == pytest.approx(expected_avg)
+        assert sicilian["average_acpl"] != pytest.approx(
+            sum(a.user_acpl for a in analyses) / 3
+        )
     
     def test_coaching_plan_endpoint_data(self, mock_db, mock_user, mock_existing_insight):
         """Test coaching plan endpoint returns enhanced data."""

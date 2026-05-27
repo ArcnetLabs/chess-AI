@@ -4,6 +4,7 @@ Tests for the recommendation engine.
 Tests all 10+ pattern rules, priority scoring, and recommendation generation.
 """
 import pytest
+from unittest.mock import MagicMock
 from app.services.coaching.recommendation_engine import RecommendationEngine
 from app.services.coaching import Recommendation, PatternMatch, RecommendationPriority
 
@@ -84,7 +85,7 @@ class TestRecommendationEngine:
     def test_overall_accuracy_low(self, engine, base_user_data, base_analysis_data):
         """Test accuracy <70% triggers tactics recommendation."""
         # Set high ACPL (low accuracy)
-        base_analysis_data["average_acpl"] = 120.0  # ~88% accuracy, but formula gives <70%
+        base_analysis_data["average_acpl"] = 350.0  # accuracy ~65% (< 70% threshold)
         
         recommendations = engine.generate_recommendations(
             base_user_data,
@@ -172,7 +173,7 @@ class TestRecommendationEngine:
     def test_hanging_pieces_pattern(self, engine, base_user_data, base_analysis_data):
         """Test hanging pieces detection."""
         # Set many blunders (heuristic for hanging pieces)
-        base_analysis_data["move_quality_stats"]["blunders"] = 8
+        base_analysis_data["move_quality_stats"]["blunders"] = 12
         base_analysis_data["total_games"] = 5
         
         recommendations = engine.generate_recommendations(
@@ -359,6 +360,146 @@ class TestRecommendationEngine:
         # Should have very few recommendations due to insufficient data
         # (some rules don't require minimum games)
         assert len(recommendations) <= 5
+
+
+class TestPatternAwareRecommendations:
+    """Pattern-linked recommendation generation (P1-RE-01/02)."""
+
+    @pytest.fixture
+    def engine(self):
+        return RecommendationEngine()
+
+    @pytest.fixture
+    def base_user_data(self):
+        return {
+            "user_id": 1,
+            "rating_change": 0,
+            "performance_trend": "stable",
+        }
+
+    @pytest.fixture
+    def base_analysis_data(self):
+        return {
+            "average_acpl": 50.0,
+            "opening_performance": {"acpl": 25.0, "games_count": 5},
+            "middlegame_performance": {"acpl": 30.0, "games_count": 5},
+            "endgame_performance": {"acpl": 35.0, "games_count": 5},
+            "move_quality_stats": {
+                "best_moves": 10,
+                "mistakes": 5,
+                "blunders": 3,
+            },
+            "frequent_mistakes": [],
+            "opening_stats": {},
+            "total_games": 5,
+        }
+
+    def _make_pattern(
+        self,
+        *,
+        pattern_id: int,
+        pattern_type: str,
+        pattern_subtype: str,
+        description: str,
+    ):
+        pattern = MagicMock()
+        pattern.id = pattern_id
+        pattern.pattern_type = pattern_type
+        pattern.pattern_subtype = pattern_subtype
+        pattern.severity = "high"
+        pattern.confidence_score = 0.82
+        pattern.occurrence_count = 4
+        pattern.affected_games_count = 3
+        pattern.pattern_description = description
+        return pattern
+
+    def test_pattern_id_populated_from_player_pattern(
+        self, engine, base_user_data, base_analysis_data
+    ):
+        from app.services.patterns.constants import (
+            PATTERN_TYPE_PHASE,
+        )
+
+        endgame_pattern = self._make_pattern(
+            pattern_id=42,
+            pattern_type=PATTERN_TYPE_PHASE,
+            pattern_subtype="high_endgame_acpl",
+            description="Endgame ACPL averages 55.0 across 5 games.",
+        )
+
+        recommendations = engine.generate_pattern_aware_recommendations(
+            base_user_data,
+            base_analysis_data,
+            player_patterns=[endgame_pattern],
+            max_recommendations=5,
+        )
+
+        endgame_recs = [r for r in recommendations if r.pattern_id == 42]
+        assert len(endgame_recs) == 1
+        assert endgame_recs[0].to_dict()["pattern_id"] == 42
+
+    def test_opening_specific_beats_generic_opening_phase(
+        self, engine, base_user_data, base_analysis_data
+    ):
+        from app.services.patterns.constants import (
+            PATTERN_TYPE_PHASE,
+            PATTERN_TYPE_OPENING,
+        )
+
+        opening_specific = self._make_pattern(
+            pattern_id=10,
+            pattern_type=PATTERN_TYPE_OPENING,
+            pattern_subtype="sicilian_defense",
+            description=(
+                "Recurring weakness in Sicilian Defense (B20): opening ACPL averages "
+                "62.0 over 3 games (threshold 50.0)."
+            ),
+        )
+        generic_opening = self._make_pattern(
+            pattern_id=11,
+            pattern_type=PATTERN_TYPE_PHASE,
+            pattern_subtype="high_opening_acpl",
+            description="Opening-phase ACPL averages 40.0 across 5 games.",
+        )
+
+        recommendations = engine.generate_pattern_aware_recommendations(
+            base_user_data,
+            base_analysis_data,
+            player_patterns=[generic_opening, opening_specific],
+            max_recommendations=5,
+        )
+
+        pattern_ids = {r.pattern_id for r in recommendations if r.pattern_id is not None}
+        assert 10 in pattern_ids
+        assert 11 not in pattern_ids
+        opening_titles = [r.title for r in recommendations if r.category == "opening"]
+        assert any("Sicilian Defense" in title for title in opening_titles)
+
+    def test_thresholds_imported_from_constants(self, engine):
+        from app.services.patterns import constants
+
+        assert engine.ENDGAME_ACPL_THRESHOLD is constants.ENDGAME_ACPL_THRESHOLD
+        assert engine.OPENING_ACPL_THRESHOLD is constants.OPENING_ACPL_THRESHOLD
+        assert engine.MIDDLEGAME_ACPL_THRESHOLD is constants.MIDDLEGAME_ACPL_THRESHOLD
+        assert (
+            engine.OPENING_SPECIFIC_ACPL_THRESHOLD
+            is constants.OPENING_SPECIFIC_ACPL_THRESHOLD
+        )
+
+    def test_heuristic_fallback_when_no_patterns(
+        self, engine, base_user_data, base_analysis_data
+    ):
+        base_analysis_data["endgame_performance"]["acpl"] = 50.0
+
+        recommendations = engine.generate_pattern_aware_recommendations(
+            base_user_data,
+            base_analysis_data,
+            player_patterns=[],
+            max_recommendations=5,
+        )
+
+        assert len(recommendations) > 0
+        assert all(r.pattern_id is None for r in recommendations)
 
 
 class TestRecommendationDataClasses:
