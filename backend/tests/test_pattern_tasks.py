@@ -72,7 +72,9 @@ class TestDetectPatternsTask:
         with patch("app.tasks.pattern_tasks.SessionLocal", mock_session), patch(
             "app.tasks.pattern_tasks.run_pattern_detection",
             return_value=mock_result,
-        ) as mock_run:
+        ) as mock_run, patch(
+            "app.tasks.pattern_tasks.schedule_profile_build_for_user",
+        ):
             result = detect_patterns_task.run(99)
 
         mock_run.assert_called_once_with(mock_db, 99, persist=True)
