@@ -9,7 +9,11 @@ celery_app = Celery(
     "chess_ai",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=['app.tasks.analysis_tasks', 'app.tasks.pattern_tasks']
+    include=[
+        'app.tasks.analysis_tasks',
+        'app.tasks.pattern_tasks',
+        'app.tasks.profile_tasks',
+    ]
 )
 
 celery_app.conf.update(
@@ -23,6 +27,7 @@ celery_app.conf.update(
         'app.tasks.analysis_tasks.analyze_game_task': {'queue': 'analysis'},
         'app.tasks.analysis_tasks.analyze_batch_games_task': {'queue': 'analysis'},
         'app.tasks.pattern_tasks.detect_patterns_task': {'queue': 'analysis'},
+        'app.tasks.profile_tasks.build_profile_task': {'queue': 'analysis'},
     },
     
     task_default_queue='analysis',
