@@ -210,7 +210,6 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
             
     except Exception as e:
         # Fallback to basic recommendations if enhanced engine fails
-        from loguru import logger
         logger.warning(f"Enhanced recommendation engine failed, using basic recommendations: {e}")
         
         # ACPL-based recommendations (original logic)
