@@ -4,6 +4,7 @@ from .insights import UserInsight
 from .pattern import PlayerPattern, PatternOccurrence
 from .profile import PlayerProfile
 from .semantic_memory import SemanticMemory
+from .training import TrainingPlan, DrillAttempt
 
 __all__ = [
     "User",
@@ -14,4 +15,6 @@ __all__ = [
     "PatternOccurrence",
     "PlayerProfile",
     "SemanticMemory",
+    "TrainingPlan",
+    "DrillAttempt",
 ]
