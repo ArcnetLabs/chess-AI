@@ -13,7 +13,14 @@ from app.services.retention.email_delivery_service import (
     is_weekly_digest_enabled,
     send_weekly_digest_email,
 )
-from app.services.retention.weekly_digest_service import build_weekly_digest
+from app.services.notifications.notification_service import (
+    NOTIFICATION_TYPE_WEEKLY_DIGEST,
+    create_notification,
+)
+from app.services.retention.weekly_digest_service import (
+    build_weekly_digest,
+    render_weekly_digest_email,
+)
 
 
 @celery_app.task(
@@ -108,7 +115,25 @@ def send_weekly_digest_task(self, user_id: int) -> dict:
                 "user_id": user_id,
             }
 
-        return send_weekly_digest_email(user, digest)
+        result = send_weekly_digest_email(user, digest)
+        if result.get("status") in ("skipped", "sent"):
+            subject, _ = render_weekly_digest_email(digest)
+            create_notification(
+                db,
+                user_id,
+                NOTIFICATION_TYPE_WEEKLY_DIGEST,
+                title=subject,
+                body=digest.coaching_tip,
+                payload={
+                    "period_start": digest.period_start.isoformat(),
+                    "period_end": digest.period_end.isoformat(),
+                    "games_played": digest.games_played,
+                    "drills_completed_week": digest.drills_completed_week,
+                    "email_status": result.get("status"),
+                    "email_reason": result.get("reason"),
+                },
+            )
+        return result
     except Exception as exc:
         logger.error(f"Weekly digest failed for user_id={user_id}: {exc}")
         if self.request.retries < self.max_retries:
