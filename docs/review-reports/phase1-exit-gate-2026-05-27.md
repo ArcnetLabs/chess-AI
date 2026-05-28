@@ -19,10 +19,10 @@
 | Alembic 0006/0007 on production DB | **PASS** | Supabase `alembic_version = 0007`; tables verified |
 | Architecture grep A + D | **PASS** | See §2 |
 | Phase 1 pytest suite | **PASS** | 97/97 (§3) |
-| Full backend pytest | **PARTIAL** | 184 passed, 4 legacy auth/API failures (§4) |
+| Full backend pytest | **PASS** | 188 passed, 3 skipped (§4; fixed PR #65) |
 | Frontend type-check | **PASS** | `npm run type-check` clean |
 
-**Verdict:** Phase 1 **backend feature scope is complete**. Frontend unlock is approved per product plan. Full-suite pytest has **pre-existing auth test debt** (not introduced by Phase 1); tracked for follow-up.
+**Verdict:** Phase 1 **backend feature scope is complete**. Frontend API clients and hooks merged (PRs #63–#64). Full pytest suite green after PR #65. **Release-ready** for `staging` → `main` promotion.
 
 ---
 
@@ -64,10 +64,10 @@ Result: 97 passed in ~91s
 ## 4. Full backend pytest
 
 ```text
-191 collected → 184 passed, 4 failed, 3 skipped
+191 collected → 188 passed, 3 skipped (post PR #65)
 
-Failures (pre-existing / legacy auth harness):
-- tests/test_api_users_complete.py (2) — expects pre-auth-refactor HTTP codes
+Previously failing (pre-gate, fixed in PR #65):
+- tests/test_api_users_complete.py (2) — JWT auth expectations
 - tests/test_auth_complete.py (2) — Supabase mock / sign-up flow assertions
 ```
 
@@ -85,13 +85,29 @@ Failures (pre-existing / legacy auth harness):
 
 ## 6. Recommended next steps
 
-1. **Frontend Phase 1 clients** — pattern/profile API in `src/lib/api.ts` (now unblocked).
-2. **`staging` → `main` release PR** — promote Phase 1 backend when ready to ship production.
-3. **Follow-up:** repair legacy auth/API pytest harness (`test_auth_complete`, `test_api_users_complete`).
-4. **Optional:** P1-PR-03 blunder cluster detector (deferred).
+1. **`staging` → `main` release PR** — promote Phase 1 backend (release-ready at `a39f6a2`).
+2. **Frontend Phase 1 UI (P1-FE-02)** — pattern/profile feature screens when product prioritizes.
+3. **Optional:** P1-PR-03 blunder cluster detector (deferred).
+4. **Optional:** P1-DB-03 analysis query indexes; route bloat cleanup.
 
 ---
 
 ## 7. Production DB note
 
 Alembic applied manually to Supabase (Chessrun) on 2026-05-27 when revision was still `0005`. Current head: **`0007`**. Render build step runs `alembic upgrade head` on each deploy (idempotent).
+
+---
+
+## 8. Post-gate updates (2026-05-27)
+
+**Staging HEAD:** `a39f6a2`
+
+| PR | Change |
+|----|--------|
+| #63 | P1-FE-01 — pattern/profile API clients in `src/lib/api.ts` |
+| #64 | P1-FE-03 — pattern/profile React Query hooks |
+| #65 | Legacy auth pytest harness aligned with JWT architecture |
+
+**Full backend pytest:** 188 passed, 3 skipped (verified on staging).
+
+**Status:** Phase 1 **release-ready**. Governance doc synced in chore PR; next action is `staging` → `main` promotion.
