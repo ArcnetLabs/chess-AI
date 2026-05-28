@@ -16,6 +16,7 @@ from app.celery_app import celery_app
 from app.core.database import SessionLocal, redis_client
 from app.services.patterns import run_pattern_detection
 from app.tasks.profile_tasks import schedule_profile_build_for_user
+from app.tasks.embedding_tasks import schedule_pattern_embedding_for_user
 
 PATTERN_DEBOUNCE_KEY_PREFIX = "pattern_detection_scheduled"
 PATTERN_DEBOUNCE_TTL_SECONDS = 120
@@ -82,6 +83,7 @@ def detect_patterns_task(self, user_id: int):
             f"{result.pattern_count} patterns from {result.games_considered} games"
         )
         schedule_profile_build_for_user(user_id)
+        schedule_pattern_embedding_for_user(user_id)
         return {
             "status": "success",
             "user_id": user_id,

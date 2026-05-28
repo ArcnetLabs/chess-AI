@@ -190,6 +190,15 @@ class Settings(BaseSettings):
     CHAT_SESSION_TTL_SECONDS: int = int(
         os.getenv("CHAT_SESSION_TTL_SECONDS", str(60 * 60 * 24))
     )
+
+    # Semantic memory embeddings (P3-CM-02)
+    EMBEDDING_ENABLED: bool = os.getenv("EMBEDDING_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "20"))
     
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~1/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~2/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-CM-02 embedding pipeline
+**Current focus:** P3-CM-03 retrieval service
 
 ---
 
@@ -156,8 +156,8 @@
 
 | ID | Unit | Status | Notes |
 |----|------|--------|-------|
-| P3-CM-01 | pgvector extension | In progress | Alembic `0009`; `semantic_memory` model |
-| P3-CM-02 | Embedding pipeline | Not started | |
+| P3-CM-01 | pgvector extension | Done (staging) | #85 | Alembic `0009`; `semantic_memory` model |
+| P3-CM-02 | Embedding pipeline | In progress | — | `embedding_service.py`, `embedding_pipeline.py`, Celery task |
 | P3-CM-03 | Retrieval service | Not started | |
 | P3-CM-04 | Coach prompt v2 | Not started | |
 | P3-CM-05 | Grounding eval set | Not started | |
@@ -177,7 +177,9 @@
 
 **`staging` and `main` are synced** after release promotion PR **#84** (P2-AA-05 + P2-RT-02).
 
-**Next on staging:** P3-CM-01 (pgvector / `semantic_memory` schema).
+**Next on staging:** P3-CM-02 (pattern embedding pipeline) — branch `feature/backend-embedding-pipeline`.
+
+**Recently merged to staging:** P3-CM-01 pgvector / `semantic_memory` schema (PR **#85**).
 
 ---
 
