@@ -1,6 +1,6 @@
 # ChessIQ Feature Progress Tracker
 
-**Last updated:** 2026-05-26  
+**Last updated:** 2026-05-28  
 **Integration branch:** `staging` (in sync with `main`)  
 **Production branch:** `main` @ PR **#79** (P2-GV-01 game detail + P2-GV-04 coach handoff)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
@@ -122,7 +122,7 @@
 | P2-AA-02 | Analysis job status model | Done (main) | #73, #76 | Redis + polling API |
 | P2-AA-03 | SSE progress endpoint | Done (main) | #74, #76 | `GET /analysis/{user_id}/status/stream` |
 | P2-AA-04 | `useAnalysisStatus` hook | Done (main) | #75, #76 | SSE replaces 8s polling |
-| P2-AA-05 | Celery beat sync job | **In progress** | — | `sync_tasks.py`; opt-in via `CELERY_BEAT_ENABLED` |
+| P2-AA-05 | Celery beat sync job | Done (staging) | #81 | `sync_tasks.py`; opt-in via `CELERY_BEAT_ENABLED` |
 
 ### 2.2 Game detail & move exploration
 
@@ -147,7 +147,7 @@
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
 | P2-RT-01 | “New patterns detected” toast | **Deferred** | — | UI |
-| P2-RT-02 | Weekly summary email stub | Not started | — | Backend task + template |
+| P2-RT-02 | Weekly summary email stub | In progress | — | `retention_tasks.py` + template stub |
 | P2-RT-03 | Last-visit delta | **Deferred** | — | Dashboard UI |
 
 ---
@@ -189,6 +189,7 @@ Units on **`staging` only** (not yet on `main`):
 |------|-----|------|--------|
 | 2026-05-26 | #79 | P2-GV-01 + P2-GV-04 release | staging → **main** |
 | 2026-05-26 | #78 | P2-GV-04 | → staging |
+| 2026-05-28 | #81 | P2-AA-05 | → staging |
 | 2026-05-28 | #76 | Phase 2.1 release (P2-AA-01–04) | staging → **main** |
 | 2026-05-28 | #75 | P2-AA-04 | → staging |
 | 2026-05-28 | #74 | P2-AA-03 | → staging |
