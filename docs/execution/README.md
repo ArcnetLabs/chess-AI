@@ -9,7 +9,8 @@
 
 | Document | Purpose |
 |----------|---------|
-| [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) | **Current audit**, task matrix, TODO breakdown, merge governance |
+| [`feature-progress-tracker.md`](./feature-progress-tracker.md) | **Live progress** — done / staging / deferred / not started by unit ID |
+| [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) | Audit snapshot, task matrix, merge governance |
 | [`feature-priority-map.md`](./feature-priority-map.md) | Moat systems, dependencies, cross-cutting implications, priority scores |
 | [`feature-execution-roadmap.md`](./feature-execution-roadmap.md) | Phase 1–3 features, sequencing, exit checklists, branch strategy |
 | [`multi-agent-development-strategy.md`](./multi-agent-development-strategy.md) | Four agent roles, allowed/forbidden paths, review duties |
@@ -20,8 +21,9 @@
 
 ## Recommended reading order
 
-1. **feature-priority-map.md** — understand what to build and why  
-2. **feature-execution-roadmap.md** — pick the current phase unit (e.g. P1-PR-01)  
+1. **feature-progress-tracker.md** — what's done, in flight, and deferred *(start here for status)*  
+2. **feature-priority-map.md** — understand what to build and why  
+3. **feature-execution-roadmap.md** — pick the current phase unit (e.g. P2-AA-03)  
 3. **multi-agent-development-strategy.md** — assign agent role for the unit  
 4. **parallel-development-workflows.md** — check if work can run in parallel  
 5. **review-loop-enforcement.md** — run gates before opening the PR  
