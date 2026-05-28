@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
+from .blunder_cluster_detector import detect_blunder_clusters
 from .opening_weakness_detector import detect_opening_weaknesses
 from .phase_weakness_detector import detect_phase_weaknesses
 from .types import DetectedPattern, PatternAggregationInput, PatternRunResult
@@ -16,6 +17,7 @@ class PatternAggregator:
         patterns: List[DetectedPattern] = []
         patterns.extend(detect_phase_weaknesses(data))
         patterns.extend(detect_opening_weaknesses(data))
+        patterns.extend(detect_blunder_clusters(data))
         return self._dedupe_by_key(patterns)
 
     @staticmethod

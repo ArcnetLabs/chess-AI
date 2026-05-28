@@ -10,7 +10,40 @@ from sqlalchemy.orm import Session
 from app.models.game import Game, GameAnalysis
 from app.models.user import User
 
-from .unified_analyzer import GameAnalysisResult, UnifiedChessAnalyzer
+from .unified_analyzer import GameAnalysisResult, MoveAnalysis, UnifiedChessAnalyzer
+
+
+def _serialize_move_analysis(move: MoveAnalysis) -> dict:
+    """JSON-safe dict for ``GameAnalysis.blunder_moves`` / ``critical_positions``."""
+    return {
+        "move_number": move.move_number,
+        "move_san": move.move_san,
+        "move_uci": move.move_uci,
+        "fen_before": move.fen_before,
+        "fen_after": move.fen_after,
+        "evaluation_cp": move.evaluation_cp,
+        "evaluation_change": move.evaluation_change,
+        "classification": move.classification,
+        "best_move_uci": move.best_move_uci,
+        "is_user_move": move.is_user_move,
+    }
+
+
+def _extract_blunder_moves(result: GameAnalysisResult) -> list[dict]:
+    """User mistakes and blunders only — no Stockfish re-analysis."""
+    if not result.all_moves:
+        return []
+    return [
+        _serialize_move_analysis(m)
+        for m in result.all_moves
+        if m.is_user_move and m.classification in ("mistake", "blunder")
+    ]
+
+
+def _extract_critical_positions(result: GameAnalysisResult) -> list[dict]:
+    if not result.critical_positions:
+        return []
+    return [_serialize_move_analysis(m) for m in result.critical_positions]
 
 
 def resolve_user_color(game: Game, user: User) -> str:
@@ -36,6 +69,10 @@ def persist_game_analysis(
         "middlegame_acpl": result.middlegame_phase.average_acpl if result.middlegame_phase else None,
         "endgame_acpl": result.endgame_phase.average_acpl if result.endgame_phase else None,
     }
+    move_json_fields = {
+        "blunder_moves": _extract_blunder_moves(result),
+        "critical_positions": _extract_critical_positions(result),
+    }
 
     if existing:
         existing.engine_version = result.engine_version
@@ -55,6 +92,8 @@ def persist_game_analysis(
         existing.opening_name = result.opening_name
         existing.opening_eco = result.opening_eco
         for key, value in phase_fields.items():
+            setattr(existing, key, value)
+        for key, value in move_json_fields.items():
             setattr(existing, key, value)
         analysis = existing
     else:
@@ -77,6 +116,7 @@ def persist_game_analysis(
             opening_name=result.opening_name,
             opening_eco=result.opening_eco,
             **phase_fields,
+            **move_json_fields,
         )
         db.add(analysis)
 

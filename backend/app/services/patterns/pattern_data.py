@@ -43,6 +43,8 @@ def load_pattern_aggregation_input(
     middlegame_acpls: list[float] = []
     endgame_acpls: list[float] = []
     opening_by_game: list[dict] = []
+    blunder_events: list[dict] = []
+    games_blunder_stats: list[dict] = []
 
     for analysis, game in rows:
         if analysis.opening_acpl is not None:
@@ -65,6 +67,48 @@ def load_pattern_aggregation_input(
             }
         )
 
+        games_blunder_stats.append(
+            {
+                "game_id": game.id,
+                "blunder_count": analysis.blunders or 0,
+                "mistake_count": analysis.mistakes or 0,
+            }
+        )
+
+        raw_moves = analysis.blunder_moves
+        if not raw_moves:
+            continue
+
+        max_move = max((m.get("move_number", 0) for m in raw_moves), default=40)
+        total_moves_estimate = max(max_move, 40)
+
+        for move in raw_moves:
+            if not move.get("is_user_move", True):
+                continue
+            classification = move.get("classification", "")
+            if classification not in ("mistake", "blunder"):
+                continue
+            move_number = move.get("move_number", 0)
+            eval_delta = abs(
+                float(move.get("evaluation_change") or move.get("eval_delta") or 0)
+            )
+            blunder_events.append(
+                {
+                    "game_id": game.id,
+                    "move_number": move_number,
+                    "move_san": move.get("move_san"),
+                    "move_uci": move.get("move_uci"),
+                    "fen_before": move.get("fen_before"),
+                    "fen_after": move.get("fen_after"),
+                    "best_move_uci": move.get("best_move_uci"),
+                    "classification": classification,
+                    "eval_delta": eval_delta,
+                    "evaluation_change": move.get("evaluation_change"),
+                    "total_moves_estimate": total_moves_estimate,
+                    "game_phase": None,
+                }
+            )
+
     return PatternAggregationInput(
         user_id=user_id,
         total_analyzed_games=len(rows),
@@ -72,4 +116,6 @@ def load_pattern_aggregation_input(
         middlegame_acpls=middlegame_acpls,
         endgame_acpls=endgame_acpls,
         opening_by_game=opening_by_game,
+        blunder_events=blunder_events,
+        games_blunder_stats=games_blunder_stats,
     )
