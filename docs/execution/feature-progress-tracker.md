@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (in sync with `main`)  
-**Production branch:** `main` @ PR **#79** (P2-GV-01 game detail + P2-GV-04 coach handoff)  
+**Integration branch:** `staging` (ahead of `main`: P2-AA-05, P2-RT-02)  
+**Production branch:** `main` @ PR **#79**  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** P2-RT-02 (weekly summary email stub)
+**Current focus:** Release promotion (P2-AA-05 + P2-RT-02) or deferred UI units
 
 ---
 
@@ -147,7 +147,7 @@
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
 | P2-RT-01 | “New patterns detected” toast | **Deferred** | — | UI |
-| P2-RT-02 | Weekly summary email stub | In progress | — | `retention_tasks.py` + template stub |
+| P2-RT-02 | Weekly summary email stub | Done (staging) | #82 | `retention_tasks.py`; stub until `EMAIL_DELIVERY_ENABLED` |
 | P2-RT-03 | Last-visit delta | **Deferred** | — | Dashboard UI |
 
 ---
@@ -177,9 +177,10 @@
 
 Units on **`staging` only** (not yet on `main`):
 
-- _(none — staging synced with main after #79)_
+- P2-AA-05 (#81)
+- P2-RT-02 (#82)
 
-**Next release promotion:** when the next backend unit lands on `staging`.
+**Next release promotion:** batch P2-AA-05 + P2-RT-02 to `main`.
 
 ---
 
@@ -187,8 +188,7 @@ Units on **`staging` only** (not yet on `main`):
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
-| 2026-05-26 | #79 | P2-GV-01 + P2-GV-04 release | staging → **main** |
-| 2026-05-26 | #78 | P2-GV-04 | → staging |
+| 2026-05-28 | #82 | P2-RT-02 | → staging |
 | 2026-05-28 | #81 | P2-AA-05 | → staging |
 | 2026-05-28 | #76 | Phase 2.1 release (P2-AA-01–04) | staging → **main** |
 | 2026-05-28 | #75 | P2-AA-04 | → staging |
