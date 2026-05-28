@@ -148,6 +148,25 @@ class Settings(BaseSettings):
         os.getenv("ANALYSIS_SSE_MAX_POLLS", "300")
     )
 
+    # Scheduled Chess.com sync (P2-AA-05 — optional Celery beat)
+    CELERY_BEAT_ENABLED: bool = os.getenv("CELERY_BEAT_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    CHESSCOM_SCHEDULED_SYNC_INTERVAL_MINUTES: int = int(
+        os.getenv("CHESSCOM_SCHEDULED_SYNC_INTERVAL_MINUTES", "360")
+    )
+    CHESSCOM_SCHEDULED_SYNC_DAYS: int = int(
+        os.getenv("CHESSCOM_SCHEDULED_SYNC_DAYS", "7")
+    )
+    CHESSCOM_SCHEDULED_SYNC_MAX_USERS_PER_RUN: int = int(
+        os.getenv("CHESSCOM_SCHEDULED_SYNC_MAX_USERS_PER_RUN", "50")
+    )
+    CHESSCOM_SCHEDULED_SYNC_STAGGER_SECONDS: int = int(
+        os.getenv("CHESSCOM_SCHEDULED_SYNC_STAGGER_SECONDS", "2")
+    )
+
     # Chat session store (Redis TTL, seconds — default 24h)
     CHAT_SESSION_TTL_SECONDS: int = int(
         os.getenv("CHAT_SESSION_TTL_SECONDS", str(60 * 60 * 24))

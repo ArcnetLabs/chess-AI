@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** P2-AA-05 (optional Celery beat sync) or P2-RT-02 (weekly email stub)
+**Current focus:** P2-RT-02 (weekly summary email stub)
 
 ---
 
@@ -122,7 +122,7 @@
 | P2-AA-02 | Analysis job status model | Done (main) | #73, #76 | Redis + polling API |
 | P2-AA-03 | SSE progress endpoint | Done (main) | #74, #76 | `GET /analysis/{user_id}/status/stream` |
 | P2-AA-04 | `useAnalysisStatus` hook | Done (main) | #75, #76 | SSE replaces 8s polling |
-| P2-AA-05 | Celery beat sync job | Not started | — | Optional scheduled Chess.com pull |
+| P2-AA-05 | Celery beat sync job | **In progress** | — | `sync_tasks.py`; opt-in via `CELERY_BEAT_ENABLED` |
 
 ### 2.2 Game detail & move exploration
 

@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from pydantic import BaseModel, model_validator
 
+from loguru import logger
+
 
 
 from ..core.database import get_db
@@ -23,7 +25,7 @@ from ..services.filter_service import GameFilter, FilterService, get_filter_serv
 from ..services.game_query import GameQueryBuilder
 from ..services.games.game_detail_service import get_game_detail
 from ..services.games.coach_handoff_service import build_coach_handoff
-from ..services.analysis.auto_analysis_service import queue_new_games_for_analysis
+from ..services.games.game_sync_service import import_chesscom_games
 from .chat import get_chess_coach
 
 
@@ -361,311 +363,87 @@ async def fetch_recent_games(
 
         raise HTTPException(status_code=404, detail="User not found")
 
-    
+    fetch_count = fetch_request.game_count or fetch_request.count
+    fetch_days = fetch_request.days
+    fetch_method = "count" if fetch_count else "days"
+    fetch_value = fetch_count if fetch_count else fetch_days
+
+    game_filter = None
+    if (
+        fetch_request.start_date
+        or fetch_request.end_date
+        or fetch_request.time_controls
+        or fetch_request.rated_only is not None
+        or fetch_request.unrated_only is not None
+    ):
+        game_filter = GameFilter(
+            game_count=fetch_request.game_count,
+            start_date=(
+                datetime.fromisoformat(fetch_request.start_date.replace("Z", "+00:00"))
+                if fetch_request.start_date
+                else None
+            ),
+            end_date=(
+                datetime.fromisoformat(fetch_request.end_date.replace("Z", "+00:00"))
+                if fetch_request.end_date
+                else None
+            ),
+            time_controls=fetch_request.time_controls,
+            rated_only=fetch_request.rated_only,
+            unrated_only=fetch_request.unrated_only,
+        )
 
     try:
-
-        # Fetch recent games from Chess.com
-
-        # Determine fetch method: use new game_count if provided, otherwise legacy fields
-
-        fetch_count = fetch_request.game_count or fetch_request.count
-
-        fetch_days = fetch_request.days
-
-        
-
-        raw_games = await chesscom_api.get_recent_games(
-
-            user.chesscom_username, 
-
+        result = await import_chesscom_games(
+            db,
+            user,
             days=fetch_days,
-
             count=fetch_count,
-
-            user_id=user.id
-
+            source="fetch_recent_games",
+            time_classes=fetch_request.time_classes,
+            game_filter=game_filter,
+            auto_analyze_override=fetch_request.auto_analyze_on_sync,
         )
-    
     except RateLimitExceeded as e:
         raise HTTPException(
             status_code=429,
             detail={
                 "error": "Rate limit exceeded",
-                "message": f"You have made {e.current_count}/{e.limit} requests in the last minute. Please try again in {e.retry_after} seconds.",
+                "message": (
+                    f"You have made {e.current_count}/{e.limit} requests in the last minute. "
+                    f"Please try again in {e.retry_after} seconds."
+                ),
                 "retry_after": e.retry_after,
                 "limit": e.limit,
                 "window": 60,
-                "user_id": e.user_id
-            }
-        )
-
-        
-
-        # Determine fetch method used
-
-        fetch_method = "count" if fetch_count else "days"
-
-        fetch_value = fetch_count if fetch_count else fetch_days
-
-        
-
-        if not raw_games:
-
-            logger.info(f"📭 No games found for user {user.chesscom_username}")
-
-            return {"message": "No recent games found", "games_fetched": 0}
-
-        
-
-        # Log initial fetch statistics
-
-        logger.info(f"📥 Fetched {len(raw_games)} games from Chess.com for user {user.chesscom_username}")
-
-        
-
-        # Analyze game types before filtering
-
-        time_control_breakdown = {}
-
-        rated_count = 0
-
-        unrated_count = 0
-
-        for game in raw_games:
-
-            tc = game.get('time_class', 'unknown')
-
-            time_control_breakdown[tc] = time_control_breakdown.get(tc, 0) + 1
-
-            if game.get('rated', False):
-
-                rated_count += 1
-
-            else:
-
-                unrated_count += 1
-
-        
-
-        logger.info(f"📊 Game breakdown - Time controls: {time_control_breakdown}")
-
-        logger.info(f"📊 Game breakdown - Rated: {rated_count}, Unrated: {unrated_count}")
-
-        
-
-        # Apply post-fetch filtering if new filter fields provided
-
-        if (fetch_request.start_date or fetch_request.end_date or 
-
-            fetch_request.time_controls or fetch_request.rated_only is not None or 
-
-            fetch_request.unrated_only is not None):
-
-            
-
-            logger.info(f"🔍 Applying filters - Time controls: {fetch_request.time_controls}, Rated only: {fetch_request.rated_only}, Date range: {fetch_request.start_date} to {fetch_request.end_date}")
-
-            
-
-            game_filter = GameFilter(
-
-                game_count=fetch_request.game_count,
-
-                start_date=datetime.fromisoformat(fetch_request.start_date.replace('Z', '+00:00')) if fetch_request.start_date else None,
-
-                end_date=datetime.fromisoformat(fetch_request.end_date.replace('Z', '+00:00')) if fetch_request.end_date else None,
-
-                time_controls=fetch_request.time_controls,
-
-                rated_only=fetch_request.rated_only,
-
-                unrated_only=fetch_request.unrated_only
-
-            )
-
-            
-
-            filter_service = get_filter_service()
-
-            filtered_games = filter_service.apply_filters(raw_games, game_filter)
-
-            logger.info(f"✅ Filtered {len(raw_games)} games down to {len(filtered_games)} games")
-
-            raw_games = filtered_games
-
-        
-
-        games_added = 0
-
-        games_updated = 0
-
-        
-
-        for raw_game in raw_games:
-
-            # Parse game data
-
-            game_data = chesscom_api.parse_game_data(raw_game, user.chesscom_username)
-
-            
-
-            # Legacy filter by time class if specified
-
-            if fetch_request.time_classes and game_data["time_class"] not in fetch_request.time_classes:
-
-                continue
-
-            
-
-            # Check if game already exists
-
-            existing_game = db.query(Game).filter(
-
-                Game.chesscom_game_id == game_data["chesscom_game_id"]
-
-            ).first()
-
-            
-
-            if existing_game:
-
-                # Update existing game if needed
-
-                games_updated += 1
-
-                continue
-
-            
-
-            # Determine winner
-
-            winner = None
-
-            if game_data["white_result"] == "win":
-
-                winner = "white"
-
-            elif game_data["black_result"] == "win":
-
-                winner = "black"
-
-            elif game_data["white_result"] in ["agreed", "stalemate", "repetition", "insufficient"]:
-
-                winner = "draw"
-
-            
-
-            # Create new game record
-
-            game = Game(
-
-                user_id=user.id,
-
-                chesscom_game_id=game_data["chesscom_game_id"],
-
-                chesscom_url=game_data["chesscom_url"],
-
-                time_class=game_data["time_class"],
-
-                time_control=game_data["time_control"],
-
-                rules=game_data["rules"],
-
-                white_username=game_data["white_username"],
-
-                black_username=game_data["black_username"],
-
-                white_rating=game_data["white_rating"],
-
-                black_rating=game_data["black_rating"],
-
-                white_result=game_data["white_result"],
-
-                black_result=game_data["black_result"],
-
-                winner=winner,
-
-                pgn=game_data["pgn"],
-
-                fen=game_data["fen"],
-
-                start_time=game_data["start_time"],
-
-                end_time=game_data["end_time"]
-
-            )
-
-            
-
-            db.add(game)
-
-            db.flush()
-
-            new_game_ids.append(game.id)
-
-            games_added += 1
-
-        
-
-        db.commit()
-
-        
-
-        # Update user's total_games count
-
-        user.total_games = db.query(Game).filter(Game.user_id == user.id).count()
-
-        db.commit()
-
-        analysis_queue = queue_new_games_for_analysis(
-            db,
-            user,
-            new_game_ids,
-            source="fetch_recent_games",
-            request_override=fetch_request.auto_analyze_on_sync,
-        )
-
-        
-
-        return {
-
-            "message": f"Successfully fetched games",
-
-            "games_added": games_added,
-
-            "games_updated": games_updated,
-
-            "total_games": games_added + games_updated,
-
-            "existing_games": user.total_games,
-
-            "fetch_method": fetch_method,
-
-            "fetch_value": fetch_value,
-
-            "analysis_queue": analysis_queue,
-
-            "filters_applied": {
-
-                "game_count": fetch_request.game_count,
-
-                "date_range": bool(fetch_request.start_date or fetch_request.end_date),
-
-                "time_controls": fetch_request.time_controls,
-
-                "rated_filter": fetch_request.rated_only or fetch_request.unrated_only
-
-            }
-
-        }
-
-        
-
+                "user_id": e.user_id,
+            },
+        ) from e
     except ChessComAPIError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to fetch games: {str(e)}",
+        ) from e
 
-        raise HTTPException(status_code=400, detail=f"Failed to fetch games: {str(e)}")
+    if result.get("message") == "No recent games found":
+        return {"message": "No recent games found", "games_fetched": 0}
 
+    return {
+        "message": "Successfully fetched games",
+        "games_added": result["games_added"],
+        "games_updated": result["games_updated"],
+        "total_games": result["games_added"] + result["games_updated"],
+        "existing_games": result.get("total_games", user.total_games),
+        "fetch_method": fetch_method,
+        "fetch_value": fetch_value,
+        "analysis_queue": result.get("analysis_queue"),
+        "filters_applied": {
+            "game_count": fetch_request.game_count,
+            "date_range": bool(fetch_request.start_date or fetch_request.end_date),
+            "time_controls": fetch_request.time_controls,
+            "rated_filter": fetch_request.rated_only or fetch_request.unrated_only,
+        },
+    }
 
 
 
