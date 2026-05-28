@@ -121,7 +121,7 @@
 |------|--------|-----|-------|
 | Route cleanup — `games_filters` orphan | Done (main) | #69 | `GameQueryBuilder` → `services/game_query.py` |
 | Route bloat — `games.py`, `insights.py`, `users.py` | Not started | — | Extract to services; separate PRs |
-| ACPL threshold single source | Partial | #60 | Verify `recommendation_engine` ↔ `patterns/constants` |
+| ACPL threshold single source | Done (main) | #60 | Canonical: `patterns/constants.py`; engine + detectors import shared thresholds |
 | Governance doc sync | Partial | #66 | Stale vs #68–#73; use **this tracker** instead |
 
 ---

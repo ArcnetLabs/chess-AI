@@ -56,6 +56,12 @@ export interface ChatResponse {
   analysis?: PositionAnalysis;
   suggestions?: string[];
   position_fen?: string;
+  /** True when the coach used an LLM (Ollama/OpenRouter/OpenAI) for this reply. */
+  used_llm?: boolean;
+  /** Provider name when used_llm is true (e.g. ollama, openrouter, openai). */
+  llm_provider?: string | null;
+  /** Pattern IDs cited from assembled coach context (RAG grounding). */
+  cited_pattern_ids?: number[];
 }
 
 export interface ChatSession {
