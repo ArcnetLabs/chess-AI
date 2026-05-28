@@ -8,10 +8,10 @@ import {
   ApiResponse,
   FetchGamesRequest,
   FetchGamesResponse,
-  AnalyzeGamesResponse,
   GenerateInsightsResponse,
   Recommendation,
 } from '@/types';
+import { AnalyzeGamesResponse } from '@/types/analysis.types';
 import {
   ChatHistoryResponse,
   CreateSessionRequest,
@@ -256,6 +256,16 @@ export const analysisApi = {
 
   getSummary: async (userId: number, days = 7): Promise<any> => {
     const response = await apiClient.get(`/analysis/${userId}/summary`, { params: { days } });
+    return response.data;
+  },
+
+  getActiveJobStatus: async (userId: number) => {
+    const response = await apiClient.get(`/analysis/${userId}/status`);
+    return response.data;
+  },
+
+  getJobStatus: async (userId: number, jobId: string) => {
+    const response = await apiClient.get(`/analysis/${userId}/status/${jobId}`);
     return response.data;
   },
 

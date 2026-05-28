@@ -187,17 +187,8 @@ export interface FetchGamesResponse {
   };
 }
 
-// Analyze Games Response
-export interface AnalyzeGamesResponse {
-  message: string;
-  games_queued: number;
-  analysis_mode?: string;
-  uses_ai?: boolean;
-  tier_info?: {
-    tier: string;
-    remaining_ai_analyses: number | string;
-  };
-}
+// Analyze Games Response — see @/types/analysis.types
+export type { AnalyzeGamesResponse, AnalysisJobStatus, AnalysisJobState } from '@/types/analysis.types';
 
 // Generate Insights Response
 export interface GenerateInsightsResponse {

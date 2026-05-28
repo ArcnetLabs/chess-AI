@@ -111,20 +111,20 @@ export function useGameAnalysis({
         stopPollingRef.current = startBatchAnalysisPolling({
           userId: user.id,
           user,
-          targetCount: result.games_queued,
+          jobId: result.job_id ?? result.task_id ?? undefined,
           refetchGames,
           refetchAnalysisSummary,
-          onProgress: (analyzedCount, currentGame) => {
-            setCurrentAnalyzedCount(analyzedCount);
+          onProgress: (processedCount, currentGame) => {
+            setCurrentAnalyzedCount(processedCount);
             setCurrentAnalyzingGame(currentGame);
           },
-          onComplete: async (analyzedCount) => {
+          onComplete: async (processedCount) => {
             cleanupPolling();
             setIsAnalyzing(false);
             setShowAnalysisModal(false);
             setCurrentAnalyzingGame(null);
             await Promise.all([refetchUser(), refetchAnalysisSummary()]);
-            toast.success(`✅ Analysis complete! ${analyzedCount} games analyzed.`, {
+            toast.success(`✅ Analysis complete! ${processedCount} games processed.`, {
               duration: 4000,
               icon: '🎉',
             });
@@ -158,8 +158,12 @@ export function useGameAnalysis({
 
       try {
         const result = await api.analysis.analyzeSingleGame(user.id, gameId, false);
+        const isQueued =
+          result.status === 'queued' ||
+          (result.games_queued ?? 0) > 0 ||
+          Boolean(result.job_id);
 
-        if (result.games_queued > 0) {
+        if (isQueued) {
           setAnalyzingGamesCount(1);
           setCurrentAnalyzedCount(0);
           setShowAnalysisModal(true);
@@ -173,6 +177,9 @@ export function useGameAnalysis({
           stopPollingRef.current = startSingleGameAnalysisPolling({
             userId: user.id,
             gameId,
+            jobId: result.job_id ?? result.task_id ?? undefined,
+            user,
+            games,
             refetchGames,
             refetchAnalysisSummary,
             onProgress: () => {},
