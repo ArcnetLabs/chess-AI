@@ -66,6 +66,24 @@ export interface Game {
   is_analyzed: boolean;
 }
 
+export interface CoachHandoffRequest {
+  move_number?: number;
+  prime_session?: boolean;
+}
+
+export interface CoachHandoffResponse {
+  game_id: number;
+  move_number: number | null;
+  move_san: string | null;
+  classification: string | null;
+  phase: string | null;
+  fen: string;
+  suggested_message: string;
+  opening_name: string | null;
+  user_color: string | null;
+  session_id?: string;
+}
+
 // Analysis types
 export interface Analysis {
   id: number;
