@@ -247,3 +247,68 @@ async def test_general_question_system_prompt_includes_semantic_memories(
     assert "## Relevant Semantic Memories" in system_prompt
     assert "rook endgames under time pressure" in system_prompt
     assert "supplemental facts" in system_prompt
+
+
+def test_extract_pattern_ids_from_context_deduplicates():
+    from app.services.chat.context_assembler import extract_pattern_ids_from_context
+
+    context = (
+        "- pattern_id=5 type=phase/endgame\n"
+        "- pattern_id=5 type=phase/opening\n"
+        "- pattern_id=12 type=phase/middlegame\n"
+    )
+    assert extract_pattern_ids_from_context(context) == [5, 12]
+
+
+@pytest.mark.asyncio
+async def test_general_question_llm_response_includes_citation_metadata(db, coach_user):
+    _create_profile(db, coach_user)
+    _create_pattern(
+        db,
+        coach_user,
+        pattern_subtype="endgame",
+        severity="critical",
+        confidence=0.9,
+        description="Rook endgame conversion failures",
+    )
+
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={
+            "content": "Work on rook endgame technique.",
+            "provider": "mock",
+        }
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    response = await coach.process_message(
+        message="How can I improve my endgames?",
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    assert response.used_llm is True
+    assert response.llm_provider == "mock"
+    assert response.cited_pattern_ids
+
+
+@pytest.mark.asyncio
+async def test_get_chess_coach_wires_ai_client():
+    from app.api.chat import get_chess_coach
+
+    with patch("app.api.chat._coach_instance", None), patch(
+        "app.api.chat.get_ai_client", return_value=MagicMock()
+    ) as mock_get:
+        coach = await get_chess_coach()
+        assert coach.ai_client is mock_get.return_value
+
+
+@pytest.mark.asyncio
+async def test_get_chess_coach_survives_ai_client_init_failure():
+    from app.api.chat import get_chess_coach
+
+    with patch("app.api.chat._coach_instance", None), patch(
+        "app.api.chat.get_ai_client", side_effect=RuntimeError("no keys")
+    ):
+        coach = await get_chess_coach()
+        assert coach.ai_client is None

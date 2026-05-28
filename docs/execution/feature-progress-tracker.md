@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | Exit gate: grounding ✅, grep A ✅ |
 
-**Current focus:** Phase 3 exit gate — drill/grounding done; coach response metadata optional; Phase 2 UI deferred
+**Current focus:** Phase 3 exit gate complete for coach intelligence — Phase 2 UI deferred
 
 ---
 
@@ -43,7 +43,9 @@
 | Grounding eval pass rate ≥ 90% | ✅ | `test_evaluate_coach_context_full_set_meets_phase3_exit_gate` (50 cases, seeded fixtures) |
 | Training MVP ≥1 drill type per major pattern category | ✅ | `drill_generator_service.py` subtype fallbacks + tests |
 | Grep-loop A (architecture) clean | ✅ | No Stockfish/LLM/service_role violations in api/tasks/frontend |
-| Coach answers cite pattern IDs in metadata | Partial | `pattern_id=` in assembled context; LLM response metadata not wired |
+| Coach answers cite pattern IDs in metadata | ✅ | `cited_pattern_ids` + `used_llm` + `llm_provider` on chat API |
+| LLM wired (Ollama → OpenRouter → OpenAI fallback) | ✅ | `ai_client.py` + `ChessCoach(ai_client=get_ai_client())` |
+| E2E coach journey smoke script | ✅ | `scripts/simulate_coach_journey.py` |
 | Full pytest suite | Partial | Unit subset + Phase 3 tests pass; heavy analysis/integration excluded locally |
 
 ---

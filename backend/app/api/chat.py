@@ -20,6 +20,7 @@ from ..middleware.auth_middleware import get_current_user
 from ..models import User
 from ..services.chat.chess_coach import ChessCoach
 from ..services.engine.engine_pool import check_engine_health
+from ..services.integration.ai_client import get_ai_client
 
 
 router = APIRouter(tags=["chat"])
@@ -58,7 +59,14 @@ async def get_chess_coach() -> ChessCoach:
     if _coach_instance is None:
         try:
             logger.info("Initializing Chess Coach...")
-            _coach_instance = ChessCoach()
+            ai_client = None
+            try:
+                ai_client = get_ai_client()
+            except Exception as ai_exc:
+                logger.warning(
+                    f"AI client unavailable; coach will use template fallback: {ai_exc}"
+                )
+            _coach_instance = ChessCoach(ai_client=ai_client)
             logger.info("Chess Coach initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Chess Coach: {e}")
