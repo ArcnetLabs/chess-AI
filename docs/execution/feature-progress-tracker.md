@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~5/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~6/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-CM-05 grounding eval set
+**Current focus:** P3-CC-01 intent → retrieval routing
 
 ---
 
@@ -160,7 +160,7 @@
 | P3-CM-02 | Embedding pipeline | Done (main) | #86, #87 | `embedding_service.py`, Celery after pattern detection |
 | P3-CM-03 | Retrieval service | Done (main) | #89, #92 | `retrieval_service.py`; pgvector + SQLite cosine fallback |
 | P3-CM-04 | Coach prompt v2 | Done (main) | #91, #92 | Query-aware semantic memories in coach context |
-| P3-CM-05 | Grounding eval set | Not started | |
+| P3-CM-05 | Grounding eval set | Done (staging) | #94 | 50-case JSON + `grounding_eval_service.py` |
 | P3-CC-01 | Intent → retrieval routing | Not started | |
 | P3-CC-02 | Suggestion chips from patterns | **Deferred** | UI |
 | P3-CC-03 | `/coach` dedicated page | **Deferred** | UI |
@@ -175,9 +175,9 @@
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** none (synced after release **#92**).
+**`staging` ahead of `main`:** P3-CM-05 (#94).
 
-**Next release promotion:** after P3-CM-05 lands on staging, or batch with P3-CC-01 if ready.
+**Next release promotion:** batch P3-CM-05 to `main` when ready.
 
 ---
 
@@ -185,6 +185,8 @@
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #94 | P3-CM-05 | → staging |
+| 2026-05-28 | #93 | Tracker sync post #92 | → staging |
 | 2026-05-28 | #92 | Phase 3 coaching memory release (P3-CM-03 + P3-CM-04) | staging → **main** |
 | 2026-05-28 | #91 | P3-CM-04 | → staging |
 | 2026-05-28 | #89 | P3-CM-03 | → staging |
