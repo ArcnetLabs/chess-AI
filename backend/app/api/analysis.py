@@ -1,5 +1,7 @@
 from typing import List, Optional
+from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -7,6 +9,8 @@ from ..core.database import get_db
 from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis
 from ..services.tier_service import get_tier_service
+from ..services.analysis.analysis_job_store import get_analysis_job_store
+from ..services.analysis.analysis_status_stream import stream_job_status_events
 from ..core.config import settings
 from ..tasks.analysis_tasks import analyze_game_task, analyze_batch_games_task
 from loguru import logger
@@ -50,8 +54,44 @@ class AnalysisRequest(BaseModel):
     mode: str = "auto"  # "auto", "stockfish-only", or "ai-enhanced"
 
 
+class AnalysisJobStatusResponse(BaseModel):
+    job_id: str
+    user_id: int
+    status: str
+    source: str
+    total_games: int
+    completed_games: int
+    failed_games: int
+    pending_game_ids: List[int]
+    current_game_id: Optional[int] = None
+    created_at: str
+    updated_at: str
+    progress_percent: float
+
+
 # Background analysis functions removed - now using Celery tasks
 # See app/tasks/analysis_tasks.py for task implementations
+
+
+def _job_status_response(job: dict) -> AnalysisJobStatusResponse:
+    total = max(int(job.get("total_games", 0)), 1)
+    completed = int(job.get("completed_games", 0))
+    failed = int(job.get("failed_games", 0))
+    progress = round(((completed + failed) / total) * 100, 1)
+    return AnalysisJobStatusResponse(
+        job_id=job["job_id"],
+        user_id=job["user_id"],
+        status=job["status"],
+        source=job["source"],
+        total_games=int(job.get("total_games", 0)),
+        completed_games=completed,
+        failed_games=failed,
+        pending_game_ids=list(job.get("pending_game_ids", [])),
+        current_game_id=job.get("current_game_id"),
+        created_at=job["created_at"],
+        updated_at=job["updated_at"],
+        progress_percent=progress,
+    )
 
 
 @router.post("/{user_id}/analyze/{game_id}")
@@ -94,15 +134,24 @@ async def analyze_single_game(
     
     # Try Celery first, fallback to synchronous analysis
     try:
+        job_store = get_analysis_job_store()
+        job_id = str(uuid4())
+        job_store.create_job(
+            job_id=job_id,
+            user_id=user_id,
+            game_ids=[game_id],
+            source="single",
+        )
         # Queue the analysis with Celery
-        task = analyze_game_task.delay(game_id, user_id)
+        task = analyze_game_task.delay(game_id, user_id, job_id=job_id)
         logger.info(f"Queued Celery task {task.id} for game {game_id} (user {user_id})")
         
         return {
             "status": "queued",
             "message": "Analysis started (background)",
             "game_id": game_id,
-            "task_id": task.id
+            "task_id": task.id,
+            "job_id": job_id,
         }
     except Exception as celery_error:
         logger.error(f"Celery queue failed for game {game_id}: {celery_error}")
@@ -202,10 +251,16 @@ async def analyze_user_games(
     game_ids_to_analyze = [game.id for game in games_to_analyze if game.pgn]
     
     if game_ids_to_analyze:
-        task = analyze_batch_games_task.delay(game_ids_to_analyze, user_id)
+        task = analyze_batch_games_task.delay(
+            game_ids_to_analyze,
+            user_id,
+            source="manual",
+        )
         task_id = task.id
+        job_id = task.id
     else:
         task_id = None
+        job_id = None
     
     # Update user's analyzed_games count
     user.analyzed_games = db.query(Game).filter(
@@ -218,9 +273,80 @@ async def analyze_user_games(
         "message": f"Queued {len(game_ids_to_analyze)} games for analysis",
         "games_queued": len(game_ids_to_analyze),
         "task_id": task_id,
+        "job_id": job_id,
         "analysis_mode": analysis_mode,
         "uses_ai": uses_ai
     }
+
+
+@router.get("/{user_id}/status", response_model=AnalysisJobStatusResponse)
+async def get_active_analysis_status(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the user's active analysis job, if any."""
+    require_ownership(current_user, user_id)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    job = get_analysis_job_store().get_active_job(user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="No active analysis job")
+
+    return _job_status_response(job)
+
+
+@router.get("/{user_id}/status/stream")
+async def stream_analysis_status(
+    user_id: int,
+    job_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream analysis job progress via Server-Sent Events.
+
+    Pass ``job_id`` to follow a specific job; omit to follow the user's active job.
+    Clients should use ``fetch`` with an ``Authorization`` header (EventSource cannot).
+    """
+    require_ownership(current_user, user_id)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return StreamingResponse(
+        stream_job_status_events(user_id, job_id=job_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/{user_id}/status/{job_id}", response_model=AnalysisJobStatusResponse)
+async def get_analysis_job_status(
+    user_id: int,
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return status for a specific analysis job."""
+    require_ownership(current_user, user_id)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    job = get_analysis_job_store().get_job(job_id)
+    if not job or job.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Analysis job not found")
+
+    return _job_status_response(job)
 
 
 @router.get("/{user_id}/analyses", response_model=List[AnalysisResponse])
