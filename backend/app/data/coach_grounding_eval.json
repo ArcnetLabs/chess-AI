@@ -1,0 +1,630 @@
+[
+  {
+    "id": "ge-001",
+    "question": "How can I improve my endgames?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "endgame",
+        "rook"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-002",
+    "question": "Why do I lose winning rook endgames?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "rook",
+        "endgame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-003",
+    "question": "What should I study for pawn endgames?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "endgame",
+        "pawn"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-004",
+    "question": "How do I convert material advantages in the endgame?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "endgame"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-005",
+    "question": "My endgame technique seems weak \u2014 any advice?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "endgame",
+        "technique"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-006",
+    "question": "How can I fix my opening repertoire?",
+    "expected": {
+      "pattern_subtypes": [
+        "opening"
+      ],
+      "keywords": [
+        "opening"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-007",
+    "question": "Why do I fall behind out of the opening?",
+    "expected": {
+      "pattern_subtypes": [
+        "opening"
+      ],
+      "keywords": [
+        "opening",
+        "acpl"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-008",
+    "question": "Should I change my Sicilian Defense approach?",
+    "expected": {
+      "pattern_subtypes": [
+        "sicilian_defense"
+      ],
+      "keywords": [
+        "sicilian"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-009",
+    "question": "My opening preparation feels inconsistent.",
+    "expected": {
+      "pattern_subtypes": [
+        "opening"
+      ],
+      "keywords": [
+        "opening"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-010",
+    "question": "How do I reduce opening inaccuracies?",
+    "expected": {
+      "pattern_subtypes": [
+        "high_opening_acpl"
+      ],
+      "keywords": [
+        "opening"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-011",
+    "question": "How can I play better middlegames?",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame"
+      ],
+      "keywords": [
+        "middlegame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-012",
+    "question": "Why do I hang pieces in the middlegame?",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame"
+      ],
+      "keywords": [
+        "middlegame",
+        "hanging"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-013",
+    "question": "How do I handle complex middlegame positions?",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame"
+      ],
+      "keywords": [
+        "middlegame"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-014",
+    "question": "My middlegame accuracy is poor \u2014 help?",
+    "expected": {
+      "pattern_subtypes": [
+        "high_middlegame_acpl"
+      ],
+      "keywords": [
+        "middlegame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-015",
+    "question": "I keep missing tactical shots in the middlegame.",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame"
+      ],
+      "keywords": [
+        "tactical",
+        "middlegame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-016",
+    "question": "How do I spot forks more reliably?",
+    "expected": {
+      "pattern_subtypes": [
+        "fork_miss"
+      ],
+      "keywords": [
+        "fork"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-017",
+    "question": "Why do I miss simple tactics?",
+    "expected": {
+      "pattern_subtypes": [
+        "fork_miss"
+      ],
+      "keywords": [
+        "tactics"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-018",
+    "question": "How can I improve my tactical vision?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "tactics",
+        "tactician"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-019",
+    "question": "I fall for traps too often.",
+    "expected": {
+      "pattern_subtypes": [
+        "trap_falls"
+      ],
+      "keywords": [
+        "trap"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-020",
+    "question": "What tactical patterns should I drill?",
+    "expected": {
+      "pattern_subtypes": [
+        "fork_miss"
+      ],
+      "keywords": [
+        "pattern"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-021",
+    "question": "Why do I blunder when low on time?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "time pressure",
+        "blunder"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-022",
+    "question": "How do I manage time better in rapid games?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "time"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-023",
+    "question": "I make too many blunders overall.",
+    "expected": {
+      "pattern_subtypes": [
+        "high_blunder_rate"
+      ],
+      "keywords": [
+        "blunder"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-024",
+    "question": "How can I reduce my blunder rate?",
+    "expected": {
+      "pattern_subtypes": [
+        "high_blunder_rate"
+      ],
+      "keywords": [
+        "blunder"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-025",
+    "question": "Do I blunder more in the middlegame?",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame_major_swings"
+      ],
+      "keywords": [
+        "blunder",
+        "middlegame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-026",
+    "question": "What is my playing style archetype?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "archetype",
+        "tactician"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-027",
+    "question": "Summarize my chess profile.",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "profile_version",
+        "games_analyzed"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-028",
+    "question": "What are my biggest weaknesses?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "primary_weaknesses",
+        "endgame technique"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-029",
+    "question": "Am I more tactical or positional?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "tactician",
+        "archetype"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-030",
+    "question": "How many games have you analyzed for me?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "games_analyzed_count"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-031",
+    "question": "Which phase of the game is my weakest?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "phase_performance",
+        "endgame"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-032",
+    "question": "Compare my opening vs endgame performance.",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "opening",
+        "endgame",
+        "phase_performance"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-033",
+    "question": "Is my middlegame stronger than my opening?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "middlegame",
+        "opening",
+        "phase_performance"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-034",
+    "question": "Where should I focus based on phase stats?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "phase_performance"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-035",
+    "question": "My endgame phase performance looks bad \u2014 true?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "endgame",
+        "phase_performance"
+      ],
+      "require_profile": true
+    }
+  },
+  {
+    "id": "ge-036",
+    "question": "What detected patterns should I work on first?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "detected patterns",
+        "severity"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-037",
+    "question": "Show me my highest-severity patterns.",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "severity",
+        "confidence"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-038",
+    "question": "Which pattern hurts me most in conversion?",
+    "expected": {
+      "pattern_subtypes": [
+        "endgame"
+      ],
+      "keywords": [
+        "conversion",
+        "endgame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-039",
+    "question": "Do I have recurring opening weaknesses?",
+    "expected": {
+      "pattern_subtypes": [
+        "opening"
+      ],
+      "keywords": [
+        "opening",
+        "pattern"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-040",
+    "question": "What middlegame mistakes repeat in my games?",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame"
+      ],
+      "keywords": [
+        "middlegame",
+        "pattern"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-041",
+    "question": "Give me general chess improvement tips.",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-042",
+    "question": "How do knights move?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-043",
+    "question": "What is en passant?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-044",
+    "question": "Explain the rules of castling.",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-045",
+    "question": "Who was the world champion in 1972?",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-046",
+    "question": "How do I defend against the Sicilian?",
+    "expected": {
+      "pattern_subtypes": [
+        "sicilian_defense"
+      ],
+      "keywords": [
+        "sicilian"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-047",
+    "question": "Why is my opening ACPL high?",
+    "expected": {
+      "pattern_subtypes": [
+        "high_opening_acpl"
+      ],
+      "keywords": [
+        "opening",
+        "acpl"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-048",
+    "question": "Help with evaluation swings in middlegames.",
+    "expected": {
+      "pattern_subtypes": [
+        "middlegame_major_swings"
+      ],
+      "keywords": [
+        "middlegame",
+        "swing"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-049",
+    "question": "What endgame themes appear in my games?",
+    "expected": {
+      "pattern_subtypes": [
+        "high_endgame_acpl"
+      ],
+      "keywords": [
+        "endgame"
+      ],
+      "require_profile": false
+    }
+  },
+  {
+    "id": "ge-050",
+    "question": "Create a training plan from my profile and patterns.",
+    "expected": {
+      "pattern_subtypes": [],
+      "keywords": [
+        "profile_version",
+        "detected patterns"
+      ],
+      "require_profile": true
+    }
+  }
+]
