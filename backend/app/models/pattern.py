@@ -23,7 +23,7 @@ class PlayerPattern(Base):
     - Pattern engine (P1-PR-*): upserts aggregates after detection runs
     - Profile builder (P1-PP-*): reads severity/confidence for snapshots
     - Recommendation engine (P1-RE-*): links recommendations via pattern id
-    - Coaching memory (P3-CM-*): ``semantic_memory.source_id`` references this id
+    - Coaching memory (P3-CM-*): ``semantic_memory.content_id`` references this id
     """
 
     __tablename__ = "player_patterns"

@@ -19,6 +19,7 @@ celery_app = Celery(
         'app.tasks.profile_tasks',
         'app.tasks.sync_tasks',
         'app.tasks.retention_tasks',
+        'app.tasks.embedding_tasks',
     ]
 )
 
@@ -38,6 +39,7 @@ celery_app.conf.update(
         'app.tasks.sync_tasks.sync_user_games_task': {'queue': 'analysis'},
         'app.tasks.retention_tasks.scheduled_weekly_summary_dispatch_task': {'queue': 'analysis'},
         'app.tasks.retention_tasks.send_weekly_summary_task': {'queue': 'analysis'},
+        'app.tasks.embedding_tasks.embed_user_patterns_task': {'queue': 'analysis'},
     },
     
     task_default_queue='analysis',
