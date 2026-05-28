@@ -70,6 +70,12 @@ class PatternAggregationInput:
     opening_by_game: List[Dict[str, Any]]
     """Per-game opening stats: game_id, opening_name, opening_eco, opening_acpl."""
 
+    blunder_events: List[Dict[str, Any]] = field(default_factory=list)
+    """Move-level blunder/mistake events from ``GameAnalysis.blunder_moves``."""
+
+    games_blunder_stats: List[Dict[str, Any]] = field(default_factory=list)
+    """Per-game blunder counts for legacy rows without move-level JSON."""
+
     @property
     def opening_performance(self) -> Dict[str, Any]:
         acpls = self.opening_acpls

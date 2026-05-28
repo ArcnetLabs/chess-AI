@@ -11,6 +11,7 @@ from app.services.patterns.constants import (
     MIN_PHASE_SAMPLE_GAMES,
     OPENING_ACPL_THRESHOLD,
     OPENING_SPECIFIC_ACPL_THRESHOLD,
+    PATTERN_TYPE_BLUNDER,
     PATTERN_TYPE_OPENING,
     PATTERN_TYPE_PHASE,
 )
@@ -165,3 +166,23 @@ class TestPatternAggregator:
         assert PATTERN_TYPE_OPENING in types
         keys = {p.pattern_key() for p in result.patterns}
         assert len(keys) == len(result.patterns)
+
+    def test_blunder_cluster_in_aggregator_with_move_events(self):
+        events = [
+            {
+                "game_id": gid,
+                "move_number": 30,
+                "move_san": "Qh4??",
+                "fen_before": "start",
+                "classification": "blunder",
+                "eval_delta": 400.0,
+                "total_moves_estimate": 60,
+                "game_phase": "middlegame",
+            }
+            for gid in range(1, 4)
+        ]
+        events.append(dict(events[0], move_number=32))
+        data = _base_input(blunder_events=events)
+        result = build_pattern_run_result(data)
+        blunder = [p for p in result.patterns if p.pattern_type == PATTERN_TYPE_BLUNDER]
+        assert len(blunder) >= 1

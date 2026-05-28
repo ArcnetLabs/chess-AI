@@ -25,3 +25,14 @@ SEVERITY_HIGH_RATIO = 1.2
 # Pattern taxonomy stored in ``player_patterns.pattern_type``.
 PATTERN_TYPE_PHASE = "phase_weakness"
 PATTERN_TYPE_OPENING = "opening_weakness"
+PATTERN_TYPE_BLUNDER = "blunder_cluster"
+
+# Blunder cluster detection (move-level and legacy aggregate).
+MIN_BLUNDER_CLUSTER_GAMES = 3
+MIN_BLUNDER_CLUSTER_OCCURRENCES = 3
+MIN_LEGACY_BLUNDER_SAMPLE_GAMES = 3
+LEGACY_BLUNDER_RATE_THRESHOLD = 1.5  # avg blunders per game across sample
+
+# Eval-swing bands (centipawns) aligned with UnifiedChessAnalyzer thresholds.
+SWING_BAND_MODERATE_CP = 200  # mistake floor
+SWING_BAND_MAJOR_CP = 300  # blunder floor
