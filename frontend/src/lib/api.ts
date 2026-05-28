@@ -3,6 +3,8 @@ import {
   User,
   UserCreate,
   Game,
+  CoachHandoffRequest,
+  CoachHandoffResponse,
   Analysis,
   UserInsight,
   ApiResponse,
@@ -195,6 +197,17 @@ export const gamesApi = {
 
   getById: async (gameId: number): Promise<Game> => {
     const response = await apiClient.get<Game>(`/games/game/${gameId}`);
+    return response.data;
+  },
+
+  coachHandoff: async (
+    gameId: number,
+    request?: CoachHandoffRequest,
+  ): Promise<CoachHandoffResponse> => {
+    const response = await apiClient.post<CoachHandoffResponse>(
+      `/games/game/${gameId}/coach-handoff`,
+      request ?? {},
+    );
     return response.data;
   },
 

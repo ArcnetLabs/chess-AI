@@ -505,10 +505,18 @@ Would you like me to analyze one of your recent games to give more specific advi
         """Get a chat session by ID."""
         return self.session_store.get(session_id)
 
-    def create_session(self, user_id: Optional[int] = None) -> ChatContext:
-        """Create a new chat session."""
+    def create_session(
+        self,
+        user_id: Optional[int] = None,
+        position_fen: Optional[str] = None,
+    ) -> ChatContext:
+        """Create a new chat session, optionally primed with a board position."""
         session_id = str(uuid.uuid4())
-        context = ChatContext(session_id=session_id, user_id=user_id)
+        context = ChatContext(
+            session_id=session_id,
+            user_id=user_id,
+            current_position=position_fen,
+        )
         self.session_store.save(context)
         return context
 
