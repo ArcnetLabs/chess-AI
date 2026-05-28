@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (synced with `main` after release **#112**)  
-**Production branch:** `main` @ PR **#112** (P3-PC-01 + P3-PC-02)  
+**Integration branch:** `staging` (synced with `main` after release **#119**)  
+**Production branch:** `main` @ PR **#119** (LLM coach intelligence release)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | Exit gate: grounding ✅, grep A ✅ |
 
-**Current focus:** Phase 3 exit gate complete for coach intelligence — Phase 2 UI deferred
+**Current focus:** Phase 3 backend complete; awaiting user JWT for live E2E OR Phase 2 UI when requested
 
 ---
 
@@ -184,14 +184,15 @@
 | P3-TR-04 | Progress tracking | Done (main) | #106, #108 | `training_progress_service.py`; live stats on profile API |
 | P3-PC-01 | Weekly digest task | Done (main) | #109, #112 | `weekly_digest_service.py`; Celery beat Mon 10:00 UTC |
 | P3-PC-02 | In-app notification feed | Done (main) | #110, #112 | Alembic `0011`; `GET/PATCH/POST …/notifications` |
+| P3-CM-06 | LLM provider wiring | Done (main) | #118, #119 | `ai_client.py` Ollama → OpenRouter → OpenAI; citation metadata on chat API |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** none (synced after release **#112**).
+**`staging` ahead of `main`:** none (synced after release **#119**).
 
-**Next release promotion:** n/a — await next feature batch or Phase 3 exit gate work.
+**Next release promotion:** n/a — await live E2E (user JWT) or Phase 2 UI when requested.
 
 ---
 
@@ -199,6 +200,8 @@
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #119 | LLM coach intelligence release | staging → **main** |
+| 2026-05-28 | #118 | P3-CM-06 (LLM provider wiring) | → staging |
 | 2026-05-28 | #112 | P3-PC-01 + PC-02 release | staging → **main** |
 | 2026-05-28 | #110 | P3-PC-02 | → staging |
 | 2026-05-28 | #109 | P3-PC-01 | → staging |
