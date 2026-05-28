@@ -74,6 +74,8 @@ class TestDetectPatternsTask:
             return_value=mock_result,
         ) as mock_run, patch(
             "app.tasks.pattern_tasks.schedule_profile_build_for_user",
+        ), patch(
+            "app.tasks.pattern_tasks.schedule_pattern_embedding_for_user",
         ):
             result = detect_patterns_task.run(99)
 
