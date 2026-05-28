@@ -5,6 +5,7 @@ import os
 from datetime import timedelta
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config import settings
 
@@ -17,6 +18,7 @@ celery_app = Celery(
         'app.tasks.pattern_tasks',
         'app.tasks.profile_tasks',
         'app.tasks.sync_tasks',
+        'app.tasks.retention_tasks',
     ]
 )
 
@@ -34,6 +36,8 @@ celery_app.conf.update(
         'app.tasks.profile_tasks.build_profile_task': {'queue': 'analysis'},
         'app.tasks.sync_tasks.scheduled_chesscom_sync_task': {'queue': 'analysis'},
         'app.tasks.sync_tasks.sync_user_games_task': {'queue': 'analysis'},
+        'app.tasks.retention_tasks.scheduled_weekly_summary_dispatch_task': {'queue': 'analysis'},
+        'app.tasks.retention_tasks.send_weekly_summary_task': {'queue': 'analysis'},
     },
     
     task_default_queue='analysis',
@@ -52,15 +56,25 @@ celery_app.conf.update(
     result_expires=3600,
 )
 
+_beat_schedule: dict = {}
+
 if settings.CELERY_BEAT_ENABLED:
     interval_minutes = settings.CHESSCOM_SCHEDULED_SYNC_INTERVAL_MINUTES
-    celery_app.conf.beat_schedule = {
-        "scheduled-chesscom-sync": {
-            "task": "app.tasks.sync_tasks.scheduled_chesscom_sync_task",
-            "schedule": timedelta(minutes=interval_minutes),
-            "options": {"queue": "analysis"},
-        },
+    _beat_schedule["scheduled-chesscom-sync"] = {
+        "task": "app.tasks.sync_tasks.scheduled_chesscom_sync_task",
+        "schedule": timedelta(minutes=interval_minutes),
+        "options": {"queue": "analysis"},
     }
+
+if settings.WEEKLY_EMAIL_ENABLED:
+    _beat_schedule["scheduled-weekly-summary"] = {
+        "task": "app.tasks.retention_tasks.scheduled_weekly_summary_dispatch_task",
+        "schedule": crontab(hour=9, minute=0, day_of_week=1),
+        "options": {"queue": "analysis"},
+    }
+
+if _beat_schedule:
+    celery_app.conf.beat_schedule = _beat_schedule
     celery_app.conf.beat_scheduler = os.getenv(
         "CELERY_BEAT_SCHEDULER",
         "celery.beat:PersistentScheduler",

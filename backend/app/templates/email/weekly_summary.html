@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your ChessIQ week in review</title>
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+  <h1 style="font-size: 1.25rem; margin-bottom: 0.25rem;">Hi {{display_name}},</h1>
+  <p style="color: #555; margin-top: 0;">Your week in review · {{period_label}}</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 24px 0;">
+    <tr>
+      <td style="padding: 12px; background: #f4f4f5; border-radius: 8px; text-align: center;">
+        <div style="font-size: 1.5rem; font-weight: 600;">{{games_played}}</div>
+        <div style="font-size: 0.75rem; color: #666;">Games played</div>
+      </td>
+      <td style="width: 8px;"></td>
+      <td style="padding: 12px; background: #f4f4f5; border-radius: 8px; text-align: center;">
+        <div style="font-size: 1.5rem; font-weight: 600;">{{games_analyzed}}</div>
+        <div style="font-size: 0.75rem; color: #666;">Analyzed</div>
+      </td>
+    </tr>
+  </table>
+
+  <p><strong>Record:</strong> {{wins}}W · {{losses}}L · {{draws}}D</p>
+  <p><strong>Avg accuracy:</strong> {{avg_accuracy}} · <strong>Avg ACPL:</strong> {{avg_acpl}}</p>
+  <p><strong>Playing style:</strong> {{profile_archetype}}</p>
+
+  <h2 style="font-size: 1rem; margin-top: 28px;">Top patterns this week</h2>
+  <ul style="padding-left: 1.25rem; margin: 0;">
+    {{top_patterns_html}}
+  </ul>
+
+  <p style="margin-top: 32px; font-size: 0.875rem; color: #888;">
+    ChessIQ — sharpen your game with pattern-aware coaching.
+  </p>
+</body>
+</html>
