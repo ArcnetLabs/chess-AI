@@ -1,6 +1,7 @@
-import api from '@/lib/api';
 import { Game, User } from '@/types';
 import { AnalyzingGameInfo, toAnalyzingGameInfo } from '@/features/dashboard/utils/gameDisplay';
+import type { AnalysisJobStatus } from '@/types/analysis.types';
+import { startAnalysisStatusStream } from '@/services/analysisStatusService';
 
 export interface AnalysisPollingCallbacks {
   onProgress: (analyzedCount: number, currentGame: AnalyzingGameInfo | null) => void;
@@ -12,7 +13,7 @@ export interface AnalysisPollingCallbacks {
 export interface BatchPollingOptions extends AnalysisPollingCallbacks {
   userId: number;
   user: User;
-  targetCount: number;
+  jobId?: string;
   refetchGames: () => Promise<{ data?: Game[] }>;
   refetchAnalysisSummary: () => Promise<unknown>;
 }
@@ -20,81 +21,85 @@ export interface BatchPollingOptions extends AnalysisPollingCallbacks {
 export interface SingleGamePollingOptions extends AnalysisPollingCallbacks {
   userId: number;
   gameId: number;
+  jobId?: string;
+  user: User;
+  games?: Game[];
   refetchGames: () => Promise<unknown>;
   refetchAnalysisSummary: () => Promise<unknown>;
 }
 
-const BATCH_POLL_INTERVAL_MS = 8000;
-const BATCH_MAX_POLLS = 50;
-const SINGLE_POLL_INTERVAL_MS = 5000;
-const SINGLE_MAX_POLLS = 45;
+function processedCount(status: AnalysisJobStatus): number {
+  return status.completed_games + status.failed_games;
+}
+
+function resolveCurrentGame(
+  status: AnalysisJobStatus,
+  user: User,
+  games?: Game[],
+): AnalyzingGameInfo | null {
+  if (!status.current_game_id || !games) {
+    return null;
+  }
+  const game = games.find((g) => g.id === status.current_game_id);
+  return game ? toAnalyzingGameInfo(game, user) : null;
+}
 
 export function startBatchAnalysisPolling(options: BatchPollingOptions): () => void {
-  let pollCount = 0;
-  let lastAnalyzedCount = 0;
-  let baselineAnalyzed: number | null = null;
+  let lastProcessed = 0;
 
-  const intervalId = setInterval(async () => {
-    pollCount += 1;
+  return startAnalysisStatusStream(
+    options.userId,
+    options.jobId,
+    {
+      onProgress: async (status) => {
+        const gamesResult = await options.refetchGames();
+        const currentGame = resolveCurrentGame(status, options.user, gamesResult.data);
 
-    try {
-      const gamesResult = await options.refetchGames();
-      const updatedGames = gamesResult.data;
+        if (status.completed_games > lastProcessed) {
+          await options.refetchAnalysisSummary();
+          lastProcessed = status.completed_games;
+        }
 
-      if (!updatedGames) return;
-
-      const analyzedCount = updatedGames.filter((g) => g.is_analyzed).length;
-      if (baselineAnalyzed === null) {
-        baselineAnalyzed = analyzedCount;
-      }
-      const newlyAnalyzed = analyzedCount - baselineAnalyzed;
-      const unanalyzedGame = updatedGames.find((g) => !g.is_analyzed);
-      const currentGame = unanalyzedGame ? toAnalyzingGameInfo(unanalyzedGame, options.user) : null;
-
-      options.onProgress(analyzedCount, currentGame);
-
-      if (analyzedCount > lastAnalyzedCount) {
-        await options.refetchAnalysisSummary();
-        lastAnalyzedCount = analyzedCount;
-      }
-
-      if (pollCount >= BATCH_MAX_POLLS || newlyAnalyzed >= options.targetCount) {
-        clearInterval(intervalId);
-        options.onComplete(analyzedCount);
-      }
-    } catch (error) {
-      options.onError?.(error);
-    }
-  }, BATCH_POLL_INTERVAL_MS);
-
-  return () => clearInterval(intervalId);
+        options.onProgress(processedCount(status), currentGame);
+      },
+      onComplete: async (status) => {
+        await Promise.all([options.refetchGames(), options.refetchAnalysisSummary()]);
+        options.onComplete(processedCount(status));
+      },
+      onTimeout: () => {
+        options.onTimeout();
+      },
+      onError: (error) => {
+        options.onError?.(error);
+      },
+    },
+  );
 }
 
 export function startSingleGameAnalysisPolling(options: SingleGamePollingOptions): () => void {
-  let pollCount = 0;
-
-  const intervalId = setInterval(async () => {
-    pollCount += 1;
-
-    try {
-      const updatedGames = await api.games.getForUser(options.userId, { limit: 100 });
-      const game = updatedGames.find((g) => g.id === options.gameId);
-
-      if (game?.is_analyzed) {
-        clearInterval(intervalId);
+  return startAnalysisStatusStream(
+    options.userId,
+    options.jobId,
+    {
+      onProgress: async (status) => {
+        const gamesResult = await options.refetchGames();
+        const updatedGames =
+          gamesResult && typeof gamesResult === 'object' && 'data' in gamesResult
+            ? (gamesResult as { data?: Game[] }).data
+            : options.games;
+        const currentGame = resolveCurrentGame(status, options.user, updatedGames);
+        options.onProgress(processedCount(status), currentGame);
+      },
+      onComplete: async (status) => {
         await Promise.all([options.refetchGames(), options.refetchAnalysisSummary()]);
-        options.onComplete(1);
-        return;
-      }
-
-      if (pollCount >= SINGLE_MAX_POLLS) {
-        clearInterval(intervalId);
+        options.onComplete(processedCount(status));
+      },
+      onTimeout: () => {
         options.onTimeout();
-      }
-    } catch (error) {
-      options.onError?.(error);
-    }
-  }, SINGLE_POLL_INTERVAL_MS);
-
-  return () => clearInterval(intervalId);
+      },
+      onError: (error) => {
+        options.onError?.(error);
+      },
+    },
+  );
 }

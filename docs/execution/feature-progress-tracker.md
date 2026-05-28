@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~3/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** Phase 2 — `P2-AA-04` (`useAnalysisStatus` hook)
+**Current focus:** Phase 2 — `P2-AA-05` (optional) or `P2-GV-01` (game detail API)
 
 ---
 
@@ -121,7 +121,7 @@
 | P2-AA-01 | Post-fetch auto-queue | Done (staging) | #72 | `auto_analysis_service.py` |
 | P2-AA-02 | Analysis job status model | Done (staging) | #73 | Redis + polling API |
 | P2-AA-03 | SSE progress endpoint | Done (staging) | #74 | `GET /analysis/{user_id}/status/stream` |
-| P2-AA-04 | `useAnalysisStatus` hook | Not started | — | Replaces `analysisPollingService` |
+| P2-AA-04 | `useAnalysisStatus` hook | Done (staging) | #75 | SSE replaces 8s polling |
 | P2-AA-05 | Celery beat sync job | Not started | — | Optional scheduled Chess.com pull |
 
 ### 2.2 Game detail & move exploration
@@ -180,8 +180,9 @@ Units on **`staging` only** (not yet on `main`):
 - P2-AA-01 (#72)
 - P2-AA-02 (#73)
 - P2-AA-03 (#74)
+- P2-AA-04 (#75)
 
-**Next release promotion:** when P2-AA-04 is stable on staging, open `staging` → `main` PR.
+**Next release promotion:** when P2-AA pipeline is validated on staging, open `staging` → `main` PR.
 
 ---
 
