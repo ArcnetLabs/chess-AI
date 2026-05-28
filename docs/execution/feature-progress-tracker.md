@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-26  
-**Integration branch:** `staging` (ahead of `main`: P2-GV-01, P2-GV-04 in flight)  
-**Production branch:** `main` @ PR **#76** (Phase 2.1 auto-analysis pipeline)  
+**Integration branch:** `staging` (in sync with `main`)  
+**Production branch:** `main` @ PR **#79** (P2-GV-01 game detail + P2-GV-04 coach handoff)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** P2-GV-04 (coach FEN handoff — branch open) → then release promotion (P2-GV-01 + P2-GV-04)
+**Current focus:** P2-AA-05 (optional Celery beat sync) or P2-RT-02 (weekly email stub)
 
 ---
 
@@ -128,10 +128,10 @@
 
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
-| P2-GV-01 | Game detail API enrichment | Done (staging) | #77 | `GET /games/game/{id}/detail` |
+| P2-GV-01 | Game detail API enrichment | Done (main) | #77, #79 | `GET /games/game/{id}/detail` |
 | P2-GV-02 | `/games/[id]` page | **Deferred** | — | No designed UI until requested |
 | P2-GV-03 | Move list component | **Deferred** | — | |
-| P2-GV-04 | Coach context handoff | **In progress** | — | `POST /games/game/{id}/coach-handoff`; `useCoachHandoff` |
+| P2-GV-04 | Coach context handoff | Done (main) | #78, #79 | `POST /games/game/{id}/coach-handoff`; `useCoachHandoff` |
 
 ### 2.3 Pattern visualization
 
@@ -177,10 +177,9 @@
 
 Units on **`staging` only** (not yet on `main`):
 
-- P2-GV-01 (#77)
-- P2-GV-04 (branch `feature/backend-coach-fen-handoff`)
+- _(none — staging synced with main after #79)_
 
-**Next release promotion:** after P2-GV-04 merges to staging (batch with P2-GV-01).
+**Next release promotion:** when the next backend unit lands on `staging`.
 
 ---
 
@@ -188,6 +187,8 @@ Units on **`staging` only** (not yet on `main`):
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-26 | #79 | P2-GV-01 + P2-GV-04 release | staging → **main** |
+| 2026-05-26 | #78 | P2-GV-04 | → staging |
 | 2026-05-28 | #76 | Phase 2.1 release (P2-AA-01–04) | staging → **main** |
 | 2026-05-28 | #75 | P2-AA-04 | → staging |
 | 2026-05-28 | #74 | P2-AA-03 | → staging |
