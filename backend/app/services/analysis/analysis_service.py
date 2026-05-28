@@ -14,7 +14,7 @@ from .unified_analyzer import GameAnalysisResult, MoveAnalysis, UnifiedChessAnal
 
 
 def _serialize_move_analysis(move: MoveAnalysis) -> dict:
-    """JSON-safe dict for ``GameAnalysis.blunder_moves`` / ``critical_positions``."""
+    """JSON-safe dict for move-level analysis payloads."""
     return {
         "move_number": move.move_number,
         "move_san": move.move_san,
@@ -22,11 +22,19 @@ def _serialize_move_analysis(move: MoveAnalysis) -> dict:
         "fen_before": move.fen_before,
         "fen_after": move.fen_after,
         "evaluation_cp": move.evaluation_cp,
+        "mate_in": move.mate_in,
         "evaluation_change": move.evaluation_change,
         "classification": move.classification,
         "best_move_uci": move.best_move_uci,
         "is_user_move": move.is_user_move,
     }
+
+
+def _extract_evaluations(result: GameAnalysisResult) -> list[dict]:
+    """Persist move-by-move eval data for game detail API (P2-GV-01)."""
+    if not result.all_moves:
+        return []
+    return [_serialize_move_analysis(m) for m in result.all_moves]
 
 
 def _extract_blunder_moves(result: GameAnalysisResult) -> list[dict]:
@@ -72,6 +80,7 @@ def persist_game_analysis(
     move_json_fields = {
         "blunder_moves": _extract_blunder_moves(result),
         "critical_positions": _extract_critical_positions(result),
+        "evaluations": _extract_evaluations(result),
     }
 
     if existing:

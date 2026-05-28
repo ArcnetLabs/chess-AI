@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` @ `617c670`  
-**Production branch:** `main` (Phase 1 release + enrichment through PR #71)  
+**Integration branch:** `staging` (ahead of `main` pending P2-GV-01)  
+**Production branch:** `main` @ PR **#76** (Phase 2.1 auto-analysis pipeline)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -29,10 +29,10 @@
 | Phase | Theme | Progress | Exit gate |
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
-| **2** | Retention & visualization | **In progress** (~3/17 units) | Game viewer + SSE + pattern UI |
+| **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** Phase 2 — `P2-AA-05` (optional) or `P2-GV-01` (game detail API)
+**Current focus:** Phase 2 — `P2-GV-02` (game viewer page — deferred UI) / optional `P2-AA-05`
 
 ---
 
@@ -118,10 +118,10 @@
 
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
-| P2-AA-01 | Post-fetch auto-queue | Done (staging) | #72 | `auto_analysis_service.py` |
-| P2-AA-02 | Analysis job status model | Done (staging) | #73 | Redis + polling API |
-| P2-AA-03 | SSE progress endpoint | Done (staging) | #74 | `GET /analysis/{user_id}/status/stream` |
-| P2-AA-04 | `useAnalysisStatus` hook | Done (staging) | #75 | SSE replaces 8s polling |
+| P2-AA-01 | Post-fetch auto-queue | Done (main) | #72, #76 | `auto_analysis_service.py` |
+| P2-AA-02 | Analysis job status model | Done (main) | #73, #76 | Redis + polling API |
+| P2-AA-03 | SSE progress endpoint | Done (main) | #74, #76 | `GET /analysis/{user_id}/status/stream` |
+| P2-AA-04 | `useAnalysisStatus` hook | Done (main) | #75, #76 | SSE replaces 8s polling |
 | P2-AA-05 | Celery beat sync job | Not started | — | Optional scheduled Chess.com pull |
 
 ### 2.2 Game detail & move exploration
