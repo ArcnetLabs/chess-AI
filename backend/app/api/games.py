@@ -21,6 +21,7 @@ from ..services.integration.chesscom_api import chesscom_api, ChessComAPIError, 
 from ..services.filter_service import GameFilter, FilterService, get_filter_service
 
 from ..services.game_query import GameQueryBuilder
+from ..services.analysis.auto_analysis_service import queue_new_games_for_analysis
 
 
 
@@ -101,6 +102,8 @@ class GameFetchRequest(BaseModel):
     rated_only: Optional[bool] = None
 
     unrated_only: Optional[bool] = None
+
+    auto_analyze_on_sync: Optional[bool] = None
 
     
 
@@ -585,6 +588,10 @@ async def fetch_recent_games(
 
             db.add(game)
 
+            db.flush()
+
+            new_game_ids.append(game.id)
+
             games_added += 1
 
         
@@ -598,6 +605,14 @@ async def fetch_recent_games(
         user.total_games = db.query(Game).filter(Game.user_id == user.id).count()
 
         db.commit()
+
+        analysis_queue = queue_new_games_for_analysis(
+            db,
+            user,
+            new_game_ids,
+            source="fetch_recent_games",
+            request_override=fetch_request.auto_analyze_on_sync,
+        )
 
         
 
@@ -616,6 +631,8 @@ async def fetch_recent_games(
             "fetch_method": fetch_method,
 
             "fetch_value": fetch_value,
+
+            "analysis_queue": analysis_queue,
 
             "filters_applied": {
 

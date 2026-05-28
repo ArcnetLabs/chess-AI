@@ -28,6 +28,7 @@ from ..services.integration.chesscom_api import (
     RateLimitExceeded,
     chesscom_api,
 )
+from ..services.analysis.auto_analysis_service import queue_new_games_for_analysis
 from ..services.tier_service import get_tier_service
 
 router = APIRouter()
@@ -48,6 +49,7 @@ async def fetch_initial_games_background(user_id: int, username: str):
             return
 
         games_added = 0
+        new_game_ids: List[int] = []
 
         for raw_game in raw_games[:10]:
             try:
@@ -96,6 +98,8 @@ async def fetch_initial_games_background(user_id: int, username: str):
                 )
 
                 db.add(game)
+                db.flush()
+                new_game_ids.append(game.id)
                 games_added += 1
 
             except Exception as e:
@@ -103,6 +107,16 @@ async def fetch_initial_games_background(user_id: int, username: str):
                 continue
 
         db.commit()
+
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and new_game_ids:
+            queue_new_games_for_analysis(
+                db,
+                user,
+                new_game_ids,
+                source="fetch_initial_games",
+            )
+
         logger.info(f"Added {games_added} initial games for {username}")
 
     except Exception as e:
