@@ -110,7 +110,9 @@ class ChessCoach:
         elif intent == ChatIntent.COMPARE_MOVES:
             response = await self._handle_compare_moves(message, context)
         elif intent == ChatIntent.GENERAL_QUESTION:
-            response = await self._handle_general_question(message, context, db=db)
+            response = await self._handle_general_question(
+                message, context, db=db, intent=intent
+            )
         elif intent == ChatIntent.SMALL_TALK:
             response = await self._handle_small_talk(message, context)
         else:
@@ -359,12 +361,19 @@ class ChessCoach:
         context: ChatContext,
         *,
         db: Optional[Session] = None,
+        intent: ChatIntent = ChatIntent.GENERAL_QUESTION,
     ) -> ChatResponse:
         """Handle general chess questions."""
         coach_context = ""
         if db is not None and context.user_id is not None:
+            content_types = self.intent_classifier.retrieval_content_types(
+                intent, message
+            )
             coach_context = await assemble_coach_context_async(
-                db, context.user_id, query_text=message
+                db,
+                context.user_id,
+                query_text=message,
+                content_types=content_types,
             )
 
         if self.ai_client is not None and coach_context:

@@ -191,7 +191,10 @@ def test_assemble_coach_context_includes_retrieved_memories(
     )
 
     mock_retrieve.assert_called_once_with(
-        db, coach_user.id, "How do I improve endgames?"
+        db,
+        coach_user.id,
+        "How do I improve endgames?",
+        content_types=None,
     )
     assert "## Relevant Semantic Memories" in context
     assert "rook endgames under time pressure" in context
@@ -234,7 +237,10 @@ async def test_general_question_system_prompt_includes_semantic_memories(
     )
 
     mock_retrieve_async.assert_awaited_once_with(
-        db, coach_user.id, "How can I improve my endgames?"
+        db,
+        coach_user.id,
+        "How can I improve my endgames?",
+        content_types=["pattern"],
     )
     messages = mock_client.chat_completion.await_args.kwargs["messages"]
     system_prompt = messages[0]["content"]
