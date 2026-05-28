@@ -158,7 +158,7 @@
 |----|------|--------|-------|
 | P3-CM-01 | pgvector extension | Done (main) | #85, #87 | Alembic `0009`; `semantic_memory` model |
 | P3-CM-02 | Embedding pipeline | Done (main) | #86, #87 | `embedding_service.py`, Celery after pattern detection |
-| P3-CM-03 | Retrieval service | In progress | `retrieval_service.py`; PR pending |
+| P3-CM-03 | Retrieval service | Done (staging) | #89 | `retrieval_service.py`; pgvector + SQLite cosine fallback |
 | P3-CM-04 | Coach prompt v2 | Not started | |
 | P3-CM-05 | Grounding eval set | Not started | |
 | P3-CC-01 | Intent → retrieval routing | Not started | |
@@ -175,11 +175,9 @@
 
 ## Production vs staging delta
 
-**`staging` and `main` are synced** after release promotion PR **#87** (P3-CM-01 + P3-CM-02).
+**`staging` ahead of `main`:** P3-CM-03 (#89).
 
-**Next on staging:** P3-CM-03 retrieval service (PR open — `feature/backend-retrieval-service`).
-
-After merge, next unit: **P3-CM-04** coach prompt v2.
+**Next release promotion:** batch P3-CM-03 to `main` when ready, or continue with P3-CM-04 on staging first.
 
 ---
 
