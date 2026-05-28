@@ -141,6 +141,12 @@ class Settings(BaseSettings):
     ANALYSIS_JOB_TTL_SECONDS: int = int(
         os.getenv("ANALYSIS_JOB_TTL_SECONDS", str(60 * 60 * 24))
     )
+    ANALYSIS_SSE_POLL_INTERVAL_SECONDS: float = float(
+        os.getenv("ANALYSIS_SSE_POLL_INTERVAL_SECONDS", "2")
+    )
+    ANALYSIS_SSE_MAX_POLLS: int = int(
+        os.getenv("ANALYSIS_SSE_MAX_POLLS", "300")
+    )
 
     # Chat session store (Redis TTL, seconds — default 24h)
     CHAT_SESSION_TTL_SECONDS: int = int(

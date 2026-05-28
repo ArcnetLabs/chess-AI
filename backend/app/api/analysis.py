@@ -1,6 +1,7 @@
 from typing import List, Optional
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -9,6 +10,7 @@ from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis
 from ..services.tier_service import get_tier_service
 from ..services.analysis.analysis_job_store import get_analysis_job_store
+from ..services.analysis.analysis_status_stream import stream_job_status_events
 from ..core.config import settings
 from ..tasks.analysis_tasks import analyze_game_task, analyze_batch_games_task
 from loguru import logger
@@ -295,6 +297,35 @@ async def get_active_analysis_status(
         raise HTTPException(status_code=404, detail="No active analysis job")
 
     return _job_status_response(job)
+
+
+@router.get("/{user_id}/status/stream")
+async def stream_analysis_status(
+    user_id: int,
+    job_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream analysis job progress via Server-Sent Events.
+
+    Pass ``job_id`` to follow a specific job; omit to follow the user's active job.
+    Clients should use ``fetch`` with an ``Authorization`` header (EventSource cannot).
+    """
+    require_ownership(current_user, user_id)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return StreamingResponse(
+        stream_job_status_events(user_id, job_id=job_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{user_id}/status/{job_id}", response_model=AnalysisJobStatusResponse)

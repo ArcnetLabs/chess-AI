@@ -70,7 +70,7 @@ docs/
 | --- | --- |
 | New to the project | [`../README.md`](../README.md) → [`product/FRD_PRODUCT.md`](./product/FRD_PRODUCT.md) → [`audit/README.md`](./audit/README.md) |
 | **Picking up the codebase after recent changes** | [`audit/system-state-audit.md`](./audit/system-state-audit.md) — current health, broken systems, remediation plan |
-| **Implementing features (post-remediation)** | [`execution/README.md`](./execution/README.md) → [`execution/feature-priority-map.md`](./execution/feature-priority-map.md) → [`execution/feature-execution-roadmap.md`](./execution/feature-execution-roadmap.md) |
+| **Implementing features (post-remediation)** | [`execution/README.md`](./execution/README.md) → [`execution/feature-progress-tracker.md`](./execution/feature-progress-tracker.md) → [`execution/feature-execution-roadmap.md`](./execution/feature-execution-roadmap.md) |
 | Building a feature | [`execution/feature-execution-roadmap.md`](./execution/feature-execution-roadmap.md) → [`requirements/FRD_TECHNICAL.md`](./requirements/FRD_TECHNICAL.md) → relevant doc in [`architecture/`](./architecture/) |
 | Deploying or running ops | [`deployment/infrastructure-stabilization-report.md`](./deployment/infrastructure-stabilization-report.md) → [`deployment/DEPLOYMENT_GUIDE.md`](./deployment/DEPLOYMENT_GUIDE.md) → [`deployment/DOCKER_GUIDE.md`](./deployment/DOCKER_GUIDE.md) |
 | Working on AI / RAG / memory | [`architecture/AI_MODEL_STRATEGY.md`](./architecture/AI_MODEL_STRATEGY.md) + [`architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`](./architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md) |
