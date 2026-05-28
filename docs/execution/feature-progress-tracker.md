@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (ahead of `main` by P3-TR-01 #100)  
-**Production branch:** `main` @ PR **#98** (P3-CC-01)  
+**Integration branch:** `staging` (synced with `main` after release **#103**)  
+**Production branch:** `main` @ PR **#103** (P3-TR-01 + P3-TR-02)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~9/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~10/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-TR-04 progress tracking
+**Current focus:** P3-PC-01 weekly digest task
 
 ---
 
@@ -164,10 +164,10 @@
 | P3-CC-01 | Intent → retrieval routing | Done (main) | #97, #98 | `retrieval_content_types()` in intent classifier |
 | P3-CC-02 | Suggestion chips from patterns | **Deferred** | UI |
 | P3-CC-03 | `/coach` dedicated page | **Deferred** | UI |
-| P3-TR-01 | Training plan schema | Done (staging) | #100 | Alembic `0010`; `training_plans`, `drill_attempts` |
-| P3-TR-02 | Drill generator | Done (staging) | #102 | `drill_generator_service.py` |
+| P3-TR-01 | Training plan schema | Done (main) | #100, #103 | Alembic `0010`; `training_plans`, `drill_attempts` |
+| P3-TR-02 | Drill generator | Done (main) | #102, #103 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
-| P3-TR-04 | Progress tracking | Not started | |
+| P3-TR-04 | Progress tracking | Done (staging) | #106 | `training_progress_service.py`; live stats on profile API |
 | P3-PC-01 | Weekly digest task | Not started | |
 | P3-PC-02 | In-app notification feed | Not started | |
 
@@ -175,9 +175,9 @@
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** P3-TR-01 (#100) + P3-TR-02 (#102).
+**`staging` ahead of `main`:** P3-TR-04 (#106).
 
-**Next release promotion:** batch training backend (TR-01 + TR-02) to `main`.
+**Next release promotion:** batch P3-TR-04 to `main` when ready.
 
 ---
 

@@ -9,6 +9,10 @@ from ..core.database import get_db
 from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User
 from ..services.profiles.profile_service import get_latest_profile, list_profile_history
+from ..services.training.training_progress_service import (
+    compute_training_progress,
+    training_progress_to_dict,
+)
 from ..tasks.profile_tasks import build_profile_task
 
 router = APIRouter()
@@ -38,9 +42,17 @@ class ProfileResponse(BaseModel):
     generated_at: datetime
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    training_progress: Optional[dict] = None
 
     class Config:
         from_attributes = True
+
+
+def _profile_response_with_progress(db: Session, user_id: int, profile) -> ProfileResponse:
+    """Build profile response with live training progress stats."""
+    base = ProfileResponse.model_validate(profile)
+    progress = training_progress_to_dict(compute_training_progress(db, user_id))
+    return base.model_copy(update={"training_progress": progress})
 
 
 class ProfileBuildResponse(BaseModel):
@@ -65,7 +77,7 @@ async def get_user_profile(
     if profile is None:
         raise HTTPException(status_code=404, detail="No profile snapshot found")
 
-    return profile
+    return _profile_response_with_progress(db, user_id, profile)
 
 
 @router.get("/{user_id}/profile/history", response_model=List[ProfileResponse])
@@ -83,7 +95,8 @@ async def get_user_profile_history(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return list_profile_history(db, user_id, skip=skip, limit=limit)
+    profiles = list_profile_history(db, user_id, skip=skip, limit=limit)
+    return [_profile_response_with_progress(db, user_id, row) for row in profiles]
 
 
 @router.post("/{user_id}/profile/build", response_model=ProfileBuildResponse)
