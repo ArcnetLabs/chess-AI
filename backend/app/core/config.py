@@ -138,6 +138,9 @@ class Settings(BaseSettings):
     # Analysis Settings
     MAX_GAMES_PER_ANALYSIS: int = 50
     ANALYSIS_CACHE_EXPIRE_HOURS: int = 24
+    ANALYSIS_JOB_TTL_SECONDS: int = int(
+        os.getenv("ANALYSIS_JOB_TTL_SECONDS", str(60 * 60 * 24))
+    )
 
     # Chat session store (Redis TTL, seconds — default 24h)
     CHAT_SESSION_TTL_SECONDS: int = int(

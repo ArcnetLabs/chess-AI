@@ -83,7 +83,8 @@ def test_queue_dispatches_batch_task(mock_batch_task, db, user):
     assert result["status"] == "queued"
     assert result["games_queued"] == 1
     assert result["task_id"] == "celery-task-1"
-    mock_batch_task.delay.assert_called_once_with([game.id], user.id)
+    assert result["job_id"] == "celery-task-1"
+    mock_batch_task.delay.assert_called_once_with([game.id], user.id, source="test")
 
 
 @patch("app.tasks.analysis_tasks.analyze_batch_games_task")
