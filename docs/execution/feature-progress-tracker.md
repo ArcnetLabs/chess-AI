@@ -30,9 +30,21 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | RAG coach + adaptive drills + proactive coaching |
+| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | Exit gate: grounding ✅, grep A ✅ |
 
-**Current focus:** Phase 3 backend complete — exit checklist (grounding eval, grep-loop); Phase 2 UI deferred
+**Current focus:** Phase 3 exit gate — drill/grounding done; coach response metadata optional; Phase 2 UI deferred
+
+---
+
+## Phase 3 exit checklist
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| Grounding eval pass rate ≥ 90% | ✅ | `test_evaluate_coach_context_full_set_meets_phase3_exit_gate` (50 cases, seeded fixtures) |
+| Training MVP ≥1 drill type per major pattern category | ✅ | `drill_generator_service.py` subtype fallbacks + tests |
+| Grep-loop A (architecture) clean | ✅ | No Stockfish/LLM/service_role violations in api/tasks/frontend |
+| Coach answers cite pattern IDs in metadata | Partial | `pattern_id=` in assembled context; LLM response metadata not wired |
+| Full pytest suite | Partial | Unit subset + Phase 3 tests pass; heavy analysis/integration excluded locally |
 
 ---
 
