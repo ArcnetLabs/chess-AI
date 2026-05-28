@@ -79,7 +79,13 @@ class User(Base):
     semantic_memories = relationship(
         "SemanticMemory", back_populates="user", cascade="all, delete-orphan"
     )
-    
+    training_plans = relationship(
+        "TrainingPlan", back_populates="user", cascade="all, delete-orphan"
+    )
+    drill_attempts = relationship(
+        "DrillAttempt", back_populates="user", cascade="all, delete-orphan"
+    )
+
     @property
     def is_authenticated(self) -> bool:
         """Check if user has authenticated Chess.com connection."""

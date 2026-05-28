@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (ahead of `main` by P3-CC-01 #97)  
-**Production branch:** `main` @ PR **#95** (P3-CM-05)  
+**Integration branch:** `staging` (ahead of `main` by P3-TR-01 #100)  
+**Production branch:** `main` @ PR **#98** (P3-CC-01)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~7/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~9/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-TR-01 training plan schema
+**Current focus:** P3-TR-04 progress tracking
 
 ---
 
@@ -161,11 +161,11 @@
 | P3-CM-03 | Retrieval service | Done (main) | #89, #92 | `retrieval_service.py`; pgvector + SQLite cosine fallback |
 | P3-CM-04 | Coach prompt v2 | Done (main) | #91, #92 | Query-aware semantic memories in coach context |
 | P3-CM-05 | Grounding eval set | Done (main) | #94, #95 | 50-case JSON + `grounding_eval_service.py` |
-| P3-CC-01 | Intent → retrieval routing | Done (staging) | #97 | `retrieval_content_types()` in intent classifier |
+| P3-CC-01 | Intent → retrieval routing | Done (main) | #97, #98 | `retrieval_content_types()` in intent classifier |
 | P3-CC-02 | Suggestion chips from patterns | **Deferred** | UI |
 | P3-CC-03 | `/coach` dedicated page | **Deferred** | UI |
-| P3-TR-01 | Training plan schema | Not started | |
-| P3-TR-02 | Drill generator | Not started | |
+| P3-TR-01 | Training plan schema | Done (staging) | #100 | Alembic `0010`; `training_plans`, `drill_attempts` |
+| P3-TR-02 | Drill generator | Done (staging) | #102 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
 | P3-TR-04 | Progress tracking | Not started | |
 | P3-PC-01 | Weekly digest task | Not started | |
@@ -175,9 +175,9 @@
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** P3-CC-01 (#97).
+**`staging` ahead of `main`:** P3-TR-01 (#100) + P3-TR-02 (#102).
 
-**Next release promotion:** batch P3-CC-01 to `main` when ready.
+**Next release promotion:** batch training backend (TR-01 + TR-02) to `main`.
 
 ---
 
@@ -185,6 +185,8 @@
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #100 | P3-TR-01 | → staging |
+| 2026-05-28 | #98 | P3-CC-01 release | staging → **main** |
 | 2026-05-28 | #97 | P3-CC-01 | → staging |
 | 2026-05-28 | #95 | P3-CM-05 release | staging → **main** |
 | 2026-05-28 | #94 | P3-CM-05 | → staging |
