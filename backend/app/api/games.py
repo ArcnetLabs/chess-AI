@@ -21,6 +21,7 @@ from ..services.integration.chesscom_api import chesscom_api, ChessComAPIError, 
 from ..services.filter_service import GameFilter, FilterService, get_filter_service
 
 from ..services.game_query import GameQueryBuilder
+from ..services.games.game_detail_service import get_game_detail
 from ..services.analysis.auto_analysis_service import queue_new_games_for_analysis
 
 
@@ -773,6 +774,40 @@ async def get_recent_games(
     
 
     return games
+
+
+
+
+
+@router.get("/game/{game_id}/detail")
+
+async def get_game_detail_endpoint(
+
+    game_id: int,
+
+    current_user: User = Depends(get_current_user),
+
+    db: Session = Depends(get_db),
+
+):
+
+    """Enriched game detail: moves, evals, phase markers (P2-GV-01)."""
+
+    game = db.query(Game).filter(Game.id == game_id).first()
+
+    if not game:
+
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    require_ownership(current_user, game.user_id)
+
+    owner = db.query(User).filter(User.id == game.user_id).first()
+
+    if not owner:
+
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return get_game_detail(db, game, owner)
 
 
 
