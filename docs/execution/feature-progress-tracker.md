@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (synced with `main` after release **#84**)  
-**Production branch:** `main` @ PR **#84**  
+**Integration branch:** `staging` (synced with `main` after release **#87**)  
+**Production branch:** `main` @ PR **#87** (P3-CM-01 + P3-CM-02)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~2/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~3/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-CM-03 retrieval service
+**Current focus:** P3-CM-04 coach prompt v2
 
 ---
 
@@ -156,9 +156,9 @@
 
 | ID | Unit | Status | Notes |
 |----|------|--------|-------|
-| P3-CM-01 | pgvector extension | Done (staging) | #85 | Alembic `0009`; `semantic_memory` model |
-| P3-CM-02 | Embedding pipeline | In progress | — | `embedding_service.py`, `embedding_pipeline.py`, Celery task |
-| P3-CM-03 | Retrieval service | Not started | |
+| P3-CM-01 | pgvector extension | Done (main) | #85, #87 | Alembic `0009`; `semantic_memory` model |
+| P3-CM-02 | Embedding pipeline | Done (main) | #86, #87 | `embedding_service.py`, Celery after pattern detection |
+| P3-CM-03 | Retrieval service | Done (staging) | #89 | `retrieval_service.py`; pgvector + SQLite cosine fallback |
 | P3-CM-04 | Coach prompt v2 | Not started | |
 | P3-CM-05 | Grounding eval set | Not started | |
 | P3-CC-01 | Intent → retrieval routing | Not started | |
@@ -175,11 +175,9 @@
 
 ## Production vs staging delta
 
-**`staging` and `main` are synced** after release promotion PR **#84** (P2-AA-05 + P2-RT-02).
+**`staging` ahead of `main`:** P3-CM-03 (#89).
 
-**Next on staging:** P3-CM-02 (pattern embedding pipeline) — branch `feature/backend-embedding-pipeline`.
-
-**Recently merged to staging:** P3-CM-01 pgvector / `semantic_memory` schema (PR **#85**).
+**Next release promotion:** batch P3-CM-03 to `main` when ready, or continue with P3-CM-04 on staging first.
 
 ---
 

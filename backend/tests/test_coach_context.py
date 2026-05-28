@@ -1,7 +1,7 @@
-"""Tests for coach context assembly (P1-CM-02)."""
+"""Tests for coach context assembly (P1-CM-02, P3-CM-04)."""
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -11,6 +11,7 @@ from app.models.user import User
 from app.services.chat.chess_coach import ChessCoach
 from app.services.chat.context_assembler import assemble_coach_context
 from app.services.chat import ChatIntent
+from app.services.coaching.retrieval_service import RetrievedMemory
 
 
 @pytest.fixture
@@ -165,3 +166,78 @@ async def test_general_question_uses_llm_system_prompt_when_available(db, coach_
     assert messages[0]["role"] == "system"
     assert "profile_version: 3" in messages[0]["content"]
     assert messages[1]["role"] == "user"
+
+
+def _sample_retrieved_memory() -> RetrievedMemory:
+    return RetrievedMemory(
+        id=42,
+        content_type="coaching",
+        content_id=7,
+        content_text="User struggles converting rook endgames under time pressure.",
+        similarity_score=0.87,
+        metadata={"topic": "endgame"},
+    )
+
+
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories")
+def test_assemble_coach_context_includes_retrieved_memories(
+    mock_retrieve, db, coach_user
+):
+    _create_profile(db, coach_user)
+    mock_retrieve.return_value = [_sample_retrieved_memory()]
+
+    context = assemble_coach_context(
+        db, coach_user.id, query_text="How do I improve endgames?"
+    )
+
+    mock_retrieve.assert_called_once_with(
+        db, coach_user.id, "How do I improve endgames?"
+    )
+    assert "## Relevant Semantic Memories" in context
+    assert "rook endgames under time pressure" in context
+    assert "profile_version: 3" in context
+
+
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories")
+def test_assemble_coach_context_omits_memory_section_when_empty(
+    mock_retrieve, db, coach_user
+):
+    _create_profile(db, coach_user)
+    mock_retrieve.return_value = []
+
+    context = assemble_coach_context(
+        db, coach_user.id, query_text="How do I improve endgames?"
+    )
+
+    assert "## Relevant Semantic Memories" not in context
+    assert "profile_version: 3" in context
+
+
+@pytest.mark.asyncio
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories_async")
+async def test_general_question_system_prompt_includes_semantic_memories(
+    mock_retrieve_async, db, coach_user
+):
+    _create_profile(db, coach_user)
+    mock_retrieve_async.return_value = [_sample_retrieved_memory()]
+
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Practice rook endgames with fewer time controls."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    await coach.process_message(
+        message="How can I improve my endgames?",
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    mock_retrieve_async.assert_awaited_once_with(
+        db, coach_user.id, "How can I improve my endgames?"
+    )
+    messages = mock_client.chat_completion.await_args.kwargs["messages"]
+    system_prompt = messages[0]["content"]
+    assert "## Relevant Semantic Memories" in system_prompt
+    assert "rook endgames under time pressure" in system_prompt
+    assert "supplemental facts" in system_prompt
