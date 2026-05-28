@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
-**Last updated:** 2026-05-26  
-**Integration branch:** `staging` (ahead of `main`: P2-GV-01, P2-GV-04 in flight)  
-**Production branch:** `main` @ PR **#76** (Phase 2.1 auto-analysis pipeline)  
+**Last updated:** 2026-05-28  
+**Integration branch:** `staging` (ahead of `main`: P2-AA-05, P2-RT-02)  
+**Production branch:** `main` @ PR **#79**  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** P2-GV-04 (coach FEN handoff — branch open) → then release promotion (P2-GV-01 + P2-GV-04)
+**Current focus:** Release promotion (P2-AA-05 + P2-RT-02) or deferred UI units
 
 ---
 
@@ -122,16 +122,16 @@
 | P2-AA-02 | Analysis job status model | Done (main) | #73, #76 | Redis + polling API |
 | P2-AA-03 | SSE progress endpoint | Done (main) | #74, #76 | `GET /analysis/{user_id}/status/stream` |
 | P2-AA-04 | `useAnalysisStatus` hook | Done (main) | #75, #76 | SSE replaces 8s polling |
-| P2-AA-05 | Celery beat sync job | Not started | — | Optional scheduled Chess.com pull |
+| P2-AA-05 | Celery beat sync job | Done (staging) | #81 | `sync_tasks.py`; opt-in via `CELERY_BEAT_ENABLED` |
 
 ### 2.2 Game detail & move exploration
 
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
-| P2-GV-01 | Game detail API enrichment | Done (staging) | #77 | `GET /games/game/{id}/detail` |
+| P2-GV-01 | Game detail API enrichment | Done (main) | #77, #79 | `GET /games/game/{id}/detail` |
 | P2-GV-02 | `/games/[id]` page | **Deferred** | — | No designed UI until requested |
 | P2-GV-03 | Move list component | **Deferred** | — | |
-| P2-GV-04 | Coach context handoff | **In progress** | — | `POST /games/game/{id}/coach-handoff`; `useCoachHandoff` |
+| P2-GV-04 | Coach context handoff | Done (main) | #78, #79 | `POST /games/game/{id}/coach-handoff`; `useCoachHandoff` |
 
 ### 2.3 Pattern visualization
 
@@ -147,7 +147,7 @@
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
 | P2-RT-01 | “New patterns detected” toast | **Deferred** | — | UI |
-| P2-RT-02 | Weekly summary email stub | Not started | — | Backend task + template |
+| P2-RT-02 | Weekly summary email stub | Done (staging) | #82 | `retention_tasks.py`; stub until `EMAIL_DELIVERY_ENABLED` |
 | P2-RT-03 | Last-visit delta | **Deferred** | — | Dashboard UI |
 
 ---
@@ -177,10 +177,10 @@
 
 Units on **`staging` only** (not yet on `main`):
 
-- P2-GV-01 (#77)
-- P2-GV-04 (branch `feature/backend-coach-fen-handoff`)
+- P2-AA-05 (#81)
+- P2-RT-02 (#82)
 
-**Next release promotion:** after P2-GV-04 merges to staging (batch with P2-GV-01).
+**Next release promotion:** batch P2-AA-05 + P2-RT-02 to `main`.
 
 ---
 
@@ -188,6 +188,8 @@ Units on **`staging` only** (not yet on `main`):
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #82 | P2-RT-02 | → staging |
+| 2026-05-28 | #81 | P2-AA-05 | → staging |
 | 2026-05-28 | #76 | Phase 2.1 release (P2-AA-01–04) | staging → **main** |
 | 2026-05-28 | #75 | P2-AA-04 | → staging |
 | 2026-05-28 | #74 | P2-AA-03 | → staging |

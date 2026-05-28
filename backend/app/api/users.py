@@ -28,7 +28,7 @@ from ..services.integration.chesscom_api import (
     RateLimitExceeded,
     chesscom_api,
 )
-from ..services.analysis.auto_analysis_service import queue_new_games_for_analysis
+from ..services.games.game_sync_service import import_chesscom_games
 from ..services.tier_service import get_tier_service
 
 router = APIRouter()
@@ -41,84 +41,20 @@ async def fetch_initial_games_background(user_id: int, username: str):
     db = SessionLocal()
     try:
         logger.info(f"Fetching initial games for user {username} (ID: {user_id})")
-
-        raw_games = await chesscom_api.get_recent_games(username, days=30, user_id=user_id)
-
-        if not raw_games:
-            logger.info(f"No recent games found for {username}")
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
             return
 
-        games_added = 0
-        new_game_ids: List[int] = []
-
-        for raw_game in raw_games[:10]:
-            try:
-                game_data = chesscom_api.parse_game_data(raw_game, username)
-
-                existing_game = (
-                    db.query(Game)
-                    .filter(Game.chesscom_game_id == game_data["chesscom_game_id"])
-                    .first()
-                )
-
-                if existing_game:
-                    continue
-
-                winner = None
-                if game_data["white_result"] == "win":
-                    winner = "white"
-                elif game_data["black_result"] == "win":
-                    winner = "black"
-                elif game_data["white_result"] in [
-                    "agreed",
-                    "stalemate",
-                    "repetition",
-                    "insufficient",
-                ]:
-                    winner = "draw"
-
-                game = Game(
-                    user_id=user_id,
-                    chesscom_game_id=game_data["chesscom_game_id"],
-                    chesscom_url=game_data["chesscom_url"],
-                    time_class=game_data["time_class"],
-                    time_control=game_data["time_control"],
-                    rules=game_data["rules"],
-                    white_username=game_data["white_username"],
-                    black_username=game_data["black_username"],
-                    white_rating=game_data["white_rating"],
-                    black_rating=game_data["black_rating"],
-                    white_result=game_data["white_result"],
-                    black_result=game_data["black_result"],
-                    winner=winner,
-                    pgn=game_data["pgn"],
-                    fen=game_data["fen"],
-                    start_time=game_data["start_time"],
-                    end_time=game_data["end_time"],
-                )
-
-                db.add(game)
-                db.flush()
-                new_game_ids.append(game.id)
-                games_added += 1
-
-            except Exception as e:
-                logger.error(f"Error processing game: {e}")
-                continue
-
-        db.commit()
-
-        user = db.query(User).filter(User.id == user_id).first()
-        if user and new_game_ids:
-            queue_new_games_for_analysis(
-                db,
-                user,
-                new_game_ids,
-                source="fetch_initial_games",
-            )
-
-        logger.info(f"Added {games_added} initial games for {username}")
-
+        result = await import_chesscom_games(
+            db,
+            user,
+            days=30,
+            source="fetch_initial_games",
+            max_games=10,
+        )
+        logger.info(
+            f"Added {result.get('games_added', 0)} initial games for {username}"
+        )
     except Exception as e:
         logger.error(f"Error fetching initial games for {username}: {e}")
         db.rollback()
