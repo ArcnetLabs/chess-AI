@@ -6,6 +6,18 @@ based on detected patterns and weaknesses.
 """
 from typing import Dict, List, Optional, Any
 from loguru import logger
+from sqlalchemy.orm import Session
+
+from app.models.pattern import PlayerPattern
+from app.services.patterns.constants import (
+    ENDGAME_ACPL_THRESHOLD,
+    MIDDLEGAME_ACPL_THRESHOLD,
+    OPENING_ACPL_THRESHOLD,
+    OPENING_SPECIFIC_ACPL_THRESHOLD,
+    PATTERN_TYPE_OPENING,
+    PATTERN_TYPE_PHASE,
+)
+from app.services.patterns.pattern_service import list_user_patterns
 
 from . import (
     Recommendation,
@@ -29,15 +41,33 @@ class RecommendationEngine:
     
     Generates prioritized recommendations with actionable steps.
     """
-    
-    # Thresholds for pattern detection
-    ENDGAME_ACPL_THRESHOLD = 40.0
-    OPENING_ACPL_THRESHOLD = 30.0
-    MIDDLEGAME_ACPL_THRESHOLD = 35.0
+
+    # Phase ACPL thresholds — canonical source: patterns/constants.py
+    ENDGAME_ACPL_THRESHOLD = ENDGAME_ACPL_THRESHOLD
+    OPENING_ACPL_THRESHOLD = OPENING_ACPL_THRESHOLD
+    MIDDLEGAME_ACPL_THRESHOLD = MIDDLEGAME_ACPL_THRESHOLD
+    OPENING_SPECIFIC_ACPL_THRESHOLD = OPENING_SPECIFIC_ACPL_THRESHOLD
+
+    # Heuristic-only thresholds (not duplicated in patterns/constants.py)
     OVERALL_ACCURACY_THRESHOLD = 70.0
     BLUNDER_RATE_THRESHOLD = 0.3
     HANGING_PIECES_THRESHOLD = 0.2
     BEST_MOVE_RATE_THRESHOLD = 0.3
+
+    _SEVERITY_SCORES = {
+        "low": 0.35,
+        "medium": 0.55,
+        "high": 0.75,
+        "critical": 0.95,
+    }
+
+    _CHECKER_HEURISTIC_CATEGORIES: Dict[str, str] = {
+        "_check_endgame_weakness": "endgame",
+        "_check_endgame_knowledge": "endgame",
+        "_check_opening_weakness": "opening",
+        "_check_opening_specific_issues": "opening",
+        "_check_middlegame_blunders": "middlegame",
+    }
     
     def __init__(self):
         """Initialize the recommendation engine."""
@@ -87,6 +117,215 @@ class RecommendationEngine:
         
         # Return top N recommendations
         return recommendations[:max_recommendations]
+
+    def generate_pattern_aware_recommendations(
+        self,
+        user_data: Dict[str, Any],
+        analysis_data: Dict[str, Any],
+        *,
+        db: Optional[Session] = None,
+        user_id: Optional[int] = None,
+        player_patterns: Optional[List[PlayerPattern]] = None,
+        max_recommendations: int = 5,
+    ) -> List[Recommendation]:
+        """
+        Generate recommendations from persisted ``PlayerPattern`` rows, then heuristics.
+
+        Precedence (first match wins per weakness category):
+          1. Opening-specific ``pattern_subtype`` (``opening_weakness``)
+          2. Generic phase pattern (``phase_weakness`` / ``high_{phase}_acpl``)
+          3. Aggregate heuristic checkers in ``pattern_checkers``
+        """
+        patterns = player_patterns
+        if patterns is None:
+            if db is None or user_id is None:
+                patterns = []
+            else:
+                patterns = list_user_patterns(db, user_id, limit=100)
+
+        recommendations: List[Recommendation] = []
+        covered_categories = set()
+
+        for pattern in self._select_patterns_for_recommendations(patterns):
+            rec = self._recommendation_from_player_pattern(pattern)
+            if rec:
+                recommendations.append(rec)
+                category = self._pattern_weakness_category(pattern)
+                if category:
+                    covered_categories.add(category)
+
+        for checker in self.pattern_checkers:
+            checker_category = self._CHECKER_HEURISTIC_CATEGORIES.get(checker.__name__)
+            if checker_category and checker_category in covered_categories:
+                continue
+            try:
+                rec = checker(user_data, analysis_data)
+                if rec:
+                    recommendations.append(rec)
+            except Exception as e:
+                logger.error(f"Error in pattern checker {checker.__name__}: {e}")
+
+        recommendations.sort(key=lambda r: r.priority_score, reverse=True)
+        return recommendations[:max_recommendations]
+
+    def _select_patterns_for_recommendations(
+        self, patterns: List[PlayerPattern]
+    ) -> List[PlayerPattern]:
+        """Apply opening-specific > generic phase precedence within pattern rows."""
+        opening_specific = [
+            p for p in patterns if p.pattern_type == PATTERN_TYPE_OPENING
+        ]
+        phase_patterns = [
+            p for p in patterns if p.pattern_type == PATTERN_TYPE_PHASE
+        ]
+
+        selected: List[PlayerPattern] = list(opening_specific)
+        if opening_specific:
+            phase_patterns = [
+                p for p in phase_patterns if p.pattern_subtype != "high_opening_acpl"
+            ]
+
+        selected.extend(phase_patterns)
+        return selected
+
+    def _pattern_weakness_category(self, pattern: PlayerPattern) -> Optional[str]:
+        if pattern.pattern_type == PATTERN_TYPE_OPENING:
+            return "opening"
+        if pattern.pattern_subtype == "high_opening_acpl":
+            return "opening"
+        if pattern.pattern_subtype == "high_middlegame_acpl":
+            return "middlegame"
+        if pattern.pattern_subtype == "high_endgame_acpl":
+            return "endgame"
+        return None
+
+    def _severity_to_float(self, severity: str) -> float:
+        return self._SEVERITY_SCORES.get(str(severity).lower(), 0.5)
+
+    def _recommendation_from_player_pattern(
+        self, pattern: PlayerPattern
+    ) -> Optional[Recommendation]:
+        """Map a persisted ``PlayerPattern`` row to a coaching recommendation."""
+        severity = self._severity_to_float(pattern.severity)
+        frequency = min(1.0, pattern.affected_games_count / max(1, pattern.occurrence_count))
+        pattern_match = PatternMatch(
+            pattern_name=pattern.pattern_subtype,
+            severity=severity,
+            frequency=pattern.occurrence_count,
+            evidence={
+                "pattern_type": pattern.pattern_type,
+                "pattern_id": pattern.id,
+                "confidence_score": pattern.confidence_score,
+                "affected_games_count": pattern.affected_games_count,
+            },
+        )
+
+        if pattern.pattern_type == PATTERN_TYPE_OPENING:
+            opening_name = self._opening_name_from_pattern(pattern)
+            impact = 0.7
+            score = self.calculate_priority_score(severity, frequency, impact)
+            return Recommendation(
+                category=RecommendationCategory.OPENING,
+                priority=self._get_priority_level(score),
+                priority_score=score,
+                title=f"Study {opening_name} Opening",
+                description=pattern.pattern_description,
+                actionable_steps=[
+                    f"Review games where you played {opening_name}",
+                    "Study the main ideas and typical plans for this opening",
+                    "Watch instructional content focused on this opening",
+                    "Consider switching lines if the weakness persists",
+                ],
+                resources=[
+                    f"Search '{opening_name}' on YouTube",
+                    "Chess.com Opening Explorer",
+                ],
+                pattern_match=pattern_match,
+                pattern_id=pattern.id,
+            )
+
+        if pattern.pattern_subtype == "high_opening_acpl":
+            impact = 0.7
+            score = self.calculate_priority_score(severity, frequency, impact)
+            return Recommendation(
+                category=RecommendationCategory.OPENING,
+                priority=self._get_priority_level(score),
+                priority_score=score,
+                title="Opening Repertoire Needs Work",
+                description=pattern.pattern_description,
+                actionable_steps=[
+                    "Review your most-played openings and learn the main ideas",
+                    "Study opening principles: control center, develop pieces, king safety",
+                    "Build a consistent repertoire (1-2 openings as White, 1-2 defenses as Black)",
+                    "Use opening explorer to understand typical plans",
+                ],
+                resources=[
+                    "Chess.com Opening Explorer",
+                    "Lichess Opening Database",
+                ],
+                pattern_match=pattern_match,
+                pattern_id=pattern.id,
+            )
+
+        if pattern.pattern_subtype == "high_middlegame_acpl":
+            impact = 0.85
+            score = self.calculate_priority_score(severity, frequency, impact)
+            return Recommendation(
+                category=RecommendationCategory.CALCULATION,
+                priority=self._get_priority_level(score),
+                priority_score=score,
+                title="Improve Middlegame Calculation",
+                description=pattern.pattern_description,
+                actionable_steps=[
+                    "Practice calculating forcing sequences (checks, captures, threats)",
+                    "Use the candidate moves method before calculating",
+                    "Slow down in critical positions",
+                    "Study master games to understand typical middlegame plans",
+                ],
+                resources=[
+                    "Aagaard's Calculation books",
+                    "Analyze master games on ChessBase",
+                ],
+                pattern_match=pattern_match,
+                pattern_id=pattern.id,
+            )
+
+        if pattern.pattern_subtype == "high_endgame_acpl":
+            impact = 0.8
+            score = self.calculate_priority_score(severity, frequency, impact)
+            return Recommendation(
+                category=RecommendationCategory.ENDGAME,
+                priority=self._get_priority_level(score),
+                priority_score=score,
+                title="Endgame Technique Needs Improvement",
+                description=pattern.pattern_description,
+                actionable_steps=[
+                    "Study fundamental endgames: King and Pawn, Rook endgames, opposite-colored bishops",
+                    "Practice endgame positions on Lichess Studies or Chess.com Drills",
+                    "Learn the Lucena and Philidor positions for rook endgames",
+                    "Focus on calculation in simplified positions",
+                ],
+                resources=[
+                    "Silman's Complete Endgame Course",
+                    "Lichess Endgame Practice: https://lichess.org/practice",
+                ],
+                pattern_match=pattern_match,
+                pattern_id=pattern.id,
+            )
+
+        return None
+
+    def _opening_name_from_pattern(self, pattern: PlayerPattern) -> str:
+        prefix = "Recurring weakness in "
+        description = pattern.pattern_description or ""
+        if description.startswith(prefix):
+            remainder = description[len(prefix):]
+            if ":" in remainder:
+                return remainder.split(":", 1)[0].strip()
+            if "(" in remainder:
+                return remainder.split("(", 1)[0].strip()
+            return remainder.strip()
+        return pattern.pattern_subtype.replace("_", " ").title()
     
     def calculate_priority_score(
         self,
@@ -398,7 +637,7 @@ class RecommendationEngine:
                 worst_acpl = avg_acpl
                 worst_opening = opening_name
         
-        if worst_opening and worst_acpl > 50:
+        if worst_opening and worst_acpl > OPENING_SPECIFIC_ACPL_THRESHOLD:
             severity = min(1.0, worst_acpl / 100.0)
             frequency = min(1.0, opening_stats[worst_opening]["count"] / 5.0)
             impact = 0.65

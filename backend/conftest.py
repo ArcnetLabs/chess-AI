@@ -237,9 +237,7 @@ def mock_supabase_client(monkeypatch):
     
     monkeypatch.setattr("app.core.supabase_client.get_supabase", mock_get_supabase)
     monkeypatch.setattr("app.core.supabase_client.get_supabase_admin", mock_get_supabase_admin)
-    monkeypatch.setattr("app.services.auth.auth_service.get_supabase", mock_get_supabase)
-    monkeypatch.setattr("app.services.auth.auth_service.get_supabase_admin", mock_get_supabase_admin)
-    
+
     return MockSupabaseClient()
 
 

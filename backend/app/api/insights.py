@@ -155,7 +155,7 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
                     "eco": analysis.opening_eco
                 }
             opening_stats[analysis.opening_name]["count"] += 1
-            opening_stats[analysis.opening_name]["total_acpl"] += analysis.user_acpl or 0
+            opening_stats[analysis.opening_name]["total_acpl"] += analysis.opening_acpl or 0
     
     # Calculate average ACPL for each opening
     for opening in opening_stats:
@@ -167,13 +167,12 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
     recommendation_scores = []
     pattern_matches = []
     
-    # Try to use enhanced recommendation engine
+    # Pattern-aware recommendation engine (PlayerPattern rows + heuristic fallback)
     try:
         from ..services.coaching.recommendation_engine import RecommendationEngine
-        from loguru import logger
         
         engine = RecommendationEngine()
-        enhanced_recommendations = engine.generate_recommendations(
+        enhanced_recommendations = engine.generate_pattern_aware_recommendations(
             user_data={
                 "user_id": user_id,
                 "rating_change": rating_change,
@@ -189,6 +188,8 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
                 "opening_stats": opening_stats,
                 "total_games": games_analyzed
             },
+            db=db,
+            user_id=user_id,
             max_recommendations=5
         )
         
@@ -209,7 +210,6 @@ async def generate_insights_background(user_id: int, period_start: datetime, per
             
     except Exception as e:
         # Fallback to basic recommendations if enhanced engine fails
-        from loguru import logger
         logger.warning(f"Enhanced recommendation engine failed, using basic recommendations: {e}")
         
         # ACPL-based recommendations (original logic)

@@ -12,13 +12,57 @@ from sqlalchemy.orm import Session
 from app.api.insights import generate_insights_background
 from app.models.insights import UserInsight
 from app.models.user import User
-from app.models.game import Game
-from app.models.game_analysis import GameAnalysis
+from app.models.game import Game, GameAnalysis
 from app.services.coaching.recommendation_engine import RecommendationEngine
+
+
+def _configure_insights_db_mock(
+    mock_db,
+    *,
+    mock_user,
+    mock_games=None,
+    mock_analyses=None,
+    existing_insight=None,
+):
+    """Configure mock DB chains to match insights.py query patterns."""
+    user_query = MagicMock()
+    user_query.filter.return_value.first.return_value = mock_user
+
+    games_query = MagicMock()
+    games_query.filter.return_value.all.return_value = mock_games or []
+
+    analyses_query = MagicMock()
+    analyses_query.join.return_value.filter.return_value.all.return_value = (
+        mock_analyses or []
+    )
+
+    insight_query = MagicMock()
+    insight_query.filter.return_value.first.return_value = existing_insight
+
+    def query_side_effect(model):
+        if model is User:
+            return user_query
+        if model is Game:
+            return games_query
+        if model is GameAnalysis:
+            return analyses_query
+        if model is UserInsight:
+            return insight_query
+        return MagicMock()
+
+    mock_db.query.side_effect = query_side_effect
 
 
 class TestInsightsIntegration:
     """Test suite for insights integration with enhanced recommendations."""
+
+    @pytest.fixture(autouse=True)
+    def mock_list_user_patterns(self):
+        with patch(
+            "app.services.coaching.recommendation_engine.list_user_patterns",
+            return_value=[],
+        ):
+            yield
     
     @pytest.fixture
     def mock_db(self):
@@ -47,6 +91,8 @@ class TestInsightsIntegration:
             game.black_username = "opponent" if i % 2 == 0 else "testuser"
             game.winner = "white" if i % 2 == 0 else "black"
             game.time_class = "blitz"
+            game.white_rating = 1500 + i
+            game.black_rating = 1450 + i
             games.append(game)
         return games
     
@@ -58,8 +104,19 @@ class TestInsightsIntegration:
             analysis = MagicMock(spec=GameAnalysis)
             analysis.game_id = i + 1
             analysis.user_acpl = 50.0 + i * 10  # Varying ACPL
+            analysis.opening_acpl = 55.0 + i * 5
+            analysis.middlegame_acpl = 45.0 + i * 3
+            analysis.endgame_acpl = 40.0 + i * 4
             analysis.opening_name = "Sicilian Defense" if i < 3 else "Queen's Gambit"
             analysis.opening_eco = "B20" if i < 3 else "D20"
+            analysis.brilliant_moves = 1
+            analysis.great_moves = 2
+            analysis.best_moves = 5
+            analysis.excellent_moves = 8
+            analysis.good_moves = 10
+            analysis.inaccuracies = 3
+            analysis.mistakes = 2
+            analysis.blunders = 1
             analysis.move_quality_stats = {
                 "brilliant_moves": 1,
                 "great_moves": 2,
@@ -84,15 +141,18 @@ class TestInsightsIntegration:
         insight.pattern_matches = []
         return insight
     
-    def test_enhanced_recommendations_in_insights(
+    @pytest.mark.asyncio
+    async def test_enhanced_recommendations_in_insights(
         self, mock_db, mock_user, mock_games, mock_analyses, mock_existing_insight
     ):
         """Test enhanced recommendations are stored in user_insights."""
-        # Mock database queries
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
-        mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = mock_games
-        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = mock_analyses
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_existing_insight
+        _configure_insights_db_mock(
+            mock_db,
+            mock_user=mock_user,
+            mock_games=mock_games,
+            mock_analyses=mock_analyses,
+            existing_insight=mock_existing_insight,
+        )
         
         # Mock commit
         mock_db.commit = MagicMock()
@@ -101,7 +161,7 @@ class TestInsightsIntegration:
         period_start = datetime.utcnow() - timedelta(days=7)
         period_end = datetime.utcnow()
         
-        generate_insights_background(
+        await generate_insights_background(
             user_id=1,
             period_start=period_start,
             period_end=period_end,
@@ -116,28 +176,35 @@ class TestInsightsIntegration:
         # Should have called commit
         mock_db.commit.assert_called()
     
-    def test_fallback_to_basic_recommendations(self, mock_db, mock_user, mock_games):
+    @pytest.mark.asyncio
+    async def test_fallback_to_basic_recommendations(
+        self, mock_db, mock_user, mock_games, mock_analyses
+    ):
         """Test graceful fallback if engine fails."""
-        # Mock database queries
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
-        mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = mock_games
-        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = []
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        _configure_insights_db_mock(
+            mock_db,
+            mock_user=mock_user,
+            mock_games=mock_games,
+            mock_analyses=mock_analyses,
+        )
         
         # Mock insight creation
-        mock_insight = MagicMock(spec=UserInsight)
         mock_db.add = MagicMock()
         mock_db.commit = MagicMock()
         
         # Patch RecommendationEngine to raise exception
-        with patch('app.api.insights.RecommendationEngine') as MockEngine:
-            MockEngine.side_effect = Exception("Engine failed")
+        with patch(
+            "app.services.coaching.recommendation_engine.RecommendationEngine"
+        ) as MockEngine:
+            MockEngine.return_value.generate_pattern_aware_recommendations.side_effect = (
+                Exception("Engine failed")
+            )
             
             # Generate insights
             period_start = datetime.utcnow() - timedelta(days=7)
             period_end = datetime.utcnow()
             
-            generate_insights_background(
+            await generate_insights_background(
                 user_id=1,
                 period_start=period_start,
                 period_end=period_end,
@@ -149,16 +216,18 @@ class TestInsightsIntegration:
             mock_db.add.assert_called()
             mock_db.commit.assert_called()
     
-    def test_existing_insights_still_work(self, mock_db, mock_user, mock_games, mock_analyses):
+    @pytest.mark.asyncio
+    async def test_existing_insights_still_work(self, mock_db, mock_user, mock_games, mock_analyses):
         """Test existing insights endpoints unchanged."""
-        # Mock database queries
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
-        mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = mock_games
-        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = mock_analyses
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
+        _configure_insights_db_mock(
+            mock_db,
+            mock_user=mock_user,
+            mock_games=mock_games,
+            mock_analyses=mock_analyses,
+            existing_insight=None,
+        )
         
         # Mock insight creation
-        mock_insight = MagicMock(spec=UserInsight)
         mock_db.add = MagicMock()
         mock_db.commit = MagicMock()
         
@@ -166,7 +235,7 @@ class TestInsightsIntegration:
         period_start = datetime.utcnow() - timedelta(days=7)
         period_end = datetime.utcnow()
         
-        generate_insights_background(
+        await generate_insights_background(
             user_id=1,
             period_start=period_start,
             period_end=period_end,
@@ -237,36 +306,74 @@ class TestInsightsIntegration:
             assert rec.priority in ["critical", "high", "medium", "low"]
             assert len(rec.actionable_steps) > 0
     
-    def test_no_games_still_works(self, mock_db, mock_user):
-        """Test insights generation works even with no games."""
-        # Mock database queries for no games
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_user
-        mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = []
-        mock_db.query.return_value.join.return_value.filter.return_value.all.return_value = []
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
-        
-        # Mock insight creation
-        mock_insight = MagicMock(spec=UserInsight)
+    @pytest.mark.asyncio
+    async def test_no_games_still_works(self, mock_db, mock_user):
+        """Test insights generation returns early when there are no analyses."""
+        _configure_insights_db_mock(
+            mock_db,
+            mock_user=mock_user,
+            mock_games=[],
+            mock_analyses=[],
+        )
+
         mock_db.add = MagicMock()
         mock_db.commit = MagicMock()
-        
-        # Generate insights
+
         period_start = datetime.utcnow() - timedelta(days=7)
         period_end = datetime.utcnow()
-        
-        generate_insights_background(
+
+        await generate_insights_background(
             user_id=1,
             period_start=period_start,
             period_end=period_end,
             analysis_type="weekly",
-            db=mock_db
+            db=mock_db,
         )
-        
-        # Should still create insight
-        mock_db.add.assert_called()
-        mock_db.commit.assert_called()
+
+        mock_db.add.assert_not_called()
+        mock_db.commit.assert_not_called()
+
+    def test_opening_stats_use_opening_acpl(self):
+        """Opening repertoire stats must aggregate opening_acpl, not user_acpl."""
+        analyses = []
+        for i in range(3):
+            analysis = MagicMock()
+            analysis.opening_name = "Sicilian Defense"
+            analysis.opening_eco = "B20"
+            analysis.opening_acpl = 55.0 + i * 5
+            analysis.user_acpl = 100.0 + i * 10
+            analyses.append(analysis)
+
+        opening_stats = {}
+        for analysis in analyses:
+            if analysis.opening_name:
+                if analysis.opening_name not in opening_stats:
+                    opening_stats[analysis.opening_name] = {
+                        "count": 0,
+                        "total_acpl": 0,
+                        "eco": analysis.opening_eco,
+                    }
+                opening_stats[analysis.opening_name]["count"] += 1
+                opening_stats[analysis.opening_name]["total_acpl"] += (
+                    analysis.opening_acpl or 0
+                )
+
+        for opening in opening_stats:
+            if opening_stats[opening]["count"] > 0:
+                opening_stats[opening]["average_acpl"] = (
+                    opening_stats[opening]["total_acpl"]
+                    / opening_stats[opening]["count"]
+                )
+
+        sicilian = opening_stats["Sicilian Defense"]
+        expected_avg = sum(a.opening_acpl for a in analyses) / 3
+        assert sicilian["average_acpl"] == pytest.approx(expected_avg)
+        assert sicilian["average_acpl"] != pytest.approx(
+            sum(a.user_acpl for a in analyses) / 3
+        )
     
-    def test_coaching_plan_endpoint_data(self, mock_db, mock_user, mock_existing_insight):
+    @pytest.mark.asyncio
+    async def test_coaching_plan_endpoint_data(self, mock_db, mock_user, mock_existing_insight):
         """Test coaching plan endpoint returns enhanced data."""
         # Setup enhanced insight data
         mock_existing_insight.recommendations = [
@@ -298,13 +405,29 @@ class TestInsightsIntegration:
         mock_existing_insight.analysis_type = "weekly"
         
         # Mock database query
-        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = mock_existing_insight
+        user_query = MagicMock()
+        user_query.filter.return_value.first.return_value = mock_user
+        insight_query = MagicMock()
+        insight_query.filter.return_value.order_by.return_value.first.return_value = (
+            mock_existing_insight
+        )
+
+        def query_side_effect(model):
+            if model is User:
+                return user_query
+            if model is UserInsight:
+                return insight_query
+            return MagicMock()
+
+        mock_db.query.side_effect = query_side_effect
         
-        # Import and test the endpoint function
         from app.api.insights import get_coaching_plan
-        
-        # This would normally be called via FastAPI, but we can test the logic
-        result = get_coaching_plan(user_id=1, db=mock_db)
+
+        result = await get_coaching_plan(
+            user_id=1,
+            current_user=mock_user,
+            db=mock_db,
+        )
         
         # Should return enhanced data
         assert "recommendations" in result

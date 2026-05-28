@@ -1,12 +1,15 @@
 """Chess coaching chatbot with Stockfish + LLM hybrid intelligence."""
 
 import uuid
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from datetime import datetime
 from loguru import logger
+from sqlalchemy.orm import Session
 
 from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole
+from .context_assembler import assemble_coach_context
 from .intent_classifier import IntentClassifier
+from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
 
 
@@ -24,7 +27,8 @@ class ChessCoach:
     def __init__(
         self,
         stockfish_engine: Optional[Any] = None,
-        ai_client: Optional[Any] = None
+        ai_client: Optional[Any] = None,
+        session_store: Optional[ChatSessionStore] = None,
     ):
         """
         Initialize chess coach.
@@ -32,20 +36,20 @@ class ChessCoach:
         Args:
             stockfish_engine: Optional injected engine (tests only).
             ai_client: AI client for LLM responses (optional)
+            session_store: Optional session store (tests / DI)
         """
         self.intent_classifier = IntentClassifier()
         self.move_recommender = MoveRecommender(stockfish_engine=stockfish_engine)
         self.ai_client = ai_client
-        
-        # In-memory session storage (replace with database in production)
-        self.sessions: Dict[str, ChatContext] = {}
+        self.session_store = session_store or ChatSessionStore()
     
     async def process_message(
         self,
         message: str,
         session_id: Optional[str] = None,
         user_id: Optional[int] = None,
-        position_fen: Optional[str] = None
+        position_fen: Optional[str] = None,
+        db: Optional[Session] = None,
     ) -> ChatResponse:
         """
         Process a user message and generate a response.
@@ -60,16 +64,16 @@ class ChessCoach:
             ChatResponse with message and analysis
         """
         # Get or create session
-        if session_id and session_id in self.sessions:
-            context = self.sessions[session_id]
-        else:
+        context = self.session_store.get(session_id) if session_id else None
+        if context is None:
             session_id = session_id or str(uuid.uuid4())
             context = ChatContext(
                 session_id=session_id,
                 user_id=user_id,
-                current_position=position_fen
+                current_position=position_fen,
             )
-            self.sessions[session_id] = context
+        elif user_id is not None and context.user_id is None:
+            context.user_id = user_id
         
         # Update current position if provided
         if position_fen:
@@ -106,7 +110,7 @@ class ChessCoach:
         elif intent == ChatIntent.COMPARE_MOVES:
             response = await self._handle_compare_moves(message, context)
         elif intent == ChatIntent.GENERAL_QUESTION:
-            response = await self._handle_general_question(message, context)
+            response = await self._handle_general_question(message, context, db=db)
         elif intent == ChatIntent.SMALL_TALK:
             response = await self._handle_small_talk(message, context)
         else:
@@ -122,7 +126,10 @@ class ChessCoach:
             metadata={"analysis": response.analysis}
         )
         context.add_message(assistant_message)
-        
+
+        self.session_store.save(context)
+
+        response.session_id = session_id
         return response
     
     async def _handle_analyze_position(
@@ -349,14 +356,62 @@ class ChessCoach:
     async def _handle_general_question(
         self,
         message: str,
-        context: ChatContext
+        context: ChatContext,
+        *,
+        db: Optional[Session] = None,
     ) -> ChatResponse:
         """Handle general chess questions."""
-        
-        # For now, provide template responses
-        # In production, this would use LLM with user's game history
-        
-        response_text = f"""That's a great question about chess improvement!
+        coach_context = ""
+        if db is not None and context.user_id is not None:
+            coach_context = assemble_coach_context(db, context.user_id)
+
+        if self.ai_client is not None and coach_context:
+            try:
+                llm_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            f"{coach_context}\n\n"
+                            "You are a chess improvement coach. Answer using only the "
+                            "facts above for personalization. Do not compute or invent "
+                            "chess engine evaluations."
+                        ),
+                    },
+                    {"role": "user", "content": message},
+                ]
+                result = await self.ai_client.chat_completion(
+                    messages=llm_messages,
+                    temperature=0.7,
+                )
+                response_text = result.get("content") or ""
+                if not response_text.strip():
+                    raise ValueError("Empty LLM response")
+            except Exception as e:
+                logger.warning(f"LLM general question failed, using template: {e}")
+                response_text = self._general_question_template(coach_context)
+        else:
+            response_text = self._general_question_template(coach_context)
+
+        return ChatResponse(
+            message=response_text,
+            intent=ChatIntent.GENERAL_QUESTION,
+            suggestions=[
+                "Analyze my recent game",
+                "Help with tactics",
+                "Endgame tips",
+            ],
+        )
+
+    def _general_question_template(self, coach_context: str) -> str:
+        """Fallback template when LLM is unavailable."""
+        personalized = ""
+        if coach_context:
+            personalized = (
+                f"\n\n**Personalized context from your games:**\n"
+                f"{coach_context}\n"
+            )
+
+        return f"""That's a great question about chess improvement!
 
 Based on general chess principles, here are my recommendations:
 
@@ -374,19 +429,9 @@ Based on general chess principles, here are my recommendations:
 • Chess.com tactics trainer
 • Lichess studies
 • YouTube channels (GothamChess, ChessVibes)
-
+{personalized}
 Would you like me to analyze one of your recent games to give more specific advice?
 """
-        
-        return ChatResponse(
-            message=response_text,
-            intent=ChatIntent.GENERAL_QUESTION,
-            suggestions=[
-                "Analyze my recent game",
-                "Help with tactics",
-                "Endgame tips"
-            ]
-        )
     
     async def _handle_small_talk(
         self,
@@ -458,18 +503,15 @@ Would you like me to analyze one of your recent games to give more specific advi
     
     def get_session(self, session_id: str) -> Optional[ChatContext]:
         """Get a chat session by ID."""
-        return self.sessions.get(session_id)
-    
+        return self.session_store.get(session_id)
+
     def create_session(self, user_id: Optional[int] = None) -> ChatContext:
         """Create a new chat session."""
         session_id = str(uuid.uuid4())
         context = ChatContext(session_id=session_id, user_id=user_id)
-        self.sessions[session_id] = context
+        self.session_store.save(context)
         return context
-    
+
     def delete_session(self, session_id: str) -> bool:
         """Delete a chat session."""
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-            return True
-        return False
+        return self.session_store.delete(session_id)

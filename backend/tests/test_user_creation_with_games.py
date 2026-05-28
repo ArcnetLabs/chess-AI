@@ -35,13 +35,21 @@ async def test_create_user_triggers_background_task():
         email="test@example.com"
     )
     
+    # Mock user for auth
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = 1
+    mock_current_user.chesscom_username = None
+    mock_current_user.email = None
+
     # Mock the API calls
     with patch('app.api.users.chesscom_api') as mock_api:
         mock_api.get_player_profile = AsyncMock(return_value=mock_profile)
         mock_api.get_player_stats = AsyncMock(return_value=mock_stats)
         
         # Call create_user
-        result = await create_user(user_data, mock_bg_tasks, mock_db)
+        result = await create_user(
+            user_data, mock_bg_tasks, mock_current_user, mock_db
+        )
         
         # Verify background task was added
         assert mock_bg_tasks.add_task.called
@@ -67,6 +75,9 @@ async def test_get_recommendations_returns_empty_for_new_user():
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
     
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = 1
+    
     # Create a mock query chain that returns user, then None for insights
     mock_user_query = MagicMock()
     mock_user_query.filter.return_value.first.return_value = mock_user
@@ -78,7 +89,7 @@ async def test_get_recommendations_returns_empty_for_new_user():
     mock_db.query.side_effect = [mock_user_query, mock_insight_query]
     
     # Call get_recommendations
-    result = await get_recommendations(1, mock_db)
+    result = await get_recommendations(1, mock_current_user, mock_db)
     
     # Should return empty recommendations, not raise 404
     assert result["recommendations"] == []
@@ -100,6 +111,9 @@ async def test_user_response_includes_game_count():
     mock_user = MagicMock(spec=User)
     mock_user.id = 1
     mock_user.chesscom_username = "testuser"
+
+    mock_current_user = MagicMock(spec=User)
+    mock_current_user.id = 1
     
     # Mock game count query
     mock_db.query.return_value.filter.side_effect = [
@@ -108,7 +122,7 @@ async def test_user_response_includes_game_count():
     ]
     
     # Call get_user
-    result = await get_user(1, mock_db)
+    result = await get_user(1, mock_current_user, mock_db)
     
     # Verify game count was added
     assert hasattr(result, 'total_games')

@@ -115,9 +115,14 @@ export interface UserInsight {
 // Coaching/Recommendation types
 export interface Recommendation {
   category: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: 'critical' | 'high' | 'medium' | 'low' | string;
   description: string;
-  improvement: string;
+  improvement?: string;
+  title?: string;
+  priority_score?: number;
+  pattern_id?: number | null;
+  actionable_steps?: string[];
+  pattern_match?: Record<string, unknown>;
 }
 
 // API Response types
