@@ -4,6 +4,29 @@ import re
 from typing import Optional, Tuple
 from . import ChatIntent
 
+CONTENT_TYPE_PATTERN = "pattern"
+CONTENT_TYPE_COACHING = "coaching"
+
+_RETRIEVAL_SKIP_INTENTS = frozenset({ChatIntent.SMALL_TALK, ChatIntent.UNKNOWN})
+
+_RETRIEVAL_DEFAULT_INTENTS = frozenset(
+    {
+        ChatIntent.GENERAL_QUESTION,
+        ChatIntent.ANALYZE_POSITION,
+        ChatIntent.EXPLAIN_MOVE,
+        ChatIntent.COMPARE_MOVES,
+    }
+)
+
+_DEFAULT_RETRIEVAL_CONTENT_TYPES = [CONTENT_TYPE_PATTERN]
+
+_COACHING_HISTORY_KEYWORDS = (
+    r"\bcoach\b",
+    r"\bremember\b",
+    r"\blast time\b",
+    r"\bprevious advice\b",
+)
+
 
 class IntentClassifier:
     """
@@ -100,6 +123,29 @@ class IntentClassifier:
         
         # Unknown intent
         return ChatIntent.UNKNOWN, 0.3
+
+    def retrieval_content_types(self, intent: ChatIntent, message: str) -> list[str]:
+        """
+        Map chat intent (+ optional message keywords) to semantic memory slices.
+
+        Returns an empty list to skip retrieval entirely for small talk / unknown.
+        """
+        if intent in _RETRIEVAL_SKIP_INTENTS:
+            return []
+
+        if intent in _RETRIEVAL_DEFAULT_INTENTS:
+            content_types = list(_DEFAULT_RETRIEVAL_CONTENT_TYPES)
+            if self._message_requests_coaching_history(message):
+                content_types.append(CONTENT_TYPE_COACHING)
+            return content_types
+
+        return []
+
+    def _message_requests_coaching_history(self, message: str) -> bool:
+        message_lower = message.lower()
+        return any(
+            re.search(pattern, message_lower) for pattern in _COACHING_HISTORY_KEYWORDS
+        )
     
     def _contains_chess_notation(self, message: str) -> bool:
         """Check if message contains chess notation."""

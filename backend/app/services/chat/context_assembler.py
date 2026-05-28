@@ -63,6 +63,7 @@ def assemble_coach_context(
     *,
     top_patterns: int = 5,
     query_text: str | None = None,
+    content_types: list[str] | None = None,
     semantic_memories: list[RetrievedMemory] | None = None,
 ) -> str:
     """
@@ -119,7 +120,12 @@ def assemble_coach_context(
 
     memories = semantic_memories
     if memories is None and query_text:
-        memories = retrieve_semantic_memories(db, user_id, query_text)
+        if content_types == []:
+            memories = []
+        else:
+            memories = retrieve_semantic_memories(
+                db, user_id, query_text, content_types=content_types
+            )
 
     memory_block = format_retrieved_memories_for_context(memories or [])
     if memory_block:
@@ -134,17 +140,23 @@ async def assemble_coach_context_async(
     *,
     top_patterns: int = 5,
     query_text: str | None = None,
+    content_types: list[str] | None = None,
 ) -> str:
     """Async context assembly with non-blocking semantic memory retrieval."""
     semantic_memories: list[RetrievedMemory] | None = None
     if query_text:
-        semantic_memories = await retrieve_semantic_memories_async(
-            db, user_id, query_text
-        )
+        if content_types == []:
+            semantic_memories = []
+        else:
+            semantic_memories = await retrieve_semantic_memories_async(
+                db, user_id, query_text, content_types=content_types
+            )
 
     return assemble_coach_context(
         db,
         user_id,
         top_patterns=top_patterns,
+        query_text=query_text,
+        content_types=content_types,
         semantic_memories=semantic_memories,
     )
