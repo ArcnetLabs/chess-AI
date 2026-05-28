@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` @ PR **#110** (P3-PC-01 + P3-PC-02)  
-**Production branch:** `main` @ PR **#108** (P3-TR-04 progress tracking)  
+**Integration branch:** `staging` (synced with `main` after release **#112**)  
+**Production branch:** `main` @ PR **#112** (P3-PC-01 + P3-PC-02)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,21 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | RAG coach + adaptive drills + proactive coaching |
+| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | Exit gate: grounding ✅, grep A ✅ |
 
-**Current focus:** Promote staging → `main` (P3-PC-01 + P3-PC-02); Phase 3 backend exit
+**Current focus:** Phase 3 exit gate — drill/grounding done; coach response metadata optional; Phase 2 UI deferred
+
+---
+
+## Phase 3 exit checklist
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| Grounding eval pass rate ≥ 90% | ✅ | `test_evaluate_coach_context_full_set_meets_phase3_exit_gate` (50 cases, seeded fixtures) |
+| Training MVP ≥1 drill type per major pattern category | ✅ | `drill_generator_service.py` subtype fallbacks + tests |
+| Grep-loop A (architecture) clean | ✅ | No Stockfish/LLM/service_role violations in api/tasks/frontend |
+| Coach answers cite pattern IDs in metadata | Partial | `pattern_id=` in assembled context; LLM response metadata not wired |
+| Full pytest suite | Partial | Unit subset + Phase 3 tests pass; heavy analysis/integration excluded locally |
 
 ---
 
@@ -168,16 +180,16 @@
 | P3-TR-02 | Drill generator | Done (main) | #102, #103 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
 | P3-TR-04 | Progress tracking | Done (main) | #106, #108 | `training_progress_service.py`; live stats on profile API |
-| P3-PC-01 | Weekly digest task | Done (staging) | #109 | `weekly_digest_service.py`; Celery beat Mon 10:00 UTC |
-| P3-PC-02 | In-app notification feed | Done (staging) | #110 | Alembic `0011`; `GET/PATCH/POST …/notifications` |
+| P3-PC-01 | Weekly digest task | Done (main) | #109, #112 | `weekly_digest_service.py`; Celery beat Mon 10:00 UTC |
+| P3-PC-02 | In-app notification feed | Done (main) | #110, #112 | Alembic `0011`; `GET/PATCH/POST …/notifications` |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** P3-PC-01 (#109) + P3-PC-02 (#110).
+**`staging` ahead of `main`:** none (synced after release **#112**).
 
-**Next release promotion:** proactive coaching batch (PC-01 + PC-02) to `main`.
+**Next release promotion:** n/a — await next feature batch or Phase 3 exit gate work.
 
 ---
 
@@ -185,6 +197,7 @@
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #112 | P3-PC-01 + PC-02 release | staging → **main** |
 | 2026-05-28 | #110 | P3-PC-02 | → staging |
 | 2026-05-28 | #109 | P3-PC-01 | → staging |
 | 2026-05-28 | #108 | P3-TR-04 release | staging → **main** |

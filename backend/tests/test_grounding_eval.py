@@ -217,3 +217,20 @@ def test_evaluate_coach_context_empty_user_fails_profile_cases(
     assert result.pass_count == 0
     assert result.pass_rate == 0.0
     assert all(not item.passed for item in result.case_results)
+
+
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories", return_value=[])
+def test_evaluate_coach_context_full_set_meets_phase3_exit_gate(
+    mock_retrieve, db, eval_user
+):
+    """Phase 3 exit gate: >=90% pass rate on the full 50-case grounding eval set."""
+    _seed_grounding_fixtures(db, eval_user)
+    all_cases = load_grounding_eval_set()
+
+    result = evaluate_coach_context(db, eval_user.id, all_cases, top_patterns=15)
+    failed = [item for item in result.case_results if not item.passed]
+
+    assert result.pass_rate >= 0.9, (
+        f"pass_rate {result.pass_rate:.1%} ({result.pass_count}/{result.total}); "
+        f"failed ids: {[item.case_id for item in failed]}"
+    )
