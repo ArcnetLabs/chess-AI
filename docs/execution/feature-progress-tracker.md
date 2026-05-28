@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (ahead of `main` by P3-TR-01 #100)  
-**Production branch:** `main` @ PR **#98** (P3-CC-01)  
+**Integration branch:** `staging` (synced with `main` after release **#103**)  
+**Production branch:** `main` @ PR **#103** (P3-TR-01 + P3-TR-02)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -164,8 +164,8 @@
 | P3-CC-01 | Intent → retrieval routing | Done (main) | #97, #98 | `retrieval_content_types()` in intent classifier |
 | P3-CC-02 | Suggestion chips from patterns | **Deferred** | UI |
 | P3-CC-03 | `/coach` dedicated page | **Deferred** | UI |
-| P3-TR-01 | Training plan schema | Done (staging) | #100 | Alembic `0010`; `training_plans`, `drill_attempts` |
-| P3-TR-02 | Drill generator | Done (staging) | #102 | `drill_generator_service.py` |
+| P3-TR-01 | Training plan schema | Done (main) | #100, #103 | Alembic `0010`; `training_plans`, `drill_attempts` |
+| P3-TR-02 | Drill generator | Done (main) | #102, #103 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
 | P3-TR-04 | Progress tracking | Not started | |
 | P3-PC-01 | Weekly digest task | Not started | |
