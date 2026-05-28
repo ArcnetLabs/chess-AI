@@ -20,7 +20,7 @@ from ..services.integration.chesscom_api import chesscom_api, ChessComAPIError, 
 
 from ..services.filter_service import GameFilter, FilterService, get_filter_service
 
-from .games_filters import GameQueryBuilder
+from ..services.game_query import GameQueryBuilder
 
 
 
