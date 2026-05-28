@@ -78,14 +78,15 @@ def queue_new_games_for_analysis(
 
     from app.tasks.analysis_tasks import analyze_batch_games_task
 
-    task = analyze_batch_games_task.delay(eligible_ids, user.id)
+    task = analyze_batch_games_task.delay(eligible_ids, user.id, source=source)
     logger.info(
         f"Auto-queued {len(eligible_ids)} games for analysis "
-        f"(user={user.id}, source={source}, task={task.id})"
+        f"(user={user.id}, source={source}, job={task.id})"
     )
 
     return {
         "status": "queued",
         "games_queued": len(eligible_ids),
         "task_id": task.id,
+        "job_id": task.id,
     }

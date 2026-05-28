@@ -2,7 +2,7 @@
 Celery tasks for game analysis with retry logic.
 """
 import asyncio
-from typing import List
+from typing import List, Optional
 from loguru import logger
 
 from app.celery_app import celery_app
@@ -14,6 +14,7 @@ from app.services.analysis.analysis_service import (
     analyze_game_for_user,
     persist_game_analysis,
 )
+from app.services.analysis.analysis_job_store import get_analysis_job_store
 from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
 
 
@@ -27,7 +28,7 @@ from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
     retry_jitter=True,
     name='app.tasks.analysis_tasks.analyze_game_task'
 )
-def analyze_game_task(self, game_id: int, user_id: int):
+def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = None):
     """
     Celery task to analyze a single game with Stockfish.
     
@@ -49,18 +50,22 @@ def analyze_game_task(self, game_id: int, user_id: int):
     db = SessionLocal()
     start_time = time.time()
     log_prefix = f"[Task {task_id}] "
+    job_store = get_analysis_job_store()
     
     try:
         logger.info(f"🔍 {log_prefix}Starting Stockfish analysis for game {game_id}")
+        job_store.mark_game_running(job_id, game_id)
         
         game = db.query(Game).filter(Game.id == game_id).first()
         if not game or not game.pgn:
             logger.warning(f"❌ {log_prefix}Game {game_id} not found or has no PGN")
+            job_store.mark_game_failed(job_id, game_id)
             return {"status": "failed", "reason": "Game not found or no PGN"}
         
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             logger.warning(f"❌ {log_prefix}User {user_id} not found")
+            job_store.mark_game_failed(job_id, game_id)
             return {"status": "failed", "reason": "User not found"}
         
         logger.info(
@@ -105,6 +110,7 @@ def analyze_game_task(self, game_id: int, user_id: int):
         )
 
         schedule_pattern_detection_for_user(user_id)
+        job_store.mark_game_completed(job_id, game_id)
 
         return {
             "status": "success",
@@ -128,6 +134,7 @@ def analyze_game_task(self, game_id: int, user_id: int):
             raise self.retry(exc=e)
         else:
             logger.error(f"💀 {log_prefix}Max retries reached for game {game_id}")
+            job_store.mark_game_failed(job_id, game_id)
             return {
                 "status": "failed",
                 "game_id": game_id,
@@ -144,7 +151,12 @@ def analyze_game_task(self, game_id: int, user_id: int):
     default_retry_delay=60,
     name='app.tasks.analysis_tasks.analyze_batch_games_task'
 )
-def analyze_batch_games_task(self, game_ids: List[int], user_id: int):
+def analyze_batch_games_task(
+    self,
+    game_ids: List[int],
+    user_id: int,
+    source: str = "batch",
+):
     """
     Celery task to queue multiple games for analysis.
     
@@ -159,10 +171,18 @@ def analyze_batch_games_task(self, game_ids: List[int], user_id: int):
     
     try:
         logger.info(f"🔍 [Batch Task {task_id}] Queuing {len(game_ids)} games for analysis")
+
+        job_store = get_analysis_job_store()
+        job_store.create_job(
+            job_id=task_id,
+            user_id=user_id,
+            game_ids=game_ids,
+            source=source,
+        )
         
         task_results = []
         for game_id in game_ids:
-            task = analyze_game_task.delay(game_id, user_id)
+            task = analyze_game_task.delay(game_id, user_id, job_id=task_id)
             task_results.append({
                 "game_id": game_id,
                 "task_id": task.id
@@ -172,6 +192,7 @@ def analyze_batch_games_task(self, game_ids: List[int], user_id: int):
         
         return {
             "status": "success",
+            "job_id": task_id,
             "games_queued": len(task_results),
             "tasks": task_results
         }
