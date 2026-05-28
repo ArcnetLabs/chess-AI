@@ -116,7 +116,9 @@ class TestPatternTaskHook:
             return_value=mock_result,
         ), patch(
             "app.tasks.pattern_tasks.schedule_profile_build_for_user",
-        ) as mock_schedule:
+        ) as mock_schedule, patch(
+            "app.tasks.pattern_tasks.schedule_pattern_embedding_for_user",
+        ):
             result = detect_patterns_task.run(88)
 
         assert result["status"] == "success"
