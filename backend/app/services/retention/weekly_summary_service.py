@@ -203,6 +203,10 @@ def render_weekly_summary_email(summary: WeeklySummary) -> Tuple[str, str]:
         "{{avg_acpl}}": acpl_line,
         "{{profile_archetype}}": archetype_line,
         "{{top_patterns_html}}": _format_patterns_html(summary.top_patterns),
+        "{{drills_completed_week}}": "—",
+        "{{training_completion_rate}}": "—",
+        "{{active_training_plan_title}}": "—",
+        "{{coaching_tip}}": "",
     }
 
     html = template

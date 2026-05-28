@@ -186,6 +186,19 @@ class Settings(BaseSettings):
         os.getenv("WEEKLY_EMAIL_STAGGER_SECONDS", "2")
     )
 
+    # Proactive coaching weekly digest (P3-PC-01 — optional Celery beat)
+    WEEKLY_DIGEST_ENABLED: bool = os.getenv("WEEKLY_DIGEST_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    WEEKLY_DIGEST_MAX_USERS_PER_RUN: int = int(
+        os.getenv("WEEKLY_DIGEST_MAX_USERS_PER_RUN", "100")
+    )
+    WEEKLY_DIGEST_STAGGER_SECONDS: int = int(
+        os.getenv("WEEKLY_DIGEST_STAGGER_SECONDS", "2")
+    )
+
     # Chat session store (Redis TTL, seconds — default 24h)
     CHAT_SESSION_TTL_SECONDS: int = int(
         os.getenv("CHAT_SESSION_TTL_SECONDS", str(60 * 60 * 24))
