@@ -8,6 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
+from app.services.coaching.retrieval_service import (
+    RetrievedMemory,
+    format_retrieved_memories_for_context,
+    retrieve_semantic_memories,
+    retrieve_semantic_memories_async,
+)
 from app.services.patterns.pattern_service import list_user_patterns
 from app.services.profiles.profile_service import get_latest_profile
 
@@ -56,11 +62,15 @@ def assemble_coach_context(
     user_id: int,
     *,
     top_patterns: int = 5,
+    query_text: str | None = None,
+    semantic_memories: list[RetrievedMemory] | None = None,
 ) -> str:
     """
     Build a compact text block of DB-backed facts for LLM coach context.
 
     Does not run Stockfish or compute evaluations — only persisted analysis data.
+    When ``query_text`` is provided (and ``semantic_memories`` is not), runs sync
+    semantic retrieval. Pass pre-fetched ``semantic_memories`` to skip retrieval.
     """
     lines: List[str] = [
         "## Player Context (read-only facts from ChessIQ analysis)",
@@ -107,4 +117,34 @@ def assemble_coach_context(
                 f"{pattern.pattern_description}"
             )
 
+    memories = semantic_memories
+    if memories is None and query_text:
+        memories = retrieve_semantic_memories(db, user_id, query_text)
+
+    memory_block = format_retrieved_memories_for_context(memories or [])
+    if memory_block:
+        lines.extend(["", memory_block])
+
     return "\n".join(lines)
+
+
+async def assemble_coach_context_async(
+    db: Session,
+    user_id: int,
+    *,
+    top_patterns: int = 5,
+    query_text: str | None = None,
+) -> str:
+    """Async context assembly with non-blocking semantic memory retrieval."""
+    semantic_memories: list[RetrievedMemory] | None = None
+    if query_text:
+        semantic_memories = await retrieve_semantic_memories_async(
+            db, user_id, query_text
+        )
+
+    return assemble_coach_context(
+        db,
+        user_id,
+        top_patterns=top_patterns,
+        semantic_memories=semantic_memories,
+    )

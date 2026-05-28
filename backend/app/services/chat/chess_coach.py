@@ -7,7 +7,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole
-from .context_assembler import assemble_coach_context
+from .context_assembler import assemble_coach_context_async
 from .intent_classifier import IntentClassifier
 from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
@@ -363,10 +363,21 @@ class ChessCoach:
         """Handle general chess questions."""
         coach_context = ""
         if db is not None and context.user_id is not None:
-            coach_context = assemble_coach_context(db, context.user_id)
+            coach_context = await assemble_coach_context_async(
+                db, context.user_id, query_text=message
+            )
 
         if self.ai_client is not None and coach_context:
             try:
+                memory_instruction = ""
+                if "## Relevant Semantic Memories" in coach_context:
+                    memory_instruction = (
+                        " When a Relevant Semantic Memories section is present, treat "
+                        "those entries as supplemental facts from past coaching and "
+                        "analysis — use them for personalization but do not invent "
+                        "evaluations or claims beyond what they state.\n"
+                    )
+
                 llm_messages = [
                     {
                         "role": "system",
@@ -374,7 +385,7 @@ class ChessCoach:
                             f"{coach_context}\n\n"
                             "You are a chess improvement coach. Answer using only the "
                             "facts above for personalization. Do not compute or invent "
-                            "chess engine evaluations."
+                            f"chess engine evaluations.{memory_instruction}"
                         ),
                     },
                     {"role": "user", "content": message},
