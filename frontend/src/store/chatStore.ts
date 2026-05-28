@@ -169,6 +169,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         metadata: {
           analysis: response.response.analysis,
           suggestions: response.response.suggestions,
+          used_llm: response.response.used_llm,
+          llm_provider: response.response.llm_provider,
+          cited_pattern_ids: response.response.cited_pattern_ids,
         },
       };
 

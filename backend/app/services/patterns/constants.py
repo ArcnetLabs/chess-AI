@@ -10,7 +10,7 @@ MIN_PHASE_SAMPLE_GAMES = 3
 # Minimum games played in an opening before opening-specific patterns fire.
 MIN_OPENING_SAMPLE_GAMES = 2
 
-# Phase ACPL thresholds (centipawns) — match recommendation_engine.py
+# Phase ACPL thresholds (centipawns) — canonical source for engine + detectors
 OPENING_ACPL_THRESHOLD = 30.0
 MIDDLEGAME_ACPL_THRESHOLD = 35.0
 ENDGAME_ACPL_THRESHOLD = 40.0
