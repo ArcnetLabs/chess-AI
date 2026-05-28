@@ -101,10 +101,15 @@ class ChatResponse:
     suggestions: List[str] = None
     position_fen: Optional[str] = None
     session_id: Optional[str] = None
+    cited_pattern_ids: Optional[List[int]] = None
+    llm_provider: Optional[str] = None
+    used_llm: bool = False
     
     def __post_init__(self):
         if self.suggestions is None:
             self.suggestions = []
+        if self.cited_pattern_ids is None:
+            self.cited_pattern_ids = []
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -115,4 +120,7 @@ class ChatResponse:
             "suggestions": self.suggestions,
             "position_fen": self.position_fen,
             "session_id": self.session_id,
+            "cited_pattern_ids": self.cited_pattern_ids or [],
+            "llm_provider": self.llm_provider,
+            "used_llm": self.used_llm,
         }

@@ -1,13 +1,13 @@
 """Chess coaching chatbot with Stockfish + LLM hybrid intelligence."""
 
 import uuid
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime
 from loguru import logger
 from sqlalchemy.orm import Session
 
 from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole
-from .context_assembler import assemble_coach_context_async
+from .context_assembler import assemble_coach_context_async, extract_pattern_ids_from_context
 from .intent_classifier import IntentClassifier
 from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
@@ -365,6 +365,10 @@ class ChessCoach:
     ) -> ChatResponse:
         """Handle general chess questions."""
         coach_context = ""
+        cited_pattern_ids: List[int] = []
+        used_llm = False
+        llm_provider: Optional[str] = None
+
         if db is not None and context.user_id is not None:
             content_types = self.intent_classifier.retrieval_content_types(
                 intent, message
@@ -375,6 +379,7 @@ class ChessCoach:
                 query_text=message,
                 content_types=content_types,
             )
+            cited_pattern_ids = extract_pattern_ids_from_context(coach_context)
 
         if self.ai_client is not None and coach_context:
             try:
@@ -406,6 +411,8 @@ class ChessCoach:
                 response_text = result.get("content") or ""
                 if not response_text.strip():
                     raise ValueError("Empty LLM response")
+                used_llm = True
+                llm_provider = result.get("provider")
             except Exception as e:
                 logger.warning(f"LLM general question failed, using template: {e}")
                 response_text = self._general_question_template(coach_context)
@@ -420,6 +427,9 @@ class ChessCoach:
                 "Help with tactics",
                 "Endgame tips",
             ],
+            cited_pattern_ids=cited_pattern_ids,
+            llm_provider=llm_provider,
+            used_llm=used_llm,
         )
 
     def _general_question_template(self, coach_context: str) -> str:

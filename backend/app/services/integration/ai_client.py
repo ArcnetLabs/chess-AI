@@ -1,16 +1,20 @@
 """
 AI Model Provider Abstraction Layer.
 
-Supports multiple AI providers (OpenAI, OpenRouter) with unified interface.
-Provider selection via MODEL_PROVIDER environment variable.
+Supports Ollama (local), OpenRouter, and OpenAI with automatic fallback.
+All LLM access for the coach routes through this module.
 """
+from __future__ import annotations
+
 import os
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from loguru import logger
 
 try:
     import openai
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -18,6 +22,7 @@ except ImportError:
 
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
@@ -28,249 +33,261 @@ from ...core.config import settings
 
 class ModelProvider(str, Enum):
     """Supported AI model providers."""
+
+    OLLAMA = "ollama"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
-    MOCK = "mock"  # For testing without API calls
+    MOCK = "mock"
 
 
 class AIClient:
-    """
-    Unified AI client supporting multiple providers.
-    
-    Usage:
-        client = AIClient()
-        response = await client.chat_completion(
-            messages=[{"role": "user", "content": "Hello!"}],
-            model="gpt-4"
-        )
-    """
-    
+    """Unified AI client with configurable provider fallback chain."""
+
     def __init__(
         self,
         provider: Optional[ModelProvider] = None,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
     ):
-        """
-        Initialize AI client with specified provider.
-        
-        Args:
-            provider: AI provider to use (defaults to settings)
-            api_key: API key for the provider (defaults to env var)
-        """
-        self.provider = provider or self._get_default_provider()
-        self.api_key = api_key or self._get_api_key()
-        
-        if self.provider == ModelProvider.OPENAI:
-            self._init_openai()
-        elif self.provider == ModelProvider.OPENROUTER:
-            self._init_openrouter()
-        elif self.provider == ModelProvider.MOCK:
-            self._init_mock()
-        
-        logger.info(f"AI Client initialized with provider: {self.provider}")
-    
-    def _get_default_provider(self) -> ModelProvider:
-        """Determine default provider based on environment."""
-        provider_str = os.getenv("MODEL_PROVIDER", "").lower()
-        
-        # Development mode defaults to OpenRouter (free tier)
-        if settings.LOG_LEVEL == "DEBUG" and not provider_str:
-            return ModelProvider.OPENROUTER
-        
-        # Map string to enum
-        provider_map = {
-            "openai": ModelProvider.OPENAI,
-            "openrouter": ModelProvider.OPENROUTER,
-            "mock": ModelProvider.MOCK
-        }
-        
-        return provider_map.get(provider_str, ModelProvider.OPENROUTER)
-    
-    def _get_api_key(self) -> str:
-        """Get API key for current provider."""
-        if self.provider == ModelProvider.OPENAI:
-            key = os.getenv("OPENAI_API_KEY", "")
-            if not key:
-                logger.warning("OPENAI_API_KEY not set")
-            return key
-        
-        elif self.provider == ModelProvider.OPENROUTER:
-            key = os.getenv("OPENROUTER_API_KEY", "")
-            if not key:
-                logger.warning("OPENROUTER_API_KEY not set")
-            return key
-        
-        return "mock-api-key"
-    
-    def _init_openai(self):
-        """Initialize OpenAI client."""
-        if not OPENAI_AVAILABLE:
-            raise ImportError("openai library not installed. Run: pip install openai")
-        
-        openai.api_key = self.api_key
-        self.base_url = "https://api.openai.com/v1"
-    
-    def _init_openrouter(self):
-        """Initialize OpenRouter client."""
+        self._forced_provider = provider
+        self._api_key_override = api_key
+        self._openrouter_client: Optional[httpx.AsyncClient] = None
+        logger.info("AI Client initialized (fallback chain enabled)")
+
+    def _fallback_chain(self) -> List[str]:
+        if self._forced_provider:
+            return [self._forced_provider.value]
+        if settings.MODEL_PROVIDER:
+            return [settings.MODEL_PROVIDER.strip().lower()]
+        return [
+            part.strip().lower()
+            for part in settings.LLM_FALLBACK_CHAIN.split(",")
+            if part.strip()
+        ]
+
+    def _get_openrouter_client(self) -> httpx.AsyncClient:
+        if self._openrouter_client is None:
+            if not HTTPX_AVAILABLE:
+                raise ImportError("httpx library required for OpenRouter")
+            self._openrouter_client = httpx.AsyncClient(
+                base_url="https://openrouter.ai/api/v1",
+                headers={
+                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                    "HTTP-Referer": "https://chess-insight-ai.com",
+                    "X-Title": "Chess Insight AI",
+                },
+                timeout=30.0,
+            )
+        return self._openrouter_client
+
+    async def _ollama_health_check(self) -> bool:
         if not HTTPX_AVAILABLE:
-            raise ImportError("httpx library required for OpenRouter. Run: pip install httpx")
-        
-        self.base_url = "https://openrouter.ai/api/v1"
-        self.client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": "https://chess-insight-ai.com",  # Optional
-                "X-Title": "Chess Insight AI"  # Optional
-            },
-            timeout=30.0
-        )
-    
-    def _init_mock(self):
-        """Initialize mock client for testing."""
-        self.base_url = "mock://api"
-        logger.info("Mock AI client initialized (for testing)")
-    
+            return False
+        base = settings.OLLAMA_BASE_URL.rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                response = await client.get(f"{base}/api/tags")
+                return response.status_code == 200
+        except Exception as exc:
+            logger.debug(f"Ollama health check failed: {exc}")
+            return False
+
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
-        **kwargs
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        Generate chat completion across providers.
-        
-        Args:
-            messages: List of message dicts with 'role' and 'content'
-            model: Model identifier (provider-specific)
-            temperature: Sampling temperature (0-2)
-            max_tokens: Maximum tokens to generate
-            **kwargs: Additional provider-specific parameters
-        
-        Returns:
-            Standardized response dict with 'content' and 'usage'
-        """
-        if self.provider == ModelProvider.OPENAI:
-            return await self._openai_chat(messages, model, temperature, max_tokens, **kwargs)
-        
-        elif self.provider == ModelProvider.OPENROUTER:
-            return await self._openrouter_chat(messages, model, temperature, max_tokens, **kwargs)
-        
-        elif self.provider == ModelProvider.MOCK:
-            return self._mock_chat(messages, model, temperature, max_tokens, **kwargs)
-        
-        raise ValueError(f"Unsupported provider: {self.provider}")
-    
+        """Single entry point — tries providers in fallback order."""
+        return await self.chat_completion_with_fallback(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+
+    async def chat_completion_with_fallback(
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        errors: List[str] = []
+
+        for provider_name in self._fallback_chain():
+            if provider_name == ModelProvider.MOCK.value:
+                return self._mock_chat(messages, model, temperature, max_tokens, **kwargs)
+
+            if provider_name == ModelProvider.OLLAMA.value:
+                if not await self._ollama_health_check():
+                    errors.append("ollama: unavailable")
+                    continue
+                try:
+                    result = await self._ollama_chat(
+                        messages, model, temperature, max_tokens, **kwargs
+                    )
+                    logger.info("LLM response via ollama")
+                    return result
+                except Exception as exc:
+                    errors.append(f"ollama: {exc}")
+                    continue
+
+            if provider_name == ModelProvider.OPENROUTER.value:
+                if not settings.OPENROUTER_API_KEY:
+                    errors.append("openrouter: missing API key")
+                    continue
+                try:
+                    result = await self._openrouter_chat(
+                        messages, model, temperature, max_tokens, **kwargs
+                    )
+                    logger.info("LLM response via openrouter")
+                    return result
+                except Exception as exc:
+                    errors.append(f"openrouter: {exc}")
+                    continue
+
+            if provider_name == ModelProvider.OPENAI.value:
+                if not settings.OPENAI_API_KEY:
+                    errors.append("openai: missing API key")
+                    continue
+                try:
+                    result = await self._openai_chat(
+                        messages, model, temperature, max_tokens, **kwargs
+                    )
+                    logger.info("LLM response via openai")
+                    return result
+                except Exception as exc:
+                    errors.append(f"openai: {exc}")
+                    continue
+
+            errors.append(f"{provider_name}: unsupported provider")
+
+        raise RuntimeError(f"All LLM providers failed: {'; '.join(errors)}")
+
+    async def _ollama_chat(
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str],
+        temperature: float,
+        max_tokens: Optional[int],
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        if not HTTPX_AVAILABLE:
+            raise ImportError("httpx required for Ollama")
+
+        base = settings.OLLAMA_BASE_URL.rstrip("/")
+        payload: Dict[str, Any] = {
+            "model": model or settings.OLLAMA_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature},
+        }
+        if max_tokens is not None:
+            payload["options"]["num_predict"] = max_tokens
+        payload.update(kwargs)
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(f"{base}/api/chat", json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        content = (data.get("message") or {}).get("content") or ""
+        return {
+            "content": content,
+            "usage": {},
+            "model": data.get("model", payload["model"]),
+            "provider": "ollama",
+        }
+
     async def _openai_chat(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str],
         temperature: float,
         max_tokens: Optional[int],
-        **kwargs
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """OpenAI chat completion."""
-        model = model or "gpt-4o-mini"  # Default to cost-effective model
-        
-        try:
-            response = await openai.ChatCompletion.acreate(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                **kwargs
-            )
-            
-            return {
-                "content": response.choices[0].message.content,
-                "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                },
-                "model": response.model,
-                "provider": "openai"
-            }
-        except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            raise
-    
+        if not OPENAI_AVAILABLE:
+            raise ImportError("openai library not installed")
+
+        openai.api_key = self._api_key_override or settings.OPENAI_API_KEY
+        model_name = model or settings.OPENAI_MODEL
+
+        response = await openai.ChatCompletion.acreate(
+            model=model_name,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+
+        return {
+            "content": response.choices[0].message.content,
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            },
+            "model": response.model,
+            "provider": "openai",
+        }
+
     async def _openrouter_chat(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str],
         temperature: float,
         max_tokens: Optional[int],
-        **kwargs
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        OpenRouter chat completion.
-        
-        Free models available:
-        - google/gemma-2-9b-it:free
-        - meta-llama/llama-3.1-8b-instruct:free
-        - mistralai/mistral-7b-instruct:free
-        """
-        # Default to free model for development
-        model = model or "google/gemma-2-9b-it:free"
-        
-        payload = {
-            "model": model,
+        model_name = model or settings.OPENROUTER_MODEL
+        payload: Dict[str, Any] = {
+            "model": model_name,
             "messages": messages,
-            "temperature": temperature
+            "temperature": temperature,
         }
-        
         if max_tokens:
             payload["max_tokens"] = max_tokens
-        
         payload.update(kwargs)
-        
-        try:
-            response = await self.client.post("/chat/completions", json=payload)
-            response.raise_for_status()
-            data = response.json()
-            
-            return {
-                "content": data["choices"][0]["message"]["content"],
-                "usage": data.get("usage", {}),
-                "model": data.get("model", model),
-                "provider": "openrouter"
-            }
-        except httpx.HTTPError as e:
-            logger.error(f"OpenRouter API error: {e}")
-            raise
-    
+
+        client = self._get_openrouter_client()
+        response = await client.post("/chat/completions", json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+        return {
+            "content": data["choices"][0]["message"]["content"],
+            "usage": data.get("usage", {}),
+            "model": data.get("model", model_name),
+            "provider": "openrouter",
+        }
+
     def _mock_chat(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str],
         temperature: float,
         max_tokens: Optional[int],
-        **kwargs
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Mock chat completion for testing."""
         last_message = messages[-1]["content"] if messages else ""
-        
         return {
             "content": f"Mock response to: {last_message[:50]}...",
-            "usage": {
-                "prompt_tokens": 10,
-                "completion_tokens": 20,
-                "total_tokens": 30
-            },
+            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
             "model": model or "mock-model",
-            "provider": "mock"
+            "provider": "mock",
         }
-    
-    async def close(self):
-        """Close any open connections."""
-        if hasattr(self, "client") and self.client:
-            await self.client.aclose()
+
+    async def close(self) -> None:
+        if self._openrouter_client is not None:
+            await self._openrouter_client.aclose()
+            self._openrouter_client = None
 
 
-# Singleton instance
 _ai_client: Optional[AIClient] = None
 
 
@@ -278,11 +295,19 @@ def get_ai_client() -> AIClient:
     """Get or create AI client singleton."""
     global _ai_client
     if _ai_client is None:
-        _ai_client = AIClient()
+        forced: Optional[ModelProvider] = None
+        if settings.MODEL_PROVIDER:
+            try:
+                forced = ModelProvider(settings.MODEL_PROVIDER.strip().lower())
+            except ValueError:
+                logger.warning(
+                    f"Unknown MODEL_PROVIDER={settings.MODEL_PROVIDER!r}; using fallback chain"
+                )
+        _ai_client = AIClient(provider=forced)
     return _ai_client
 
 
-async def close_ai_client():
+async def close_ai_client() -> None:
     """Close AI client connections."""
     global _ai_client
     if _ai_client:

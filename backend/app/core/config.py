@@ -126,6 +126,18 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", os.getenv("OPEN_API_KEY", ""))
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
     OPENAI_API_BASE: str = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+
+    # LLM provider routing (coach chat)
+    MODEL_PROVIDER: str = os.getenv("MODEL_PROVIDER", "")
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3:8b-instruct")
+    LLM_FALLBACK_CHAIN: str = os.getenv(
+        "LLM_FALLBACK_CHAIN", "ollama,openrouter,openai"
+    )
+    OPENROUTER_MODEL: str = os.getenv(
+        "OPENROUTER_MODEL", "google/gemma-2-9b-it:free"
+    )
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
     # Background Tasks
     CELERY_BROKER_URL: str = REDIS_URL

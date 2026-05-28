@@ -14,6 +14,7 @@ These are **not** part of the automated test suite — `pytest.ini` declares `te
 | `test_celery_api.py` | Smoke-tests Celery task dispatching against the configured broker. |
 | `test_redis_cache.py` | Exercises the Redis cache layer (set/get/expire) used by the Chess.com client. |
 | `test_rate_limiting.py` | Exercises the Redis-backed per-user rate limiter on the Chess.com client. |
+| `simulate_coach_journey.py` | E2E smoke test for the authenticated user → chat coach flow (health, profile, optional Chess.com link, session, message). |
 
 ## When to use
 
