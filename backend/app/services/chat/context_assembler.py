@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import List, Tuple
 
 from sqlalchemy.orm import Session
@@ -26,6 +27,20 @@ _SEVERITY_RANK = {
     "developing": 1,
     "low": 1,
 }
+
+
+def extract_pattern_ids_from_context(context: str) -> List[int]:
+    """Parse ``pattern_id=N`` citations from assembled coach context."""
+    if not context:
+        return []
+    seen: set[int] = set()
+    ordered: List[int] = []
+    for match in re.finditer(r"pattern_id=(\d+)", context):
+        pattern_id = int(match.group(1))
+        if pattern_id not in seen:
+            seen.add(pattern_id)
+            ordered.append(pattern_id)
+    return ordered
 
 
 def _pattern_sort_key(pattern: PlayerPattern) -> Tuple[int, float]:
