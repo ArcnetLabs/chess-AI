@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~2/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~3/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-CM-03 retrieval service
+**Current focus:** P3-CM-04 coach prompt v2
 
 ---
 
@@ -158,7 +158,7 @@
 |----|------|--------|-------|
 | P3-CM-01 | pgvector extension | Done (main) | #85, #87 | Alembic `0009`; `semantic_memory` model |
 | P3-CM-02 | Embedding pipeline | Done (main) | #86, #87 | `embedding_service.py`, Celery after pattern detection |
-| P3-CM-03 | Retrieval service | Not started | |
+| P3-CM-03 | Retrieval service | In progress | `retrieval_service.py`; PR pending |
 | P3-CM-04 | Coach prompt v2 | Not started | |
 | P3-CM-05 | Grounding eval set | Not started | |
 | P3-CC-01 | Intent → retrieval routing | Not started | |
@@ -177,7 +177,9 @@
 
 **`staging` and `main` are synced** after release promotion PR **#87** (P3-CM-01 + P3-CM-02).
 
-**Next on staging:** P3-CM-03 retrieval service.
+**Next on staging:** P3-CM-03 retrieval service (PR open — `feature/backend-retrieval-service`).
+
+After merge, next unit: **P3-CM-04** coach prompt v2.
 
 ---
 
