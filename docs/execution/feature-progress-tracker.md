@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~9/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~10/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** P3-TR-04 progress tracking
+**Current focus:** P3-PC-01 weekly digest task
 
 ---
 
@@ -167,7 +167,7 @@
 | P3-TR-01 | Training plan schema | Done (main) | #100, #103 | Alembic `0010`; `training_plans`, `drill_attempts` |
 | P3-TR-02 | Drill generator | Done (main) | #102, #103 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
-| P3-TR-04 | Progress tracking | Not started | |
+| P3-TR-04 | Progress tracking | Done (staging) | #106 | `training_progress_service.py`; live stats on profile API |
 | P3-PC-01 | Weekly digest task | Not started | |
 | P3-PC-02 | In-app notification feed | Not started | |
 
@@ -175,9 +175,9 @@
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** P3-TR-01 (#100) + P3-TR-02 (#102).
+**`staging` ahead of `main`:** P3-TR-04 (#106).
 
-**Next release promotion:** batch training backend (TR-01 + TR-02) to `main`.
+**Next release promotion:** batch P3-TR-04 to `main` when ready.
 
 ---
 
