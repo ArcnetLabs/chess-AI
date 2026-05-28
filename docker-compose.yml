@@ -88,6 +88,25 @@ services:
     restart: unless-stopped
     profiles: [ "celery" ] # Optional service for background processing
 
+  celery-beat:
+    build: ./backend
+    container_name: chess-insight-celery-beat
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BEAT_ENABLED=true
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    profiles: [ "celery" ]
+
 volumes:
   postgres_data:
   redis_data:
