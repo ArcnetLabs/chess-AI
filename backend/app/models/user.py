@@ -85,6 +85,9 @@ class User(Base):
     drill_attempts = relationship(
         "DrillAttempt", back_populates="user", cascade="all, delete-orphan"
     )
+    notifications = relationship(
+        "UserNotification", back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def is_authenticated(self) -> bool:

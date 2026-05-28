@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (synced with `main` after release **#103**)  
-**Production branch:** `main` @ PR **#103** (P3-TR-01 + P3-TR-02)  
+**Integration branch:** `staging` @ PR **#110** (P3-PC-01 + P3-PC-02)  
+**Production branch:** `main` @ PR **#108** (P3-TR-04 progress tracking)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **In progress** (~10/12 units) | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | RAG coach + adaptive drills + proactive coaching |
 
-**Current focus:** P3-PC-01 weekly digest task
+**Current focus:** Promote staging → `main` (P3-PC-01 + P3-PC-02); Phase 3 backend exit
 
 ---
 
@@ -167,17 +167,17 @@
 | P3-TR-01 | Training plan schema | Done (main) | #100, #103 | Alembic `0010`; `training_plans`, `drill_attempts` |
 | P3-TR-02 | Drill generator | Done (main) | #102, #103 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
-| P3-TR-04 | Progress tracking | Done (staging) | #106 | `training_progress_service.py`; live stats on profile API |
-| P3-PC-01 | Weekly digest task | Not started | |
-| P3-PC-02 | In-app notification feed | Not started | |
+| P3-TR-04 | Progress tracking | Done (main) | #106, #108 | `training_progress_service.py`; live stats on profile API |
+| P3-PC-01 | Weekly digest task | Done (staging) | #109 | `weekly_digest_service.py`; Celery beat Mon 10:00 UTC |
+| P3-PC-02 | In-app notification feed | Done (staging) | #110 | Alembic `0011`; `GET/PATCH/POST …/notifications` |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** P3-TR-04 (#106).
+**`staging` ahead of `main`:** P3-PC-01 (#109) + P3-PC-02 (#110).
 
-**Next release promotion:** batch P3-TR-04 to `main` when ready.
+**Next release promotion:** proactive coaching batch (PC-01 + PC-02) to `main`.
 
 ---
 
@@ -185,6 +185,12 @@
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #110 | P3-PC-02 | → staging |
+| 2026-05-28 | #109 | P3-PC-01 | → staging |
+| 2026-05-28 | #108 | P3-TR-04 release | staging → **main** |
+| 2026-05-28 | #106 | P3-TR-04 | → staging |
+| 2026-05-28 | #103 | P3-TR-01 + TR-02 release | staging → **main** |
+| 2026-05-28 | #102 | P3-TR-02 | → staging |
 | 2026-05-28 | #100 | P3-TR-01 | → staging |
 | 2026-05-28 | #98 | P3-CC-01 release | staging → **main** |
 | 2026-05-28 | #97 | P3-CC-01 | → staging |
