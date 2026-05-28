@@ -1,22 +1,22 @@
 # ChessIQ Implementation State & Execution Governance
 
-**Date:** 2026-05-26  
+**Date:** 2026-05-26 *(updated 2026-05-27)*  
 **Author:** Principal Architect / Orchestration Agent  
-**Branch audited:** `origin/staging` @ `9742e53`  
-**Mode:** Audit + planning — no feature implementation in this document
+**Branch audited:** `origin/staging` @ `a39f6a2`  
+**Mode:** Governance sync — Phase 1 exit complete on staging
 
 ---
 
 ## Executive summary
 
-ChessIQ has completed **remediation** and the **first third of Phase 1 backend intelligence**. The pattern detection loop (schema → engine → Celery → API) is on `staging`. The **longitudinal profile loop** and **pattern-linked coaching** are not built yet. Frontend is structurally remediated but intentionally deferred for feature UI.
+ChessIQ has completed **Phase 1 backend intelligence** on `staging` (exit gate PR #62; post-gate PRs #63–#65). Profile snapshots, pattern-linked recommendations, Redis chat sessions, and coach context assembly are **done**. Frontend API clients and React Query hooks are merged; **feature UI (P1-FE-02) remains deferred**.
 
-**Strategic priority now:** complete Phase 1 backend intelligence (profile builder → recommendation v2 → coach foundation) before any frontend feature work.
+**Strategic priority now:** promote `staging` → `main` for Phase 1 release; optional enrichment (P1-PR-03, P1-DB-03) and route cleanup in follow-up PRs.
 
 **Critical path:**
 
 ```text
-Analysis ✅ → Patterns ✅ → Profiles ⬜ → Recommendations ⬜ → Coach memory ⬜
+Analysis ✅ → Patterns ✅ → Profiles ✅ → Recommendations ✅ → Coach memory ✅
 ```
 
 ---
@@ -32,46 +32,52 @@ Analysis ✅ → Patterns ✅ → Profiles ⬜ → Recommendations ⬜ → Coach
 | **Analysis pipeline** | `analysis_service.py`, `unified_analyzer.py`, `analysis_tasks.py` | Celery-backed; auth on routes |
 | **Chess.com integration** | `integration/chesscom_api.py` | Rate-limited fetch |
 | **Pattern schema** | Migration `0006`; `models/pattern.py` | P1-DB-01 ✅ |
-| **Profile schema** | Migration `0007`; `models/profile.py` | P1-DB-02 ✅ — **no builder yet** |
+| **Profile schema** | Migration `0007`; `models/profile.py` | P1-DB-02 ✅ |
+| **Profile builder** | `services/profiles/profile_builder.py` | P1-PP-01 ✅; PR #55 |
+| **Profile Celery** | `tasks/profile_tasks.py`; hook after pattern detection | P1-PP-02 ✅; PR #58 |
+| **Profile API** | `api/profiles.py` | P1-PP-03 ✅; PR #59 |
 | **Pattern engine** | `services/patterns/*` (9 modules) | Deterministic; reads `GameAnalysis` only |
 | **Pattern persistence** | `pattern_service.persist_pattern_snapshots` | Idempotent upserts |
 | **Pattern Celery** | `tasks/pattern_tasks.py`; hook in `analysis_tasks.py` | Redis debounce (120s TTL, 60s countdown) |
 | **Pattern API** | `api/patterns.py` | GET list + POST analyze; auth + ownership |
-| **Recommendation engine (v1)** | `coaching/recommendation_engine.py` | Rule-based; **not pattern-linked** |
-| **AI coach shell** | `chess_coach.py`, `api/chat.py` | LLM via coach only; **in-memory sessions** |
+| **Recommendation engine (v2)** | `coaching/recommendation_engine.py` | Pattern-linked; `pattern_id` in output; PR #60 |
+| **Redis chat sessions** | `ChatSessionStore` | P1-CM-01 ✅; PR #56 |
+| **Coach context assembly** | `assemble_coach_context` in `chess_coach.py` | P1-CM-02 ✅; PR #61 |
+| **AI coach shell** | `chess_coach.py`, `api/chat.py` | LLM via coach only; Redis-backed sessions |
 | **Move recommender** | `moves/move_recommender.py`, `api/moves.py` | Uses engine pool |
 | **Frontend remediation** | hooks/, features/dashboard/, thin pages | On staging via PR #49–50 |
+| **Frontend pattern/profile API** | `src/lib/api.ts` | P1-FE-01 ✅; PR #63 |
+| **Frontend pattern/profile hooks** | React Query hooks | P1-FE-03 ✅; PR #64 |
+| **Execution governance docs** | `docs/execution/` | Committed via PR #57 |
 | **Tier / filter services** | `tier_service.py`, `filter_service.py` | Supporting infra |
 
-## 1.2 Partially implemented
+## 1.2 Remaining gaps (post Phase 1 exit)
 
 | System | State | Gap |
 |--------|-------|-----|
-| **Pattern recognition** | Phase + opening detectors only | P1-PR-03 blunder clusters missing |
-| **Longitudinal profiling** | DB schema only | No `services/profiles/`, no task, no API |
-| **Coaching memory** | Designed in architecture docs | Chat sessions in `Dict` on coach instance (P1-CM-01) |
-| **Recommendations** | Works from aggregate metrics | No `pattern_id`; thresholds duplicated vs `patterns/constants.py` |
-| **Insights generation** | `api/insights.py` background job | Opening stats bug (`user_acpl` vs `opening_acpl` line 158); overlaps `pattern_data.py` |
-| **Chat frontend** | Global chatbot in `_app.tsx` | No pattern/profile context in UI |
-| **Tests** | 17 pattern tests + legacy suite | No profile tests; some legacy tests target deleted modules |
-| **Execution docs** | Written locally | `docs/execution/` **not committed** to repo yet |
-| **Migrations in prod** | Code on staging | Requires `alembic upgrade head` for 0006/0007 on deployed Postgres |
+| **Blunder cluster detector** | Not implemented | P1-PR-03 — optional enrichment |
+| **Analysis query indexes** | Not implemented | P1-DB-03 — infra follow-up |
+| **Route bloat** | `games.py`, `insights.py`, `users.py`, `analysis.py` | Business logic should move to services (cleanup PRs) |
+| **Frontend feature UI** | API + hooks merged | P1-FE-02 — pattern/profile UI deferred by policy |
+| **Migrations in prod** | Code on staging | Verify `alembic upgrade head` on each deploy (0006/0007 applied 2026-05-27) |
 
-## 1.3 Missing systems (Phase 1 roadmap)
+## 1.3 Phase 1 roadmap status
 
-| ID | System | Owner |
-|----|--------|-------|
-| P1-PP-01 | Profile builder service | Backend |
-| P1-PP-02 | Profile Celery task | Backend |
-| P1-PP-03 | Profile API routes | Backend |
-| P1-RE-01 | Pattern-aware recommendations | Backend |
-| P1-RE-02 | Stable recommendation ↔ `pattern_id` | Backend |
-| P1-RE-03 | Insights route returns pattern-linked recs | Backend |
-| P1-PR-03 | Blunder cluster detector | Backend |
-| P1-CM-01 | Redis chat session store | Infra |
-| P1-CM-02 | Coach context assembly (profile + patterns) | Backend |
-| P1-DB-03 | Analysis query indexes | Infra |
-| P1-FE-* | Frontend pattern/profile hooks | Frontend — **deferred by policy** |
+| ID | System | Status |
+|----|--------|--------|
+| P1-PP-01 | Profile builder service | ✅ PR #55 |
+| P1-PP-02 | Profile Celery task | ✅ PR #58 |
+| P1-PP-03 | Profile API routes | ✅ PR #59 |
+| P1-RE-01 | Pattern-aware recommendations | ✅ PR #60 |
+| P1-RE-02 | Stable recommendation ↔ `pattern_id` | ✅ PR #60 |
+| P1-RE-03 | Insights route returns pattern-linked recs | ✅ PR #60 |
+| P1-CM-01 | Redis chat session store | ✅ PR #56 |
+| P1-CM-02 | Coach context assembly (profile + patterns) | ✅ PR #61 |
+| P1-FE-01 | Frontend pattern/profile API clients | ✅ PR #63 |
+| P1-FE-03 | Frontend pattern/profile React Query hooks | ✅ PR #64 |
+| P1-PR-03 | Blunder cluster detector | ⬜ Optional enrichment |
+| P1-DB-03 | Analysis query indexes | ⬜ Infra follow-up |
+| P1-FE-02 | Frontend pattern/profile feature UI | 🔴 Deferred by policy |
 
 ## 1.4 Duplicate / parallel logic (risk)
 
@@ -91,17 +97,15 @@ Analysis ✅ → Patterns ✅ → Profiles ⬜ → Recommendations ⬜ → Coach
 | `api/users.py` (~429 lines) | Over limit |
 | `api/analysis.py` (~362 lines) | Over limit |
 | `api/games_filters.py` | **Orphaned** — not registered in `__main__.py` |
-| `chess_coach.py` in-memory sessions | Breaks horizontal scale; conflicts with memory architecture |
-| Alembic heads | `99221b79d5ec_merge_migration_heads.py` + `add_game_filter_indexes.py` — verify single head in deploy |
+| Alembic heads | Verify single head in deploy (`0007` current) |
 
-## 1.6 Broken / pre-existing issues
+## 1.6 Known tooling / follow-up items
 
 | Item | Severity |
 |------|----------|
-| `insights.py:158` uses `user_acpl` for per-opening stats | Medium — disagrees with pattern engine |
 | Windows grep automation (`rg` missing) | Low — manual review required |
 | `check-duplicates.ps1` syntax error | Low — tooling |
-| Some auth tests may mock outdated paths | Low — verify in CI |
+| Route extraction cleanup | Low — non-blocking after Phase 1 exit |
 
 ## 1.7 Reuse map (do not rebuild)
 
@@ -123,12 +127,15 @@ Analysis ✅ → Patterns ✅ → Profiles ⬜ → Recommendations ⬜ → Coach
 |--------------|-------------------|
 | P1-DB-01 | ✅ Merged |
 | P1-DB-02 | ✅ Merged |
-| P1-PR-01–06 | ✅ Merged (PR-03 blunder clusters open) |
-| P1-PP-01–03 | 🟡 Schema only |
-| P1-RE-01–03 | 🟡 Engine exists; not wired |
-| P1-CM-01–02 | 🔴 Not started |
-| P1-FE-01–03 | 🔴 Deferred |
-| Phase 2 (SSE, game viewer, pattern UI) | 🔴 Blocked on Phase 1 exit |
+| P1-PR-01–02, 04–06 | ✅ Merged |
+| P1-PR-03 | ⬜ Optional enrichment |
+| P1-PP-01–03 | ✅ Merged |
+| P1-RE-01–03 | ✅ Merged |
+| P1-CM-01–02 | ✅ Merged |
+| P1-DB-03 | ⬜ Infra follow-up |
+| P1-FE-01, FE-03 | ✅ Merged |
+| P1-FE-02 | 🔴 UI deferred |
+| Phase 2 (SSE, game viewer, pattern UI) | 🟢 Unblocked — promote staging → main first |
 
 ---
 
@@ -358,13 +365,13 @@ flowchart TB
 
 ## 4.8 Phase 1 exit checklist (gate before frontend)
 
-- [ ] Patterns generated via Celery after analysis
-- [ ] Profile snapshots for users with ≥10 analyzed games
-- [ ] Recommendations include `pattern_id`
-- [ ] Chat sessions in Redis
-- [ ] Coach context includes profile + patterns
-- [ ] Grep A+D pass; pytest pass on staging
-- [ ] `alembic upgrade head` applied on production DB
+- [x] Patterns generated via Celery after analysis
+- [x] Profile snapshots for users with ≥10 analyzed games
+- [x] Recommendations include `pattern_id`
+- [x] Chat sessions in Redis
+- [x] Coach context includes profile + patterns
+- [x] Grep A+D pass; pytest pass on staging (188 passed, 3 skipped — PR #65)
+- [x] `alembic upgrade head` applied on production DB
 
 ---
 
@@ -381,7 +388,7 @@ main (production)
   ← staging (Phase 1 gate PR only)
 ```
 
-**Current staging ahead of main:** PRs #51–#54 (pattern + profile schema + engine + Celery/API). Do **not** promote to `main` until Phase 1 exit.
+**Phase 1 complete on staging:** PRs #51–#65. **Ready** for `staging` → `main` release promotion.
 
 ## 5.2 Review authority
 
@@ -435,11 +442,11 @@ Phase gate (R2–R3): full suite per `docs/execution/review-loop-enforcement.md`
 
 | # | Action | Owner |
 |---|--------|-------|
-| 1 | Commit `docs/execution/` to staging (governance docs) | Architect chore PR |
-| 2 | Confirm migrations 0006/0007 applied on Render Postgres | Infra OPS-01 |
-| 3 | Assign **P1-PP-01** to Backend Agent | Architect |
-| 4 | Assign **P1-CM-01** to Infra Agent (parallel) | Architect |
-| 5 | Hold Frontend Agent idle | Policy |
+| 1 | Open `staging` → `main` release PR (Phase 1) | Architect |
+| 2 | Optional: P1-PR-03 blunder clusters | Backend |
+| 3 | Optional: P1-DB-03 analysis indexes | Infra |
+| 4 | Route bloat cleanup (`games.py`, `insights.py`, etc.) | Backend chore |
+| 5 | P1-FE-02 feature UI when product prioritizes | Frontend |
 
 ---
 
@@ -451,6 +458,17 @@ Phase gate (R2–R3): full suite per `docs/execution/review-loop-enforcement.md`
 | #52 | P1-PR-01/02/04 pattern engine |
 | #53 | P1-DB-02 profile schema |
 | #54 | P1-PR-05/06 Celery + API |
+| #55 | P1-PP-01 profile builder |
+| #56 | P1-CM-01 Redis chat sessions |
+| #57 | Execution governance docs |
+| #58 | P1-PP-02 profile Celery task |
+| #59 | P1-PP-03 profile API |
+| #60 | P1-RE-01/02/03 recommendation v2 + insights fix |
+| #61 | P1-CM-02 coach context assembly |
+| #62 | Phase 1 exit gate fixes |
+| #63 | P1-FE-01 pattern/profile API clients |
+| #64 | P1-FE-03 pattern/profile React Query hooks |
+| #65 | Legacy auth pytest harness fix (188 pass) |
 
 ## Appendix B — Agent session scope (reference)
 
