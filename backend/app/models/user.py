@@ -76,6 +76,9 @@ class User(Base):
     profiles = relationship(
         "PlayerProfile", back_populates="user", cascade="all, delete-orphan"
     )
+    semantic_memories = relationship(
+        "SemanticMemory", back_populates="user", cascade="all, delete-orphan"
+    )
     
     @property
     def is_authenticated(self) -> bool:

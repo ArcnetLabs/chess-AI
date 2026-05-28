@@ -1,8 +1,8 @@
 # ChessIQ Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
-**Integration branch:** `staging` (ahead of `main`: P2-AA-05, P2-RT-02)  
-**Production branch:** `main` @ PR **#79**  
+**Integration branch:** `staging` (synced with `main` after release **#84**)  
+**Production branch:** `main` @ PR **#84**  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,9 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
+| **3** | Advanced AI & training | **In progress** (~1/12 units) | RAG coach + adaptive drills |
 
-**Current focus:** Release promotion (P2-AA-05 + P2-RT-02) or deferred UI units
+**Current focus:** P3-CM-02 embedding pipeline
 
 ---
 
@@ -122,7 +122,7 @@
 | P2-AA-02 | Analysis job status model | Done (main) | #73, #76 | Redis + polling API |
 | P2-AA-03 | SSE progress endpoint | Done (main) | #74, #76 | `GET /analysis/{user_id}/status/stream` |
 | P2-AA-04 | `useAnalysisStatus` hook | Done (main) | #75, #76 | SSE replaces 8s polling |
-| P2-AA-05 | Celery beat sync job | Done (staging) | #81 | `sync_tasks.py`; opt-in via `CELERY_BEAT_ENABLED` |
+| P2-AA-05 | Celery beat sync job | Done (main) | #81, #84 | `sync_tasks.py`; opt-in via `CELERY_BEAT_ENABLED` |
 
 ### 2.2 Game detail & move exploration
 
@@ -147,7 +147,7 @@
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
 | P2-RT-01 | “New patterns detected” toast | **Deferred** | — | UI |
-| P2-RT-02 | Weekly summary email stub | Done (staging) | #82 | `retention_tasks.py`; stub until `EMAIL_DELIVERY_ENABLED` |
+| P2-RT-02 | Weekly summary email stub | Done (main) | #82, #84 | `retention_tasks.py`; stub until `EMAIL_DELIVERY_ENABLED` |
 | P2-RT-03 | Last-visit delta | **Deferred** | — | Dashboard UI |
 
 ---
@@ -156,7 +156,7 @@
 
 | ID | Unit | Status | Notes |
 |----|------|--------|-------|
-| P3-CM-01 | pgvector extension | Not started | |
+| P3-CM-01 | pgvector extension | In progress | Alembic `0009`; `semantic_memory` model |
 | P3-CM-02 | Embedding pipeline | Not started | |
 | P3-CM-03 | Retrieval service | Not started | |
 | P3-CM-04 | Coach prompt v2 | Not started | |
@@ -175,12 +175,9 @@
 
 ## Production vs staging delta
 
-Units on **`staging` only** (not yet on `main`):
+**`staging` and `main` are synced** after release promotion PR **#84** (P2-AA-05 + P2-RT-02).
 
-- P2-AA-05 (#81)
-- P2-RT-02 (#82)
-
-**Next release promotion:** batch P2-AA-05 + P2-RT-02 to `main`.
+**Next on staging:** P3-CM-01 (pgvector / `semantic_memory` schema).
 
 ---
 
@@ -188,6 +185,7 @@ Units on **`staging` only** (not yet on `main`):
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-05-28 | #84 | Phase 2 retention release (P2-AA-05 + P2-RT-02) | staging → **main** |
 | 2026-05-28 | #82 | P2-RT-02 | → staging |
 | 2026-05-28 | #81 | P2-AA-05 | → staging |
 | 2026-05-28 | #76 | Phase 2.1 release (P2-AA-01–04) | staging → **main** |
