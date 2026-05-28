@@ -1,7 +1,7 @@
 # ChessIQ Feature Progress Tracker
 
-**Last updated:** 2026-05-28  
-**Integration branch:** `staging` (ahead of `main` pending P2-GV-01)  
+**Last updated:** 2026-05-26  
+**Integration branch:** `staging` (ahead of `main`: P2-GV-01, P2-GV-04 in flight)  
 **Production branch:** `main` @ PR **#76** (Phase 2.1 auto-analysis pipeline)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
@@ -32,7 +32,7 @@
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
 | **3** | Advanced AI & training | **Not started** | RAG coach + adaptive drills |
 
-**Current focus:** Phase 2 — `P2-GV-02` (game viewer page — deferred UI) / optional `P2-AA-05`
+**Current focus:** P2-GV-04 (coach FEN handoff — branch open) → then release promotion (P2-GV-01 + P2-GV-04)
 
 ---
 
@@ -128,10 +128,10 @@
 
 | ID | Unit | Status | PR | Notes |
 |----|------|--------|-----|-------|
-| P2-GV-01 | Game detail API enrichment | Not started | — | Moves, evals, phase markers |
+| P2-GV-01 | Game detail API enrichment | Done (staging) | #77 | `GET /games/game/{id}/detail` |
 | P2-GV-02 | `/games/[id]` page | **Deferred** | — | No designed UI until requested |
 | P2-GV-03 | Move list component | **Deferred** | — | |
-| P2-GV-04 | Coach context handoff | Not started | — | FEN → chat |
+| P2-GV-04 | Coach context handoff | **In progress** | — | `POST /games/game/{id}/coach-handoff`; `useCoachHandoff` |
 
 ### 2.3 Pattern visualization
 
@@ -177,12 +177,10 @@
 
 Units on **`staging` only** (not yet on `main`):
 
-- P2-AA-01 (#72)
-- P2-AA-02 (#73)
-- P2-AA-03 (#74)
-- P2-AA-04 (#75)
+- P2-GV-01 (#77)
+- P2-GV-04 (branch `feature/backend-coach-fen-handoff`)
 
-**Next release promotion:** when P2-AA pipeline is validated on staging, open `staging` → `main` PR.
+**Next release promotion:** after P2-GV-04 merges to staging (batch with P2-GV-01).
 
 ---
 
@@ -190,7 +188,9 @@ Units on **`staging` only** (not yet on `main`):
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
-| 2026-05-28 | #73 | P2-AA-02 | → staging |
+| 2026-05-28 | #76 | Phase 2.1 release (P2-AA-01–04) | staging → **main** |
+| 2026-05-28 | #75 | P2-AA-04 | → staging |
+| 2026-05-28 | #74 | P2-AA-03 | → staging |
 | 2026-05-28 | #72 | P2-AA-01 | → staging |
 | 2026-05-28 | #71 | Phase 1 enrichment release | staging → **main** |
 | 2026-05-28 | #70 | P1-DB-03 | → staging → main |
