@@ -42,6 +42,15 @@ function isAuthPath(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl
+
+  // Supabase may redirect to Site URL root (/?code=) instead of /auth/callback.
+  if (searchParams.has('code') && (pathname === '/' || pathname === '')) {
+    const callbackUrl = request.nextUrl.clone()
+    callbackUrl.pathname = '/auth/callback'
+    return NextResponse.redirect(callbackUrl)
+  }
+
   // We must carry the response reference through so that all cookies
   // set by the Supabase client are preserved on the final response.
   let supabaseResponse = NextResponse.next({ request })
@@ -77,8 +86,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
 
   // Unauthenticated user hitting a protected page → send to login.
   // Preserve the intended destination so we can redirect back after login.
