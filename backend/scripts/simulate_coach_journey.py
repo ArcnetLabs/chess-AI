@@ -28,8 +28,10 @@ load_dotenv(BACKEND_ROOT / ".env")
 
 DEFAULT_MESSAGE = "How can I improve my endgames?"
 JWT_SETUP_INSTRUCTIONS = (
-    "Sign in via Supabase, copy access_token from the session, "
-    "then re-run with: --jwt \"<access_token>\""
+    "Passwordless sign-in: /auth/login (email + Chess.com username), "
+    "click the magic link, then copy access_token from the session cookie "
+    "OR run: python backend/scripts/get_supabase_jwt.py\n"
+    "Re-run with: --jwt \"<access_token>\""
 )
 
 TEMPLATE_MARKER = "That's a great question about chess improvement!"
