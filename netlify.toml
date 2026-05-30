@@ -4,5 +4,9 @@
   publish = ".next"
   environment = { SECRETS_SCAN_ENABLED = "false" }
 
+# Magic-link redirects must match Supabase → Authentication → URL Configuration
+[context.production.environment]
+  NEXT_PUBLIC_SITE_URL = "https://chessrun.netlify.app"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
