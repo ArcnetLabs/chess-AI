@@ -1,6 +1,6 @@
 # Authentication System
 
-**Status:** canonical · **Owner:** platform · **Last updated:** 2026-05-26
+**Status:** canonical · **Owner:** platform · **Last updated:** 2026-05-30
 
 ChessIQ's authentication architecture is built around a single principle:
 
@@ -26,8 +26,8 @@ identity across devices. That made it impossible to:
 
 Supabase Auth gives us:
 
-- email/password sign-up with confirmation (and OAuth providers when we
-  enable them),
+- **passwordless** email magic links (FR-AUTH-1: email + Chess.com username,
+  no password in MVP),
 - cookie-based sessions with silent refresh in middleware,
 - a stable user UUID (`auth.users.id`) we can use as a foreign key,
 - a JWT we can verify locally on the backend with PyJWT — no per-request
@@ -77,38 +77,32 @@ The migration adding the column is
 
 ## 3. End-to-end flow
 
-### 3.1 Sign-up & first contact
+### 3.1 Sign-up & first contact (passwordless)
+
+Aligned with **FR-AUTH-1** in [`FRD_PRODUCT.md`](../product/FRD_PRODUCT.md): email +
+Chess.com username only; **no password**.
 
 ```
 Browser                                       Backend
 ───────                                       ───────
- 1. User lands on /auth/signup
- 2. signUp(email, password)  ──────────►  Supabase
-                                          (sends confirmation email)
- 3. User clicks email link
- 4. /auth/callback exchanges PKCE code
-    for a session cookie via Supabase
- 5. Redirect to /dashboard
- 6. dashboard.tsx renders
-    └─ GET /users/me with Authorization: Bearer <JWT>
+ 1. User lands on /auth/login (signup redirects here)
+ 2. Submits email + chesscom_username
+ 3. signInWithOtp(email, { data: { chesscom_username } })
+    ─────────────────────────────────────►  Supabase sends magic link
+ 4. User clicks link in email
+ 5. /auth/callback exchanges PKCE code → session cookie
+ 6. Callback POST /users/me/link-chesscom (validates Chess.com API)
+ 7. Redirect to /dashboard
+ 8. GET /users/me with Authorization: Bearer <JWT>
                                   ───────►   verify_jwt(token)
-                                             └─ local HS256 decode
-                                                using SUPABASE_JWT_SECRET
-                                             └─ extract sub, email
-                                             └─ look up users by
-                                                supabase_user_id
-                                             └─ AUTO-PROVISION row
-                                                if first contact
-                                  ◄───────   return User { chesscom_username: null }
- 7. chesscom_username is null
-    redirect → /onboarding/link-chesscom
- 8. POST /users/me/link-chesscom { chesscom_username }
-                                  ───────►   validate against Chess.com API
-                                             persist on current_user row
-                                             queue background games fetch
-                                  ◄───────   return User { chesscom_username: "…" }
- 9. redirect → /dashboard (data loads)
+                                             auto-provision local row
+                                             (chesscom from JWT user_metadata
+                                              if link step skipped)
+                                  ◄───────   User profile
 ```
+
+If Chess.com link fails in the callback (invalid username), the user can
+complete `/onboarding/link-chesscom` after sign-in.
 
 ### 3.2 Returning user
 
@@ -232,8 +226,8 @@ user on a broken page.
 | Page                                    | Purpose                                                                                         |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `pages/index.tsx`                       | Server-side redirect: authed → `/dashboard`, unauthed → `/auth/login`                            |
-| `pages/auth/login.tsx`                  | Email/password sign-in via Supabase                                                              |
-| `pages/auth/signup.tsx`                 | Email/password sign-up via Supabase                                                              |
+| `pages/auth/login.tsx`                  | Passwordless sign-in: email + Chess.com username → magic link                                      |
+| `pages/auth/signup.tsx`                 | Redirects to `/auth/login` (unified entry)                                                       |
 | `pages/auth/callback.tsx`               | PKCE / email-confirmation handler                                                                |
 | `pages/onboarding/link-chesscom.tsx`    | Link a Chess.com username to the authenticated user                                              |
 | `pages/dashboard.tsx`                   | Loads `/users/me`, redirects to onboarding if `chesscom_username` is null                        |

@@ -1,50 +1,50 @@
-"""Complete auth tests with proper async mocking."""
+"""Auth service tests — passwordless magic-link flows."""
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from app.services.auth.auth_service import auth_service
 
-# auth_service imports get_supabase at module load time; patch where it is used.
 _GET_SUPABASE = "app.services.auth.auth_service.get_supabase"
 
 
 @pytest.mark.auth
 @pytest.mark.asyncio
-async def test_sign_up_success(mock_supabase_client):
-    """Test successful user registration."""
-    with patch(_GET_SUPABASE, return_value=mock_supabase_client):
-        result = await auth_service.sign_up(
-            email="newuser@example.com",
-            password="securepass123",
-            metadata={"chesscom_username": "testuser"},
+async def test_send_magic_link_success():
+    mock_client = MagicMock()
+    mock_client.auth.sign_in_with_otp.return_value = None
+
+    with patch(_GET_SUPABASE, return_value=mock_client):
+        result = await auth_service.send_magic_link(
+            "newuser@example.com",
+            chesscom_username="testuser",
         )
 
         assert result["success"] is True
-        assert result["user"] is not None
-        assert result["session"] is not None
+        mock_client.auth.sign_in_with_otp.assert_called_once()
+        call_args = mock_client.auth.sign_in_with_otp.call_args[0][0]
+        assert call_args["email"] == "newuser@example.com"
+        assert call_args["options"]["data"]["chesscom_username"] == "testuser"
 
 
 @pytest.mark.auth
 @pytest.mark.asyncio
-async def test_sign_in_success(mock_supabase_client):
-    """Test successful user login."""
-    with patch(_GET_SUPABASE, return_value=mock_supabase_client):
+async def test_sign_in_delegates_to_magic_link():
+    mock_client = MagicMock()
+    mock_client.auth.sign_in_with_otp.return_value = None
+
+    with patch(_GET_SUPABASE, return_value=mock_client):
         result = await auth_service.sign_in(
-            email="test@example.com",
-            password="password123",
+            "test@example.com",
+            chesscom_username="player1",
         )
 
         assert result["success"] is True
-        assert result["user"] is not None
-        assert result["session"] is not None
-        assert result["access_token"] == "test-access-token-abc123"
-        assert result["refresh_token"] == "test-refresh-token-xyz789"
+        mock_client.auth.sign_in_with_otp.assert_called_once()
 
 
 @pytest.mark.auth
 @pytest.mark.asyncio
 async def test_get_user_with_valid_token(mock_supabase_client):
-    """Test getting user with valid token."""
     with patch(_GET_SUPABASE, return_value=mock_supabase_client):
         user = await auth_service.get_user("test-access-token-abc123")
 
@@ -55,7 +55,6 @@ async def test_get_user_with_valid_token(mock_supabase_client):
 @pytest.mark.auth
 @pytest.mark.asyncio
 async def test_sign_out(mock_supabase_client):
-    """Test user sign out."""
     with patch(_GET_SUPABASE, return_value=mock_supabase_client):
         result = await auth_service.sign_out("test-access-token")
 

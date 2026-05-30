@@ -62,12 +62,19 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
 
     # First contact for this Supabase user — create the local row.
     email = claims.get("email")
+    user_meta = claims.get("user_metadata") or {}
+    chesscom_from_jwt = user_meta.get("chesscom_username")
+    if isinstance(chesscom_from_jwt, str):
+        chesscom_from_jwt = chesscom_from_jwt.strip().lower() or None
+    else:
+        chesscom_from_jwt = None
+
     new_user = User(
         supabase_user_id=supabase_user_id,
         email=email,
-        # chesscom_username intentionally left NULL — set via onboarding.
+        chesscom_username=chesscom_from_jwt,
         connection_type="username_only",
-        is_chesscom_connected=False,
+        is_chesscom_connected=bool(chesscom_from_jwt),
     )
     try:
         db.add(new_user)
