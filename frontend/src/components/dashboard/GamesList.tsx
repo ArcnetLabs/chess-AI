@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Trophy, Brain, CheckCircle2, Zap } from 'lucide-react';
 import { Game, User } from '@/types';
 import {
@@ -29,23 +30,25 @@ export const GamesList: React.FC<GamesListProps> = ({
   if (games.length === 0) return null;
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-8">
-      <div className="flex items-center justify-between mb-4">
+    <div className="chessrun-card mb-8">
+      <div className="mb-4 flex items-center justify-between">
         <button
+          type="button"
           onClick={() => setGamesCollapsed(!gamesCollapsed)}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 transition-opacity hover:opacity-80"
         >
-          <Trophy className="w-5 h-5 text-blue-400" />
-          <h2 className="text-xl font-semibold text-white">Fetched Games</h2>
-          <span className="text-sm text-gray-400">{games.length} games</span>
-          <span className="text-gray-400 ml-2">{gamesCollapsed ? '▼' : '▲'}</span>
+          <Trophy className="h-5 w-5 text-brand-primary" />
+          <h2 className="font-display text-xl font-semibold text-content">Fetched Games</h2>
+          <span className="text-sm text-content-muted">{games.length} games</span>
+          <span className="ml-2 text-content-muted">{gamesCollapsed ? '▼' : '▲'}</span>
         </button>
         <button
+          type="button"
           onClick={onAnalyzeAll}
           disabled={isAnalyzing || games.every((g) => g.is_analyzed)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          className="chessrun-btn-primary flex items-center gap-2 disabled:cursor-not-allowed"
         >
-          <Brain className="w-4 h-4" />
+          <Brain className="h-4 w-4" />
           {isAnalyzing
             ? 'Analyzing...'
             : games.every((g) => g.is_analyzed)
@@ -63,21 +66,25 @@ export const GamesList: React.FC<GamesListProps> = ({
             return (
               <div
                 key={game.id}
-                className="bg-gray-700/50 p-4 rounded-lg border border-gray-600 hover:border-gray-500 transition-colors"
+                className="rounded-chess-md bg-surface-low p-4 transition-colors hover:bg-surface-container"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <span className="text-lg font-medium text-white">vs {opponentUsername}</span>
+                    <div className="mb-2 flex items-center gap-3">
+                      <Link
+                        href={`/games/${game.id}`}
+                        className="text-lg font-medium text-content hover:text-brand-primary"
+                      >
+                        vs {opponentUsername}
+                      </Link>
                       <span className={`text-sm font-semibold ${resultColor}`}>{gameResult}</span>
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-400">
-                      <span>🎮 {game.time_class || 'Unknown'}</span>
+                    <div className="flex items-center gap-4 text-sm text-content-muted">
+                      <span>{game.time_class || 'Unknown'}</span>
                       <span>
-                        📅 {game.end_time ? new Date(game.end_time).toLocaleDateString() : 'N/A'}
+                        {game.end_time ? new Date(game.end_time).toLocaleDateString() : 'N/A'}
                       </span>
                       <span>
-                        🕐{' '}
                         {game.end_time
                           ? new Date(game.end_time).toLocaleTimeString([], {
                               hour: '2-digit',
@@ -87,24 +94,25 @@ export const GamesList: React.FC<GamesListProps> = ({
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center gap-3">
                     {game.is_analyzed ? (
-                      <span className="px-3 py-1 bg-green-600/20 text-green-400 text-xs font-medium rounded-full border border-green-600/30 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
+                      <span className="flex items-center gap-1 rounded-full bg-brand-secondary/15 px-3 py-1 text-xs font-medium text-brand-secondary">
+                        <CheckCircle2 className="h-3 w-3" />
                         Analyzed
                       </span>
                     ) : analyzingGameIds.has(game.id) ? (
-                      <span className="px-3 py-1 bg-blue-600/20 text-blue-400 text-xs font-medium rounded-full border border-blue-600/30 flex items-center gap-1">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400" />
+                      <span className="flex items-center gap-1 rounded-full bg-brand-primary/15 px-3 py-1 text-xs font-medium text-brand-primary">
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-brand-primary/30 border-t-brand-primary" />
                         Analyzing...
                       </span>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => onAnalyzeGame(game.id)}
                         disabled={isAnalyzing}
-                        className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 text-xs font-medium rounded-full border border-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        className="flex items-center gap-1 rounded-full bg-surface-bright/60 px-3 py-1 text-xs font-medium text-content transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <Zap className="w-3 h-3" />
+                        <Zap className="h-3 w-3" />
                         Analyze
                       </button>
                     )}
@@ -113,9 +121,9 @@ export const GamesList: React.FC<GamesListProps> = ({
                         href={game.chesscom_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 text-sm"
+                        className="text-sm text-brand-primary hover:text-brand-primary-dim"
                       >
-                        View →
+                        Chess.com →
                       </a>
                     )}
                   </div>

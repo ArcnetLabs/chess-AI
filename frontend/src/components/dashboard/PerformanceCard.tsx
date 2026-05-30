@@ -19,28 +19,28 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({
   subtitle,
 }) => {
   const getTrendIcon = () => {
-    if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-400" />;
-    if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-400" />;
+    if (trend === 'up') return <TrendingUp className="h-4 w-4 text-brand-secondary" />;
+    if (trend === 'down') return <TrendingDown className="h-4 w-4 text-brand-error" />;
     return null;
   };
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+    <div className="chessrun-card">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-white">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+          <p className="chessrun-label">{title}</p>
+          <p className="font-display text-2xl font-bold text-content">{value}</p>
+          {subtitle && <p className="mt-1 text-xs text-content-muted">{subtitle}</p>}
           {change !== undefined && (
-            <div className="flex items-center mt-2">
+            <div className="mt-2 flex items-center">
               {getTrendIcon()}
               <span
-                className={`text-sm ml-1 ${
+                className={`ml-1 text-sm ${
                   trend === 'up'
-                    ? 'text-green-400'
+                    ? 'text-brand-secondary'
                     : trend === 'down'
-                      ? 'text-red-400'
-                      : 'text-gray-400'
+                      ? 'text-brand-error'
+                      : 'text-content-muted'
                 }`}
               >
                 {change > 0 ? '+' : ''}
@@ -49,7 +49,7 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({
             </div>
           )}
         </div>
-        <div className="text-blue-400">{icon}</div>
+        <div className="text-brand-primary">{icon}</div>
       </div>
     </div>
   );

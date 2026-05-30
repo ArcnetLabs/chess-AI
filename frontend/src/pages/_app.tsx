@@ -23,17 +23,19 @@ export default function App({ Component, pageProps }: AppProps) {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#363636',
-            color: '#fff',
+            background: '#141a20',
+            color: '#e7ebf3',
           },
           success: {
             style: {
-              background: '#10b981',
+              background: '#214800',
+              color: '#84ff00',
             },
           },
           error: {
             style: {
-              background: '#ef4444',
+              background: '#450900',
+              color: '#ff7351',
             },
           },
         }}

@@ -19,43 +19,46 @@ export const DashboardActions: React.FC<DashboardActionsProps> = ({
   userData,
   hasAnalyzedGames,
 }) => (
-  <div className="flex flex-wrap gap-4 mb-8">
+  <div className="mb-8 flex flex-wrap gap-4">
     <button
+      type="button"
       onClick={onFetchGames}
       disabled={isFetching}
-      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center space-x-2"
+      className="chessrun-btn-secondary flex items-center gap-2 px-6 py-3"
     >
       {isFetching ? (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+        <div className="loading-spinner h-4 w-4" />
       ) : (
-        <Clock className="w-4 h-4" />
+        <Clock className="h-4 w-4" />
       )}
       <span>{isFetching ? 'Syncing...' : 'Sync Recent Games'}</span>
     </button>
     <button
+      type="button"
       onClick={() => onAnalyzeGames(false)}
       disabled={isAnalyzing}
-      className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center space-x-2"
+      className="chessrun-btn-primary flex items-center gap-2 px-6 py-3"
     >
       {isAnalyzing ? (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-on-primary/30 border-t-brand-on-primary" />
       ) : (
-        <Brain className="w-4 h-4" />
+        <Brain className="h-4 w-4" />
       )}
       <span>{isAnalyzing ? 'Analyzing...' : 'Analyze with AI'}</span>
     </button>
 
     {hasAnalyzedGames && (
       <button
+        type="button"
         onClick={() => onAnalyzeGames(true)}
         disabled={isAnalyzing}
-        className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center space-x-2"
+        className="chessrun-btn-secondary flex items-center gap-2 px-6 py-3"
         title="Re-analyze all games (ignores previous analysis)"
       >
         {isAnalyzing ? (
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+          <div className="loading-spinner h-4 w-4" />
         ) : (
-          <Brain className="w-4 h-4" />
+          <Brain className="h-4 w-4" />
         )}
         <span>Force Re-analyze</span>
       </button>
@@ -63,13 +66,13 @@ export const DashboardActions: React.FC<DashboardActionsProps> = ({
 
     {userData && userData.connection_type === 'username_only' && (
       <button
+        type="button"
         disabled
-        className="bg-gray-700 text-gray-400 px-6 py-3 rounded-lg cursor-not-allowed font-medium flex items-center space-x-2 border border-gray-600"
+        className="flex cursor-not-allowed items-center gap-2 rounded-chess bg-surface-container px-6 py-3 font-medium text-content-muted/60"
         title="OAuth integration coming soon when Chess.com provides API access"
       >
-        <div className="text-sm">🔐</div>
-        <span>Upgrade to OAuth</span>
-        <div className="text-xs bg-gray-600 px-2 py-1 rounded">Future</div>
+        <span className="text-sm">OAuth</span>
+        <span className="rounded bg-surface-bright px-2 py-0.5 text-xs">Future</span>
       </button>
     )}
   </div>

@@ -14,47 +14,41 @@ export const CoachingInsightCard: React.FC<CoachingInsightCardProps> = ({
   description,
   improvement,
 }) => {
-  const getPriorityColor = () => {
+  const getPriorityStyles = () => {
     switch (priority) {
       case 'high':
-        return 'text-red-400 bg-red-900/20 border-red-800';
+        return 'bg-brand-error/10 text-brand-error';
       case 'medium':
-        return 'text-yellow-400 bg-yellow-900/20 border-yellow-800';
+        return 'bg-brand-primary/10 text-brand-primary';
       case 'low':
-        return 'text-green-400 bg-green-900/20 border-green-800';
+        return 'bg-brand-secondary/10 text-brand-secondary';
     }
   };
 
   const getPriorityIcon = () => {
     switch (priority) {
       case 'high':
-        return <AlertCircle className="w-5 h-5" />;
+        return <AlertCircle className="h-5 w-5" />;
       case 'medium':
-        return <Target className="w-5 h-5" />;
+        return <Target className="h-5 w-5" />;
       case 'low':
-        return <CheckCircle2 className="w-5 h-5" />;
+        return <CheckCircle2 className="h-5 w-5" />;
     }
   };
 
   return (
-    <div className={`p-4 rounded-lg border ${getPriorityColor()}`}>
-      <div className="flex items-start space-x-3">
+    <div className={`rounded-chess-md p-4 ${getPriorityStyles()}`}>
+      <div className="flex items-start gap-3">
         {getPriorityIcon()}
         <div className="flex-1">
-          <h4 className="font-semibold capitalize text-white">{category.replace('_', ' ')}</h4>
-          <p className="text-sm mt-1 text-gray-300">{description}</p>
-          <p className="text-xs mt-2 font-medium">💡 {improvement}</p>
+          <h4 className="font-semibold capitalize text-content">
+            {category.replace('_', ' ')}
+          </h4>
+          <p className="mt-1 text-sm text-content-muted">{description}</p>
+          <p className="mt-2 text-xs font-medium text-content">{improvement}</p>
         </div>
-        <span
-          className={`px-2 py-1 rounded text-xs font-medium ${
-            priority === 'high'
-              ? 'bg-red-800 text-red-200'
-              : priority === 'medium'
-                ? 'bg-yellow-800 text-yellow-200'
-                : 'bg-green-800 text-green-200'
-          }`}
-        >
-          {priority.toUpperCase()}
+        <span className="rounded bg-surface-bright/80 px-2 py-1 text-xs font-medium uppercase tracking-wide text-content-muted">
+          {priority}
         </span>
       </div>
     </div>
