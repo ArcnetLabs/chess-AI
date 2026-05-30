@@ -57,15 +57,21 @@ export const DashboardView: React.FC = () => {
   }
 
   if (!user) {
+    const status = (profileError as { response?: { status?: number } } | undefined)
+      ?.response?.status;
+    let message: string | undefined;
+    if (status === 401) {
+      message =
+        'You are signed in, but the API rejected your token. On Render, set SUPABASE_JWT_SECRET to match Supabase Dashboard → Settings → API → JWT Secret, then redeploy the backend.';
+    } else if (profileError) {
+      message =
+        'We could not load your profile. Open DevTools → Network and check the request to /users/me (CORS, 5xx, or timeout).';
+    }
     return (
       <DashboardErrorState
         onGoHome={() => router.push('/auth/login')}
         onRetry={() => refetchUser()}
-        message={
-          profileError
-            ? 'We could not load your profile. The API may be unreachable from the browser.'
-            : undefined
-        }
+        message={message}
       />
     );
   }
