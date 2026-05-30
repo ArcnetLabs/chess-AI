@@ -249,33 +249,36 @@ async def analyze_user_games(
     
     # Queue analysis tasks with Celery
     game_ids_to_analyze = [game.id for game in games_to_analyze if game.pgn]
-    
+    skipped_no_pgn = len(games_to_analyze) - len(game_ids_to_analyze)
+
     if game_ids_to_analyze:
+        job_store = get_analysis_job_store()
+        job_id = str(uuid4())
+        job_store.create_job(
+            job_id=job_id,
+            user_id=user_id,
+            game_ids=game_ids_to_analyze,
+            source="manual",
+        )
         task = analyze_batch_games_task.delay(
             game_ids_to_analyze,
             user_id,
             source="manual",
+            job_id=job_id,
         )
         task_id = task.id
-        job_id = task.id
     else:
         task_id = None
         job_id = None
-    
-    # Update user's analyzed_games count
-    user.analyzed_games = db.query(Game).filter(
-        Game.user_id == user_id,
-        Game.is_analyzed == True
-    ).count() + len(games_to_analyze)
-    db.commit()
-    
+
     return {
         "message": f"Queued {len(game_ids_to_analyze)} games for analysis",
         "games_queued": len(game_ids_to_analyze),
+        "skipped_no_pgn": skipped_no_pgn,
         "task_id": task_id,
         "job_id": job_id,
         "analysis_mode": analysis_mode,
-        "uses_ai": uses_ai
+        "uses_ai": uses_ai,
     }
 
 

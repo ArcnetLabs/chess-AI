@@ -125,11 +125,14 @@ export const DashboardView: React.FC = () => {
       {analysis.showAnalysisModal && (
         <AnalysisProgressModal
           isOpen={analysis.showAnalysisModal}
-          onClose={() => analysis.setShowAnalysisModal(false)}
+          phase={analysis.modalPhase}
+          onClose={analysis.handleModalClose}
           totalGames={analysis.analyzingGamesCount}
           analyzedGames={analysis.currentAnalyzedCount}
+          elapsedSeconds={analysis.elapsedSeconds}
+          errorMessage={analysis.modalError}
           currentGame={analysis.currentAnalyzingGame}
-          onComplete={analysis.handleAnalysisComplete}
+          onViewResults={analysis.handleViewResults}
           onStop={analysis.handleStopAnalysis}
         />
       )}
