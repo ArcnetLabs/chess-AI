@@ -40,8 +40,8 @@ export const MoveQualityChart: React.FC<MoveQualityChartProps> = ({
   const chartData = buildMoveQualityChartData(breakdown);
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-      <h3 className="text-lg font-semibold mb-4 text-white">{title}</h3>
+    <div className="chessrun-card">
+      <h3 className="mb-4 font-display text-lg font-semibold text-content">{title}</h3>
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
@@ -59,10 +59,10 @@ export const MoveQualityChart: React.FC<MoveQualityChartProps> = ({
           </Pie>
           <Tooltip
             contentStyle={{
-              backgroundColor: '#374151',
+              backgroundColor: '#141a20',
               border: 'none',
-              borderRadius: '8px',
-              color: '#fff',
+              borderRadius: '4px',
+              color: '#e7ebf3',
             }}
           />
         </PieChart>

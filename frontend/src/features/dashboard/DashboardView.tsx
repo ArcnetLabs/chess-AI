@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { AnalysisProgressModal } from '@/components/AnalysisProgressModal';
+import { ChessrunPageShell } from '@/components/layout/ChessrunPageShell';
 import {
   ChartEmptyState,
   CoachingInsightsSection,
@@ -25,7 +26,7 @@ import {
 
 export const DashboardView: React.FC = () => {
   const router = useRouter();
-  const { user, userData, loading, refetchUser } = useCurrentUser();
+  const { user, userData, loading, profileError, refetchUser } = useCurrentUser();
 
   const {
     analysisSummary,
@@ -56,76 +57,88 @@ export const DashboardView: React.FC = () => {
   }
 
   if (!user) {
-    return <DashboardErrorState onGoHome={() => router.push('/')} />;
+    return (
+      <DashboardErrorState
+        onGoHome={() => router.push('/auth/login')}
+        onRetry={() => refetchUser()}
+        message={
+          profileError
+            ? 'We could not load your profile. The API may be unreachable from the browser.'
+            : undefined
+        }
+      />
+    );
   }
 
   const hasAnalyzedGames = (analysisSummary?.total_games_analyzed ?? 0) > 0;
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <DashboardHeader user={user} userData={userData} />
+    <ChessrunPageShell>
+      <DashboardHeader user={user} userData={userData} />
 
-        {userData && (
-          <GamesSummaryBar
-            userData={userData}
-            gamesAnalyzed={analysisSummary?.total_games_analyzed || 0}
-          />
-        )}
-
-        <DashboardActions
-          isFetching={isFetching}
-          isAnalyzing={analysis.isAnalyzing}
-          onFetchGames={fetchGames}
-          onAnalyzeGames={analysis.handleAnalyzeGames}
+      {userData && (
+        <GamesSummaryBar
           userData={userData}
-          hasAnalyzedGames={hasAnalyzedGames}
+          gamesAnalyzed={analysisSummary?.total_games_analyzed || 0}
         />
+      )}
 
-        {analysisSummary && !summaryLoading && (
-          <PerformanceOverview analysisSummary={analysisSummary} />
+      <DashboardActions
+        isFetching={isFetching}
+        isAnalyzing={analysis.isAnalyzing}
+        onFetchGames={fetchGames}
+        onAnalyzeGames={analysis.handleAnalyzeGames}
+        userData={userData}
+        hasAnalyzedGames={hasAnalyzedGames}
+      />
+
+      {analysisSummary && !summaryLoading && (
+        <PerformanceOverview analysisSummary={analysisSummary} />
+      )}
+
+      <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {analysisSummary?.move_quality_breakdown && hasAnalyzedGames ? (
+          <MoveQualityChart breakdown={analysisSummary.move_quality_breakdown} />
+        ) : (
+          <div className="chessrun-card">
+            <h3 className="mb-4 font-display text-lg font-semibold text-content">
+              Move Quality Distribution
+            </h3>
+            <ChartEmptyState />
+          </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {analysisSummary?.move_quality_breakdown && hasAnalyzedGames ? (
-            <MoveQualityChart breakdown={analysisSummary.move_quality_breakdown} />
-          ) : (
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-              <h3 className="text-lg font-semibold mb-4 text-white">Move Quality Distribution</h3>
-              <ChartEmptyState />
-            </div>
-          )}
-
-          {hasAnalyzedGames && analysisSummary?.phase_performance ? (
-            <PhasePerformanceChart
-              phasePerformance={analysisSummary.phase_performance}
-              onRefresh={() => refetchAnalysisSummary()}
-            />
-          ) : (
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-              <h3 className="text-lg font-semibold mb-4 text-white">Phase Performance (ACPL)</h3>
-              <ChartEmptyState />
-            </div>
-          )}
-        </div>
-
-        {games && games.length > 0 && (
-          <GamesList
-            games={games}
-            user={user}
-            isAnalyzing={analysis.isAnalyzing}
-            analyzingGameIds={analysis.analyzingGameIds}
-            onAnalyzeAll={() => analysis.handleAnalyzeGames(false)}
-            onAnalyzeGame={analysis.handleAnalyzeSingleGame}
+        {hasAnalyzedGames && analysisSummary?.phase_performance ? (
+          <PhasePerformanceChart
+            phasePerformance={analysisSummary.phase_performance}
+            onRefresh={() => refetchAnalysisSummary()}
           />
-        )}
-
-        <CoachingInsightsSection insights={recommendations} />
-
-        {(!analysisSummary || analysisSummary.total_games_analyzed === 0) && !summaryLoading && (
-          <EmptyAnalysisState isFetching={isFetching} onFetchGames={fetchGames} />
+        ) : (
+          <div className="chessrun-card">
+            <h3 className="mb-4 font-display text-lg font-semibold text-content">
+              Phase Performance (ACPL)
+            </h3>
+            <ChartEmptyState />
+          </div>
         )}
       </div>
+
+      {games && games.length > 0 && (
+        <GamesList
+          games={games}
+          user={user}
+          isAnalyzing={analysis.isAnalyzing}
+          analyzingGameIds={analysis.analyzingGameIds}
+          onAnalyzeAll={() => analysis.handleAnalyzeGames(false)}
+          onAnalyzeGame={analysis.handleAnalyzeSingleGame}
+        />
+      )}
+
+      <CoachingInsightsSection insights={recommendations} />
+
+      {(!analysisSummary || analysisSummary.total_games_analyzed === 0) && !summaryLoading && (
+        <EmptyAnalysisState isFetching={isFetching} onFetchGames={fetchGames} />
+      )}
 
       {analysis.showAnalysisModal && (
         <AnalysisProgressModal
@@ -138,6 +151,6 @@ export const DashboardView: React.FC = () => {
           onStop={analysis.handleStopAnalysis}
         />
       )}
-    </div>
+    </ChessrunPageShell>
   );
 };

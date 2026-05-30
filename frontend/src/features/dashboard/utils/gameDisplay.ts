@@ -27,12 +27,12 @@ export function getUserResult(game: Game, chesscomUsername: string | null | unde
 
 export function formatGameResult(userResult: string | undefined): { label: string; colorClass: string } {
   if (userResult === 'win') {
-    return { label: '🎉 Win', colorClass: 'text-green-400' };
+    return { label: 'Win', colorClass: 'text-brand-secondary' };
   }
   if (userResult === 'checkmated' || userResult === 'resigned' || userResult === 'timeout') {
-    return { label: '❌ Loss', colorClass: 'text-red-400' };
+    return { label: 'Loss', colorClass: 'text-brand-error' };
   }
-  return { label: '🤝 Draw', colorClass: 'text-gray-400' };
+  return { label: 'Draw', colorClass: 'text-content-muted' };
 }
 
 export function toAnalyzingGameInfo(game: Game, user: User): AnalyzingGameInfo {

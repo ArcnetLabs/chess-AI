@@ -17,7 +17,7 @@
  * — the Supabase session already owns that.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
 import { withAuth } from '@/lib/auth/withAuth';
@@ -36,6 +36,20 @@ export default function LinkChesscomPage(_props: Props) {
 
   const next =
     typeof router.query.next === 'string' ? router.query.next : '/dashboard';
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    userApi
+      .me()
+      .then((profile) => {
+        if (profile.chesscom_username) {
+          router.replace(next);
+        }
+      })
+      .catch(() => {
+        /* stay on form */
+      });
+  }, [router, router.isReady, next]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
