@@ -1,29 +1,12 @@
 /**
- * /auth/callback
- *
- * Handles the OAuth and email-confirmation redirect from Supabase.
- *
- * Supabase sends users here after:
- *   - Email/password email confirmation
- *   - Magic link click
- *   - OAuth provider redirect (Google, GitHub, etc.)
- *
- * The URL contains either:
- *   - A PKCE `code` parameter (newer flow) → exchanged for a session via
- *     the Supabase API, which then sets the session cookie.
- *   - Fragment-based tokens (legacy implicit flow) → handled client-side
- *     automatically by the supabase-js library.
- *
- * After a successful exchange the user is redirected to `next` (query param)
- * or `/dashboard` as the default destination.
- *
- * This page has no visible UI — it is a pure redirect handler. If something
- * goes wrong the user is sent to /auth/login with an error param.
+ * /auth/callback — exchanges magic-link PKCE code for a session, links Chess.com
+ * username from user metadata when present, then redirects to the app.
  */
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '@/lib/supabase/client'
+import { userApi } from '@/lib/api'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -31,12 +14,9 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // exchangeCodeForSession picks up the `code` query parameter
-    // automatically from the current URL. It is a no-op if no code is
-    // present (e.g. legacy implicit flow tokens are handled by the listener).
     supabase.auth
       .exchangeCodeForSession(window.location.href)
-      .then(({ error }) => {
+      .then(async ({ data, error }) => {
         if (error) {
           console.error('[auth/callback] exchange error:', error.message)
           router.replace(
@@ -45,9 +25,19 @@ export default function AuthCallbackPage() {
           return
         }
 
-        // Redirect to the originally-intended destination or fall back to
-        // the dashboard. The `next` param is set by the middleware and
-        // withAuth wrapper when they redirect unauthenticated users.
+        const chesscom =
+          data.session?.user.user_metadata?.chesscom_username as
+            | string
+            | undefined
+
+        if (chesscom && typeof chesscom === 'string') {
+          try {
+            await userApi.linkChesscom(chesscom.trim().toLowerCase())
+          } catch (linkErr) {
+            console.warn('[auth/callback] Chess.com link deferred:', linkErr)
+          }
+        }
+
         const next =
           typeof router.query.next === 'string'
             ? router.query.next
@@ -57,6 +47,5 @@ export default function AuthCallbackPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Invisible while the exchange is in flight.
   return null
 }

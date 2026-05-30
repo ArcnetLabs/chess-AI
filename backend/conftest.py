@@ -156,7 +156,10 @@ def mock_supabase_client(monkeypatch):
     class MockAuthClient:
         def sign_up(self, credentials):
             return MockAuthResponse(success=True)
-        
+
+        def sign_in_with_otp(self, credentials):
+            return MockAuthResponse(success=True)
+
         def sign_in_with_password(self, credentials):
             return MockAuthResponse(success=True)
         

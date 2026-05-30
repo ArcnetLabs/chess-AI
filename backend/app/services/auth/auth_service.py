@@ -106,81 +106,60 @@ class AuthService:
             raise AuthError(f"Token verification failed: {e}") from e
     
     @staticmethod
-    async def sign_up(email: str, password: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Register a new user with email and password.
-        
-        Args:
-            email: User email address
-            password: User password (min 6 characters)
-            metadata: Additional user metadata (e.g., chesscom_username)
-        
-        Returns:
-            Dict containing user data and session
+    async def send_magic_link(
+        email: str,
+        *,
+        chesscom_username: Optional[str] = None,
+        redirect_to: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send a passwordless magic-link email (FR-AUTH-1).
+
+        The frontend normally calls ``signInWithOtp`` directly; this exists
+        for backend-initiated flows and smoke scripts.
         """
         try:
             supabase = get_supabase()
-            
-            # Sign up user with Supabase Auth
-            auth_response = supabase.auth.sign_up({
-                "email": email,
-                "password": password,
-                "options": {
-                    "data": metadata or {}
-                }
-            })
-            
-            if auth_response.user:
-                logger.info(f"User signed up successfully: {email}")
-                return {
-                    "user": auth_response.user,
-                    "session": auth_response.session,
-                    "success": True
-                }
-            else:
-                logger.warning(f"Sign up failed for: {email}")
-                return {"success": False, "error": "Sign up failed"}
-                
+            metadata: Dict[str, Any] = {}
+            if chesscom_username:
+                metadata["chesscom_username"] = chesscom_username.strip().lower()
+
+            options: Dict[str, Any] = {
+                "should_create_user": True,
+                "data": metadata,
+            }
+            if redirect_to:
+                options["email_redirect_to"] = redirect_to
+
+            supabase.auth.sign_in_with_otp(
+                {"email": email.strip(), "options": options}
+            )
+            logger.info(f"Magic link sent to: {email}")
+            return {"success": True, "message": "Magic link sent"}
         except Exception as e:
-            logger.error(f"Sign up error for {email}: {str(e)}")
+            logger.error(f"Magic link error for {email}: {e}")
             return {"success": False, "error": str(e)}
-    
+
     @staticmethod
-    async def sign_in(email: str, password: str) -> Dict[str, Any]:
-        """
-        Sign in user with email and password.
-        
-        Args:
-            email: User email address
-            password: User password
-        
-        Returns:
-            Dict containing user data and session token
-        """
-        try:
-            supabase = get_supabase()
-            
-            auth_response = supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
-            
-            if auth_response.session:
-                logger.info(f"User signed in successfully: {email}")
-                return {
-                    "user": auth_response.user,
-                    "session": auth_response.session,
-                    "access_token": auth_response.session.access_token,
-                    "refresh_token": auth_response.session.refresh_token,
-                    "success": True
-                }
-            else:
-                logger.warning(f"Sign in failed for: {email}")
-                return {"success": False, "error": "Invalid credentials"}
-                
-        except Exception as e:
-            logger.error(f"Sign in error for {email}: {str(e)}")
-            return {"success": False, "error": str(e)}
+    async def sign_up(
+        email: str,
+        chesscom_username: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Register / invite via magic link (no password)."""
+        merged = dict(metadata or {})
+        if chesscom_username:
+            merged["chesscom_username"] = chesscom_username.strip().lower()
+        return await AuthService.send_magic_link(
+            email, chesscom_username=merged.get("chesscom_username")
+        )
+
+    @staticmethod
+    async def sign_in(
+        email: str,
+        chesscom_username: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Sign in via magic link (no password)."""
+        return await AuthService.send_magic_link(email, chesscom_username=chesscom_username)
     
     @staticmethod
     async def sign_out(access_token: str) -> Dict[str, Any]:
@@ -257,43 +236,13 @@ class AuthService:
             return {"success": False, "error": str(e)}
     
     @staticmethod
-    async def reset_password_email(email: str) -> Dict[str, Any]:
-        """
-        Send password reset email.
-        
-        Args:
-            email: User email address
-        
-        Returns:
-            Dict with success status
-        """
-        try:
-            supabase = get_supabase()
-            supabase.auth.reset_password_email(email)
-            logger.info(f"Password reset email sent to: {email}")
-            return {"success": True, "message": "Password reset email sent"}
-        except Exception as e:
-            logger.error(f"Password reset error for {email}: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    @staticmethod
     async def update_user(
         access_token: str,
         email: Optional[str] = None,
-        password: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Update user information.
-        
-        Args:
-            access_token: User's access token
-            email: New email (optional)
-            password: New password (optional)
-            metadata: Updated metadata (optional)
-        
-        Returns:
-            Dict with updated user data
+        Update user information (email and/or user metadata).
         """
         try:
             supabase = get_supabase()
@@ -302,8 +251,6 @@ class AuthService:
             update_data = {}
             if email:
                 update_data["email"] = email
-            if password:
-                update_data["password"] = password
             if metadata:
                 update_data["data"] = metadata
             
