@@ -156,6 +156,7 @@ def analyze_batch_games_task(
     game_ids: List[int],
     user_id: int,
     source: str = "batch",
+    job_id: Optional[str] = None,
 ):
     """
     Celery task to queue multiple games for analysis.
@@ -167,18 +168,19 @@ def analyze_batch_games_task(
     Returns:
         dict: Batch analysis summary
     """
-    task_id = self.request.id
-    
+    task_id = job_id or self.request.id
+
     try:
         logger.info(f"🔍 [Batch Task {task_id}] Queuing {len(game_ids)} games for analysis")
 
         job_store = get_analysis_job_store()
-        job_store.create_job(
-            job_id=task_id,
-            user_id=user_id,
-            game_ids=game_ids,
-            source=source,
-        )
+        if not job_store.get_job(task_id):
+            job_store.create_job(
+                job_id=task_id,
+                user_id=user_id,
+                game_ids=game_ids,
+                source=source,
+            )
         
         task_results = []
         for game_id in game_ids:

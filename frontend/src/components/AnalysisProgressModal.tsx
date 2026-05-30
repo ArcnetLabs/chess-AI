@@ -1,514 +1,219 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { Brain, CheckCircle, Loader2, X, XCircle } from 'lucide-react';
 
-import { X, Brain, CheckCircle, XCircle, Loader } from 'lucide-react';
-
-
+export type AnalysisModalPhase = 'analyzing' | 'completed' | 'error';
 
 interface AnalysisProgressModalProps {
-
   isOpen: boolean;
-
+  phase: AnalysisModalPhase;
   onClose: () => void;
-
   totalGames: number;
-
   analyzedGames?: number;
-
+  elapsedSeconds?: number;
+  errorMessage?: string | null;
   currentGame?: {
-
     id: number;
-
     opponent: string;
-
     result: string;
-
     timeClass: string;
-
     date?: string;
-
   } | null;
-
-  onComplete?: () => void;
-
+  onViewResults?: () => void;
   onStop?: () => void;
-
 }
 
-
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 export const AnalysisProgressModal: React.FC<AnalysisProgressModalProps> = ({
-
   isOpen,
-
+  phase,
   onClose,
-
   totalGames,
-
   analyzedGames = 0,
-
+  elapsedSeconds = 0,
+  errorMessage,
   currentGame,
-
-  onComplete,
-
-  onStop
-
+  onViewResults,
+  onStop,
 }) => {
-
-  const [status, setStatus] = useState<'analyzing' | 'completed' | 'error'>('analyzing');
-
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [elapsedTime, setElapsedTime] = useState(0);
-
-
-
-  useEffect(() => {
-
-    if (!isOpen) {
-
-      setStatus('analyzing');
-
-      setErrorMessage(null);
-
-      setElapsedTime(0);
-
-      return;
-
-    }
-
-
-
-    // Timer for elapsed time
-
-    const timer = setInterval(() => {
-
-      setElapsedTime(prev => prev + 1);
-
-    }, 1000);
-
-
-
-    // Estimated time: ~40 seconds per game
-
-    const estimatedTime = totalGames * 40;
-
-    
-
-    // Auto-complete after estimated time (with buffer)
-
-    const autoCompleteTimer = setTimeout(() => {
-
-      setStatus('completed');
-
-      if (onComplete) {
-
-        onComplete();
-
-      }
-
-    }, estimatedTime * 1000 + 5000); // Add 5 second buffer
-
-
-
-    return () => {
-
-      clearInterval(timer);
-
-      clearTimeout(autoCompleteTimer);
-
-    };
-
-  }, [isOpen, totalGames, onComplete]);
-
-
-
-  const formatTime = (seconds: number) => {
-
-    const mins = Math.floor(seconds / 60);
-
-    const secs = seconds % 60;
-
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-
-  };
-
-
-
-  const estimatedTotalTime = totalGames * 40;
-
-  const progress = Math.min((elapsedTime / estimatedTotalTime) * 100, 95);
-
-
-
   if (!isOpen) return null;
 
-
+  const safeTotal = Math.max(totalGames, 1);
+  const progressPercent = Math.min(100, Math.round((analyzedGames / safeTotal) * 100));
+  const estimatedTotalTime = safeTotal * 40;
 
   return (
-
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-gray-700">
-
-        {/* Header */}
-
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
-
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-surface-lowest/80 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="analysis-modal-title"
+    >
+      <div className="w-full max-w-md border-l-2 border-brand-primary/40 bg-surface-container shadow-brand-ambient">
+        <div className="flex items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
-
-            {status === 'analyzing' && <Brain className="w-6 h-6 text-blue-400 animate-pulse" />}
-
-            {status === 'completed' && <CheckCircle className="w-6 h-6 text-green-400" />}
-
-            {status === 'error' && <XCircle className="w-6 h-6 text-red-400" />}
-
-            <h2 className="text-xl font-bold text-white">
-
-              {status === 'analyzing' && 'Analyzing Games'}
-
-              {status === 'completed' && 'Analysis Complete!'}
-
-              {status === 'error' && 'Analysis Error'}
-
+            {phase === 'analyzing' && (
+              <Brain className="h-6 w-6 animate-pulse text-brand-primary" strokeWidth={1.5} />
+            )}
+            {phase === 'completed' && (
+              <CheckCircle className="h-6 w-6 text-brand-secondary" strokeWidth={1.5} />
+            )}
+            {phase === 'error' && (
+              <XCircle className="h-6 w-6 text-brand-error" strokeWidth={1.5} />
+            )}
+            <h2
+              id="analysis-modal-title"
+              className="font-display text-lg font-bold uppercase tracking-tight text-content"
+            >
+              {phase === 'analyzing' && 'Engine analysis'}
+              {phase === 'completed' && 'Analysis complete'}
+              {phase === 'error' && 'Analysis interrupted'}
             </h2>
-
           </div>
-
           <button
-
+            type="button"
             onClick={onClose}
-
-            className="text-gray-400 hover:text-white transition"
-
-            title="Close modal (analysis continues in background)"
-
+            className="text-content-muted transition-colors hover:text-brand-primary"
+            aria-label="Close"
           >
-
-            <X className="w-6 h-6" />
-
+            <X className="h-5 w-5" strokeWidth={1.5} />
           </button>
-
         </div>
 
-
-
-        {/* Content */}
-
-        <div className="p-6 space-y-6">
-
-          {status === 'analyzing' && (
-
+        <div className="space-y-6 px-6 pb-6">
+          {phase === 'analyzing' && (
             <>
-
-              {/* Progress Info */}
-
               <div className="text-center">
-
-                <div className="relative inline-flex items-center justify-center">
-
-                  <Loader className="w-16 h-16 text-blue-400 animate-spin" />
-
-                  <Brain className="w-8 h-8 text-blue-300 absolute" />
-
+                <div className="relative mx-auto inline-flex h-20 w-20 items-center justify-center">
+                  <Loader2
+                    className="h-16 w-16 animate-spin text-brand-primary/30"
+                    strokeWidth={1.5}
+                  />
+                  <Brain
+                    className="absolute h-8 w-8 text-brand-primary"
+                    strokeWidth={1.5}
+                  />
                 </div>
-
-                <p className="text-gray-300 mt-4 text-lg">
-
-                  Analyzing <span className="font-bold text-blue-400">{totalGames}</span> game{totalGames > 1 ? 's' : ''} with Stockfish AI
-
+                <p className="mt-4 text-base text-content-muted">
+                  Analyzing{' '}
+                  <span className="font-bold text-brand-primary">{totalGames}</span> game
+                  {totalGames === 1 ? '' : 's'} with Stockfish
                 </p>
-
-                <p className="text-gray-500 text-sm mt-2">
-
-                  This may take a few minutes...
-
+                <p className="mt-1 text-xs uppercase tracking-widest text-content-muted/80">
+                  Depth {15} · runs in background
                 </p>
-
               </div>
-
-
-
-              {/* Current Game Being Analyzed */}
 
               {currentGame && (
-
-                <div className="bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg p-4">
-
-                  <div className="flex items-center gap-2 mb-2">
-
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-
-                    <p className="text-sm font-semibold text-gray-300">Currently Analyzing:</p>
-
+                <div className="bg-surface-container-high p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-brand-primary" />
+                    <p className="chessrun-label normal-case">Currently analyzing</p>
                   </div>
-
-                  <div className="space-y-1">
-
-                    <p className="text-white font-medium">
-
-                      vs {currentGame.opponent}
-
-                    </p>
-
-                    <div className="flex gap-3 text-sm text-gray-400">
-
-                      <span className="capitalize">{currentGame.timeClass}</span>
-
-                      <span>•</span>
-
-                      <span className={`font-semibold ${
-
-                        currentGame.result === 'win' ? 'text-green-400' :
-
-                        currentGame.result === 'loss' ? 'text-red-400' :
-
-                        'text-gray-400'
-
-                      }`}>
-
-                        {currentGame.result === 'win' ? 'Victory' :
-
-                         currentGame.result === 'loss' ? 'Defeat' :
-
-                         'Draw'}
-
-                      </span>
-
-                      {currentGame.date && (
-
-                        <>
-
-                          <span>•</span>
-
-                          <span>{new Date(currentGame.date).toLocaleDateString()}</span>
-
-                        </>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
+                  <p className="font-medium text-content">vs {currentGame.opponent}</p>
+                  <p className="mt-1 text-sm capitalize text-content-muted">
+                    {currentGame.timeClass}
+                  </p>
                 </div>
-
               )}
 
-
-
-              {/* Progress Bar */}
-
               <div className="space-y-2">
-
-                <div className="flex justify-between text-sm text-gray-400">
-
+                <div className="flex justify-between text-xs uppercase tracking-widest text-content-muted">
                   <span>Progress</span>
-
-                  <span>{analyzedGames} / {totalGames} games ({Math.round(progress)}%)</span>
-
+                  <span>
+                    {analyzedGames} / {totalGames} ({progressPercent}%)
+                  </span>
                 </div>
-
-                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-
-                  <div 
-
-                    className="bg-gradient-to-r from-blue-500 to-blue-400 h-3 rounded-full transition-all duration-1000 ease-out"
-
-                    style={{ width: `${progress}%` }}
-
+                <div className="h-2 overflow-hidden rounded-full bg-surface-low">
+                  <div
+                    className="h-full rounded-full bg-brand-primary shadow-[0_0_12px_rgba(132,255,0,0.45)] transition-all duration-500"
+                    style={{ width: `${Math.max(progressPercent, phase === 'analyzing' && analyzedGames === 0 ? 4 : 0)}%` }}
                   />
-
                 </div>
-
               </div>
-
-
-
-              {/* Time Info */}
 
               <div className="flex justify-between text-sm">
-
-                <div className="text-gray-400">
-
-                  <span className="text-gray-500">Elapsed: </span>
-
-                  <span className="font-mono text-blue-400">{formatTime(elapsedTime)}</span>
-
-                </div>
-
-                <div className="text-gray-400">
-
-                  <span className="text-gray-500">Est. Total: </span>
-
-                  <span className="font-mono text-blue-400">{formatTime(estimatedTotalTime)}</span>
-
-                </div>
-
+                <span className="text-content-muted">
+                  Elapsed{' '}
+                  <span className="font-mono text-brand-primary">{formatTime(elapsedSeconds)}</span>
+                </span>
+                <span className="text-content-muted">
+                  Est.{' '}
+                  <span className="font-mono text-content">
+                    {formatTime(estimatedTotalTime)}
+                  </span>
+                </span>
               </div>
 
-
-
-              {/* Info */}
-
-              <div className="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-4">
-
-                <p className="text-blue-200 text-sm">
-
-                  <strong className="text-blue-300">💡 Tip:</strong> Analysis runs in the background. You can close this window and the analysis will continue.
-
+              <div className="border-l-2 border-brand-primary/30 bg-surface-container-high/80 p-4">
+                <p className="text-sm text-content-muted">
+                  You can close this panel — analysis continues on the server. Dashboard stats
+                  update as each game finishes.
                 </p>
-
               </div>
-
-
-
-              {/* Action Buttons */}
 
               <div className="flex gap-3">
-
-                <button
-
-                  onClick={onClose}
-
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition"
-
-                >
-
-                  Close & Continue in Background
-
+                <button type="button" onClick={onClose} className="chessrun-btn-secondary flex-1 py-3">
+                  Run in background
                 </button>
-
                 {onStop && (
-
                   <button
-
-                    onClick={() => {
-
-                      if (confirm('Are you sure you want to stop the analysis? Games already analyzed will be saved.')) {
-
-                        onStop();
-
-                      }
-
-                    }}
-
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition"
-
+                    type="button"
+                    onClick={onStop}
+                    className="flex-1 rounded-chess border border-brand-error/40 bg-brand-error/10 py-3 text-xs font-bold uppercase tracking-widest text-brand-error transition-colors hover:bg-brand-error/20"
                   >
-
-                    Stop Analysis
-
+                    Stop
                   </button>
-
                 )}
-
               </div>
-
             </>
-
           )}
 
-
-
-          {status === 'completed' && (
-
+          {phase === 'completed' && (
             <>
-
               <div className="text-center">
-
-                <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
-
-                <p className="text-xl font-bold text-white mb-2">
-
-                  Analysis Complete! 🎉
-
+                <CheckCircle className="mx-auto mb-4 h-16 w-16 text-brand-secondary" strokeWidth={1.5} />
+                <p className="font-display text-xl font-bold text-content">
+                  {analyzedGames} game{analyzedGames === 1 ? '' : 's'} processed
                 </p>
-
-                <p className="text-gray-400">
-
-                  Successfully analyzed {totalGames} game{totalGames > 1 ? 's' : ''}
-
+                <p className="mt-2 text-sm text-content-muted">
+                  Dashboard metrics and insights have been refreshed.
                 </p>
-
               </div>
-
-
-
               <button
-
+                type="button"
                 onClick={() => {
-
-                  if (onComplete) onComplete();
-
+                  onViewResults?.();
                   onClose();
-
                 }}
-
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition"
-
+                className="chessrun-btn-primary w-full py-3 text-xs uppercase tracking-widest"
               >
-
-                View Results
-
+                View results
               </button>
-
             </>
-
           )}
 
-
-
-          {status === 'error' && errorMessage && (
-
+          {phase === 'error' && (
             <>
-
               <div className="text-center">
-
-                <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-
-                <p className="text-xl font-bold text-white mb-2">
-
-                  Analysis Failed
-
-                </p>
-
-                <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-4 mt-4">
-
-                  <p className="text-red-200 text-sm">
-
-                    <strong className="text-red-300">Error:</strong> {errorMessage}
-
-                  </p>
-
+                <XCircle className="mx-auto mb-4 h-14 w-14 text-brand-error" strokeWidth={1.5} />
+                <p className="font-display text-lg font-bold text-content">Could not track progress</p>
+                <div className="mt-4 bg-brand-error/10 p-4 text-left text-sm text-content-muted">
+                  {errorMessage ??
+                    'The analysis may still be running. Ensure the Celery worker is deployed on Render, then refresh the dashboard.'}
                 </div>
-
               </div>
-
-
-
-              <button
-
-                onClick={onClose}
-
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition"
-
-              >
-
+              <button type="button" onClick={onClose} className="chessrun-btn-secondary w-full py-3">
                 Close
-
               </button>
-
             </>
-
           )}
-
         </div>
-
       </div>
-
     </div>
-
   );
-
 };
-
