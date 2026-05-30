@@ -26,7 +26,8 @@ export default function PatternsPage() {
 
   return (
     <ChessrunPageShell
-      title="Playing patterns"
+      title="PLAYING"
+      accent="PATTERNS"
       subtitle="Recurring strengths and weaknesses detected across your analyzed games."
     >
       <div className="mb-6 flex flex-wrap gap-3">
