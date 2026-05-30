@@ -163,10 +163,9 @@ as `AuthService.verify_jwt(token)`.
   Supabase. A warning is logged. Production deployments **must** set
   the secret.
 
-The secret lives in env (`SUPABASE_JWT_SECRET`) and is documented in
-`backend/.env.example`. It is the **JWT Secret** field from the
-Supabase dashboard under *Settings → API → JWT Settings*, not the
-service-role key.
+The legacy secret lives in env (`SUPABASE_JWT_SECRET`) — **Settings → JWT Keys → Legacy JWT secret** in the Supabase dashboard (not the publishable/secret API keys).
+
+**Important (2025+):** Magic-link sessions are signed with **asymmetric JWT signing keys (ES256)**. The backend verifies those via Supabase's JWKS endpoint (`/auth/v1/.well-known/jwks.json`), then falls back to `auth.get_user()` if needed. Setting only the legacy secret is not enough for new user tokens — deploy a backend build that includes JWKS verification.
 
 ### 4.2 Dependency: `get_current_user`
 
