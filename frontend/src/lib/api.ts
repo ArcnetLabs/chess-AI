@@ -78,9 +78,11 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error) => {
     if (error?.response?.status === 401 && typeof window !== 'undefined') {
-      // Token missing/expired/invalid. Bounce to login and remember
-      // where the user was trying to go.
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      const path = window.location.pathname;
+      if (path.startsWith('/auth/')) {
+        return Promise.reject(error);
+      }
+      const next = encodeURIComponent(path + window.location.search);
       window.location.replace(`/auth/login?next=${next}`);
     } else {
       console.error('API Error:', error);

@@ -25,7 +25,7 @@ import {
 
 export const DashboardView: React.FC = () => {
   const router = useRouter();
-  const { user, userData, loading, refetchUser } = useCurrentUser();
+  const { user, userData, loading, profileError, refetchUser } = useCurrentUser();
 
   const {
     analysisSummary,
@@ -56,7 +56,17 @@ export const DashboardView: React.FC = () => {
   }
 
   if (!user) {
-    return <DashboardErrorState onGoHome={() => router.push('/')} />;
+    return (
+      <DashboardErrorState
+        onGoHome={() => router.push('/auth/login')}
+        onRetry={() => refetchUser()}
+        message={
+          profileError
+            ? 'We could not load your profile. The API may be unreachable from the browser.'
+            : undefined
+        }
+      />
+    );
   }
 
   const hasAnalyzedGames = (analysisSummary?.total_games_analyzed ?? 0) > 0;
