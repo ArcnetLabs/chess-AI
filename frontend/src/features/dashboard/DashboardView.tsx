@@ -3,18 +3,14 @@ import { useRouter } from 'next/router';
 import { AnalysisProgressModal } from '@/components/AnalysisProgressModal';
 import { ChessrunPageShell } from '@/components/layout/ChessrunPageShell';
 import {
-  ChartEmptyState,
-  CoachingInsightsSection,
-  DashboardActions,
   DashboardErrorState,
-  DashboardHeader,
+  DashboardHeroHeader,
+  DashboardInsightsPanel,
   DashboardLoadingState,
+  DashboardTrainingProgress,
   EmptyAnalysisState,
-  GamesList,
-  GamesSummaryBar,
-  MoveQualityChart,
-  PerformanceOverview,
-  PhasePerformanceChart,
+  PerformanceBentoGrid,
+  RecentBattlesTable,
 } from '@/components/dashboard';
 import {
   useChatSession,
@@ -62,10 +58,10 @@ export const DashboardView: React.FC = () => {
     let message: string | undefined;
     if (status === 401) {
       message =
-        'You are signed in, but the API could not verify your session token. Ensure Render has SUPABASE_URL and the latest backend (JWKS support for Supabase signing keys). Legacy JWT secret alone is not enough for new magic-link sessions.';
+        'You are signed in, but the API could not verify your session token. Ensure Render has SUPABASE_URL and the latest backend (JWKS support for Supabase signing keys).';
     } else if (profileError) {
       message =
-        'We could not load your profile. Open DevTools → Network and check the request to /users/me (CORS, 5xx, or timeout).';
+        'We could not load your profile. Open DevTools → Network and check the request to /users/me.';
     }
     return (
       <DashboardErrorState
@@ -77,74 +73,54 @@ export const DashboardView: React.FC = () => {
   }
 
   const hasAnalyzedGames = (analysisSummary?.total_games_analyzed ?? 0) > 0;
+  const gameList = games ?? [];
 
   return (
     <ChessrunPageShell>
-      <DashboardHeader user={user} userData={userData} />
-
-      {userData && (
-        <GamesSummaryBar
-          userData={userData}
-          gamesAnalyzed={analysisSummary?.total_games_analyzed || 0}
-        />
-      )}
-
-      <DashboardActions
+      <DashboardHeroHeader
+        user={user}
+        userData={userData}
         isFetching={isFetching}
         isAnalyzing={analysis.isAnalyzing}
-        onFetchGames={fetchGames}
-        onAnalyzeGames={analysis.handleAnalyzeGames}
-        userData={userData}
+        onSync={fetchGames}
+        onAnalyze={() => analysis.handleAnalyzeGames(false)}
         hasAnalyzedGames={hasAnalyzedGames}
       />
 
-      {analysisSummary && !summaryLoading && (
-        <PerformanceOverview analysisSummary={analysisSummary} />
+      {!summaryLoading && (
+        <PerformanceBentoGrid summary={analysisSummary} hasData={hasAnalyzedGames} />
       )}
 
-      <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {analysisSummary?.move_quality_breakdown && hasAnalyzedGames ? (
-          <MoveQualityChart breakdown={analysisSummary.move_quality_breakdown} />
-        ) : (
-          <div className="chessrun-card">
-            <h3 className="mb-4 font-display text-lg font-semibold text-content">
-              Move Quality Distribution
-            </h3>
-            <ChartEmptyState />
-          </div>
-        )}
+      {(!hasAnalyzedGames || gameList.length === 0) && !summaryLoading && (
+        <div className="mb-10">
+          <EmptyAnalysisState isFetching={isFetching} onFetchGames={fetchGames} />
+        </div>
+      )}
 
-        {hasAnalyzedGames && analysisSummary?.phase_performance ? (
-          <PhasePerformanceChart
-            phasePerformance={analysisSummary.phase_performance}
-            onRefresh={() => refetchAnalysisSummary()}
+      <div
+        className={`grid grid-cols-1 items-start gap-8 ${gameList.length > 0 ? 'lg:grid-cols-12' : ''}`}
+      >
+        {gameList.length > 0 && (
+          <RecentBattlesTable
+            games={gameList}
+            user={user}
+            isAnalyzing={analysis.isAnalyzing}
+            analyzingGameIds={analysis.analyzingGameIds}
+            onAnalyzeAll={() => analysis.handleAnalyzeGames(false)}
+            onAnalyzeGame={analysis.handleAnalyzeSingleGame}
           />
-        ) : (
-          <div className="chessrun-card">
-            <h3 className="mb-4 font-display text-lg font-semibold text-content">
-              Phase Performance (ACPL)
-            </h3>
-            <ChartEmptyState />
-          </div>
         )}
+
+        <div
+          className={`flex flex-col gap-6 ${gameList.length > 0 ? 'lg:col-span-4' : 'mx-auto w-full max-w-md'}`}
+        >
+          <DashboardInsightsPanel insights={recommendations} />
+          <DashboardTrainingProgress
+            phasePerformance={analysisSummary?.phase_performance}
+            hasData={hasAnalyzedGames}
+          />
+        </div>
       </div>
-
-      {games && games.length > 0 && (
-        <GamesList
-          games={games}
-          user={user}
-          isAnalyzing={analysis.isAnalyzing}
-          analyzingGameIds={analysis.analyzingGameIds}
-          onAnalyzeAll={() => analysis.handleAnalyzeGames(false)}
-          onAnalyzeGame={analysis.handleAnalyzeSingleGame}
-        />
-      )}
-
-      <CoachingInsightsSection insights={recommendations} />
-
-      {(!analysisSummary || analysisSummary.total_games_analyzed === 0) && !summaryLoading && (
-        <EmptyAnalysisState isFetching={isFetching} onFetchGames={fetchGames} />
-      )}
 
       {analysis.showAnalysisModal && (
         <AnalysisProgressModal

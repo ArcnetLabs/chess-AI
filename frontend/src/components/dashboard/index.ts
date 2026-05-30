@@ -10,3 +10,8 @@ export { GamesList } from './GamesList';
 export { CoachingInsightsSection } from './CoachingInsightsSection';
 export { EmptyAnalysisState } from './EmptyAnalysisState';
 export { DashboardLoadingState, DashboardErrorState } from './DashboardStates';
+export { PerformanceBentoGrid } from './PerformanceBentoGrid';
+export { RecentBattlesTable } from './RecentBattlesTable';
+export { DashboardInsightsPanel } from './DashboardInsightsPanel';
+export { DashboardTrainingProgress } from './DashboardTrainingProgress';
+export { DashboardHeroHeader } from './DashboardHeroHeader';

@@ -17,15 +17,15 @@ export const ChatbotIcon: React.FC = () => {
   return (
     <button
       onClick={toggleChat}
-      className="fixed bottom-6 right-6 z-50 group"
+      className="fixed bottom-24 right-6 z-50 group md:bottom-8"
       aria-label="Open chess coach chat"
     >
       {/* Main Icon Button */}
       <div className="relative">
         <div className={`
-          w-16 h-16 rounded-full bg-blue-600 text-white
+          w-16 h-16 rounded-2xl bg-brand-primary text-brand-on-primary
           flex items-center justify-center
-          shadow-lg hover:shadow-xl
+          shadow-[0_8px_32px_rgba(132,255,0,0.3)] hover:shadow-brand-glow-lg
           transform transition-all duration-200
           hover:scale-105 active:scale-95
           ${unreadCount > 0 ? 'animate-pulse' : ''}

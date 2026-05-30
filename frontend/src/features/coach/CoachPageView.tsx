@@ -41,7 +41,8 @@ export const CoachPageView: React.FC = () => {
 
   return (
     <ChessrunPageShell
-      title="AI Coach"
+      title="AI"
+      accent="COACH"
       subtitle="Ask questions about your games, openings, and improvement plan."
       maxWidth="xl"
     >

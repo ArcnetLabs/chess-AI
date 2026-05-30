@@ -10,7 +10,7 @@ export const EmptyAnalysisState: React.FC<EmptyAnalysisStateProps> = ({
   isFetching,
   onFetchGames,
 }) => (
-  <div className="chessrun-card py-12 text-center">
+  <div className="bg-surface-low py-12 text-center">
     <div className="mb-4 text-content-muted">
       <Trophy className="mx-auto h-16 w-16" />
     </div>
