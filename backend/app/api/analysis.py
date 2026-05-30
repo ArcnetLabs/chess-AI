@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -279,6 +280,74 @@ async def analyze_user_games(
         "job_id": job_id,
         "analysis_mode": analysis_mode,
         "uses_ai": uses_ai,
+    }
+
+
+@router.get("/{user_id}/pipeline-status")
+async def get_analysis_pipeline_status(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Debug-friendly snapshot: sync vs Stockfish analysis completion (ownership-checked)."""
+    require_ownership(current_user, user_id)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    total_games = (
+        db.query(func.count(Game.id)).filter(Game.user_id == user_id).scalar() or 0
+    )
+    games_with_pgn = (
+        db.query(func.count(Game.id))
+        .filter(
+            Game.user_id == user_id,
+            Game.pgn.isnot(None),
+            Game.pgn != "",
+        )
+        .scalar()
+        or 0
+    )
+    games_analyzed = (
+        db.query(func.count(Game.id))
+        .filter(Game.user_id == user_id, Game.is_analyzed.is_(True))
+        .scalar()
+        or 0
+    )
+    analysis_rows = (
+        db.query(func.count(GameAnalysis.id))
+        .join(Game, GameAnalysis.game_id == Game.id)
+        .filter(Game.user_id == user_id)
+        .scalar()
+        or 0
+    )
+
+    job = get_analysis_job_store().get_active_job(user_id)
+    active_job = None
+    if job:
+        active_job = {
+            "job_id": job.get("job_id"),
+            "status": job.get("status"),
+            "total_games": job.get("total_games"),
+            "completed_games": job.get("completed_games"),
+            "failed_games": job.get("failed_games"),
+            "current_game_id": job.get("current_game_id"),
+        }
+
+    return {
+        "chesscom_username": user.chesscom_username,
+        "total_games_fetched": int(total_games),
+        "games_with_pgn": int(games_with_pgn),
+        "games_flagged_analyzed": int(games_analyzed),
+        "game_analysis_rows": int(analysis_rows),
+        "active_job": active_job,
+        "pipeline": {
+            "sync": "Chess.com API → games table (PGN + metadata only)",
+            "analyze": "Celery worker runs Stockfish on each PGN → game_analyses table",
+            "dashboard": "Summary API aggregates game_analyses (not Chess.com review data)",
+        },
+        "healthy": analysis_rows > 0 and games_analyzed > 0,
     }
 
 

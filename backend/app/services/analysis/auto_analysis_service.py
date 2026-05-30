@@ -6,12 +6,14 @@ via Celery without requiring a separate manual analyze call.
 from __future__ import annotations
 
 from typing import Iterable, List, Optional
+from uuid import uuid4
 
 from loguru import logger
 from sqlalchemy.orm import Session
 
 from app.models.game import Game
 from app.models.user import User
+from app.services.analysis.analysis_job_store import get_analysis_job_store
 
 AUTO_ANALYZE_PREF_KEY = "auto_analyze_on_sync"
 DEFAULT_AUTO_ANALYZE = True
@@ -78,15 +80,28 @@ def queue_new_games_for_analysis(
 
     from app.tasks.analysis_tasks import analyze_batch_games_task
 
-    task = analyze_batch_games_task.delay(eligible_ids, user.id, source=source)
+    job_store = get_analysis_job_store()
+    job_id = str(uuid4())
+    job_store.create_job(
+        job_id=job_id,
+        user_id=user.id,
+        game_ids=eligible_ids,
+        source=source,
+    )
+    task = analyze_batch_games_task.delay(
+        eligible_ids,
+        user.id,
+        source=source,
+        job_id=job_id,
+    )
     logger.info(
         f"Auto-queued {len(eligible_ids)} games for analysis "
-        f"(user={user.id}, source={source}, job={task.id})"
+        f"(user={user.id}, source={source}, job={job_id}, celery={task.id})"
     )
 
     return {
         "status": "queued",
         "games_queued": len(eligible_ids),
         "task_id": task.id,
-        "job_id": task.id,
+        "job_id": job_id,
     }

@@ -5,6 +5,7 @@ Usage (from backend/):
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -46,6 +47,16 @@ def main() -> int:
     except Exception as exc:
         errors.append(f"Celery import failed: {exc}")
 
+    stockfish_path = settings.STOCKFISH_PATH or "stockfish/stockfish"
+    sf_binary = BACKEND_DIR / stockfish_path if not Path(stockfish_path).is_absolute() else Path(stockfish_path)
+    if not sf_binary.is_file():
+        errors.append(
+            f"Stockfish binary missing at {sf_binary}. "
+            "Ensure render_install_stockfish.sh ran in the worker build."
+        )
+    elif not os.access(sf_binary, os.X_OK):
+        errors.append(f"Stockfish binary not executable: {sf_binary}")
+
     if errors:
         print("=== Celery worker preflight FAILED ===")
         for err in errors:
@@ -54,7 +65,7 @@ def main() -> int:
 
     print("=== Celery worker preflight OK ===")
     print(f"  broker={settings.CELERY_BROKER_URL}")
-    print(f"  stockfish={settings.STOCKFISH_PATH or '(auto-detect)'}")
+    print(f"  stockfish={sf_binary}")
     return 0
 
 
