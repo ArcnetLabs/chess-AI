@@ -62,7 +62,7 @@ export const DashboardView: React.FC = () => {
     let message: string | undefined;
     if (status === 401) {
       message =
-        'You are signed in, but the API rejected your token. On Render, set SUPABASE_JWT_SECRET to match Supabase Dashboard → Settings → API → JWT Secret, then redeploy the backend.';
+        'You are signed in, but the API could not verify your session token. Ensure Render has SUPABASE_URL and the latest backend (JWKS support for Supabase signing keys). Legacy JWT secret alone is not enough for new magic-link sessions.';
     } else if (profileError) {
       message =
         'We could not load your profile. Open DevTools → Network and check the request to /users/me (CORS, 5xx, or timeout).';
