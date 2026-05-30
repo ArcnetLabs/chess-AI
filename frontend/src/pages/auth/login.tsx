@@ -8,6 +8,7 @@
 import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '@/lib/supabase/client'
+import { getAuthCallbackUrl } from '@/lib/auth/site-url'
 
 function normalizeChesscomUsername(raw: string): string {
   return raw.trim().toLowerCase()
@@ -37,7 +38,7 @@ export default function LoginPage() {
     }
 
     const supabase = createClient()
-    const redirectTo = `${window.location.origin}/auth/callback`
+    const redirectTo = getAuthCallbackUrl()
 
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email: email.trim(),

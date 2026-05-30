@@ -120,6 +120,31 @@ complete `/onboarding/link-chesscom` after sign-in.
 Frontend calls `supabase.auth.signOut()` which clears the cookie.
 The backend is stateless — no logout endpoint to call.
 
+### 3.4 Supabase URL configuration (required for production)
+
+If magic links open **localhost** while you signed in on Netlify, the
+Supabase project **Site URL** is still set to `http://localhost:3000` and/or
+the production callback is missing from **Redirect URLs**.
+
+In **Supabase Dashboard → Authentication → URL Configuration**:
+
+| Setting | Production value |
+|---------|------------------|
+| **Site URL** | `https://chessrun.netlify.app` |
+| **Redirect URLs** (add each) | `https://chessrun.netlify.app/**` |
+| | `http://localhost:3000/**` (local dev) |
+
+The app sends `emailRedirectTo` = `{NEXT_PUBLIC_SITE_URL}/auth/callback`
+(see `frontend/src/lib/auth/site-url.ts`). That URL **must** appear in
+Redirect URLs or Supabase ignores it and uses Site URL instead.
+
+Netlify sets `NEXT_PUBLIC_SITE_URL` in `netlify.toml` for production builds.
+Middleware also forwards `/?code=…` → `/auth/callback?code=…` when Supabase
+lands on the site root.
+
+After changing Supabase settings, request a **new** magic link (old emails
+still contain the previous redirect).
+
 ---
 
 ## 4. Backend boundaries
