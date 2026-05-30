@@ -30,7 +30,8 @@ export default function TrainingPage() {
 
   return (
     <ChessrunPageShell
-      title="Training"
+      title="SKILL"
+      accent="TRAINING"
       subtitle="MVP training shell powered by your longitudinal player profile."
     >
       <div className="mb-6 flex flex-wrap gap-3">

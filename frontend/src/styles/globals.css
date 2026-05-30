@@ -140,4 +140,8 @@ body {
   .chessrun-page-bg {
     @apply min-h-screen bg-surface text-content;
   }
+
+  .chessrun-surface-low {
+    @apply bg-surface-low;
+  }
 }
