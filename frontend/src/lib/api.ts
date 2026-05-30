@@ -54,6 +54,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 30_000,
 });
 
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
@@ -76,12 +77,30 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
 
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error) => {
+  async (error) => {
     if (error?.response?.status === 401 && typeof window !== 'undefined') {
       const path = window.location.pathname;
       if (path.startsWith('/auth/')) {
         return Promise.reject(error);
       }
+
+      // Avoid dashboard ↔ login redirect loops when Supabase session exists
+      // but the backend rejects the JWT (misconfigured SUPABASE_JWT_SECRET).
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          console.error(
+            '[api] 401 with active Supabase session — backend JWT verification likely misconfigured',
+          );
+          return Promise.reject(error);
+        }
+      } catch {
+        /* fall through to login redirect */
+      }
+
       const next = encodeURIComponent(path + window.location.search);
       window.location.replace(`/auth/login?next=${next}`);
     } else {

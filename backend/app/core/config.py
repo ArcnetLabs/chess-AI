@@ -64,6 +64,13 @@ class Settings(BaseSettings):
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:3001",
             ]
+
+        # Production fallback when Render env omits BACKEND_CORS_ORIGINS
+        if not origins and environment == "production":
+            origins = [
+                "https://chessrun.netlify.app",
+                "http://localhost:3000",
+            ]
         
         # Security check: never allow wildcard in production
         if environment == "production" and "*" in origins:

@@ -14,19 +14,30 @@ export function useCurrentUser() {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: () => api.users.me(),
-    retry: 1,
+    retry: false,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
     if (!router.isReady) return;
-    if (query.isLoading || query.isFetching) return;
+
+    // Only block on the initial fetch — not background refetches.
+    if (query.isPending) return;
 
     if (query.error) {
       const status = (query.error as { response?: { status?: number } })?.response
         ?.status;
-      if (status !== 401) {
-        toast.error('Could not reach the ChessIQ API. Check your connection.');
+      if (status === 401) {
+        toast.error(
+          'Signed in, but the API rejected your session. Check backend JWT settings.',
+        );
+      } else if (status !== undefined) {
+        toast.error('Could not load your profile from the API.');
+      } else {
+        toast.error(
+          'Could not reach the ChessIQ API (network or CORS). Check the browser console.',
+        );
       }
       setUser(null);
       setLoading(false);
@@ -50,14 +61,7 @@ export function useCurrentUser() {
 
     setUser(query.data);
     setLoading(false);
-  }, [
-    query.data,
-    query.error,
-    query.isLoading,
-    query.isFetching,
-    router.isReady,
-    router,
-  ]);
+  }, [query.data, query.error, query.isPending, router.isReady, router]);
 
   return {
     user,

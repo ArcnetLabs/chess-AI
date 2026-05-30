@@ -10,24 +10,27 @@ export const EmptyAnalysisState: React.FC<EmptyAnalysisStateProps> = ({
   isFetching,
   onFetchGames,
 }) => (
-  <div className="text-center py-12 bg-gray-800 rounded-lg border border-gray-700">
-    <div className="text-gray-500 mb-4">
-      <Trophy className="w-16 h-16 mx-auto" />
+  <div className="chessrun-card py-12 text-center">
+    <div className="mb-4 text-content-muted">
+      <Trophy className="mx-auto h-16 w-16" />
     </div>
-    <h3 className="text-lg font-semibold text-white mb-2">Ready to start your chess journey?</h3>
-    <p className="text-gray-400 mb-6 max-w-md mx-auto">
-      Connect your Chess.com account and let our AI analyze your games to provide personalized
-      coaching insights.
+    <h3 className="mb-2 font-display text-lg font-semibold text-content">
+      Ready to start your chess journey?
+    </h3>
+    <p className="mx-auto mb-6 max-w-md text-content-muted">
+      Connect your Chess.com account and let our AI analyze your games to provide
+      personalized coaching insights.
     </p>
     <button
+      type="button"
       onClick={onFetchGames}
       disabled={isFetching}
-      className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center space-x-2 mx-auto"
+      className="chessrun-btn-primary mx-auto flex items-center gap-2 px-8 py-3"
     >
       {isFetching ? (
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+        <div className="loading-spinner h-4 w-4" />
       ) : (
-        <Clock className="w-4 h-4" />
+        <Clock className="h-4 w-4" />
       )}
       <span>{isFetching ? 'Syncing Games...' : 'Sync Your Games'}</span>
     </button>

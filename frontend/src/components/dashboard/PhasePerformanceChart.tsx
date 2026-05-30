@@ -32,40 +32,43 @@ export const PhasePerformanceChart: React.FC<PhasePerformanceChartProps> = ({
   ];
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">Phase Performance (ACPL)</h3>
+    <div className="chessrun-card">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-display text-lg font-semibold text-content">
+          Phase Performance (ACPL)
+        </h3>
         <button
+          type="button"
           onClick={onRefresh}
-          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+          className="flex items-center gap-1 text-xs text-brand-primary hover:text-brand-primary-dim"
           title="Refresh data"
         >
-          🔄 Refresh
+          Refresh
         </button>
       </div>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-          <XAxis dataKey="phase" stroke="#9CA3AF" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#1f262e" />
+          <XAxis dataKey="phase" stroke="#a7abb2" />
           <YAxis
-            stroke="#9CA3AF"
+            stroke="#a7abb2"
             label={{
               value: 'ACPL (Lower is better)',
               angle: -90,
               position: 'insideLeft',
-              fill: '#9CA3AF',
+              fill: '#a7abb2',
             }}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: '#1F2937',
-              border: '1px solid #4B5563',
-              borderRadius: '8px',
-              color: '#fff',
+              backgroundColor: '#141a20',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#e7ebf3',
             }}
             formatter={(value: number) => [value.toFixed(1), 'ACPL']}
           />
-          <Bar dataKey="acpl" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="acpl" fill="#84ff00" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -75,11 +78,11 @@ export const PhasePerformanceChart: React.FC<PhasePerformanceChartProps> = ({
 export const ChartEmptyState: React.FC<{ message?: string }> = ({
   message = 'Analyze some games to see phase performance',
 }) => (
-  <div className="flex items-center justify-center h-[300px] text-gray-500">
+  <div className="flex h-[300px] items-center justify-center text-content-muted">
     <div className="text-center">
-      <Trophy className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+      <Trophy className="mx-auto mb-4 h-12 w-12 text-surface-bright" />
       <p>{message}</p>
-      <p className="text-xs mt-2">Click &quot;Analyze&quot; on any game below</p>
+      <p className="mt-2 text-xs">Click &quot;Analyze&quot; on any game below</p>
     </div>
   </div>
 );

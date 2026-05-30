@@ -3,52 +3,49 @@
 @tailwind utilities;
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --surface: #0a0f14;
+  --surface-low: #0e1419;
+  --surface-container: #141a20;
+  --surface-bright: #252d35;
+  --brand-primary: #84ff00;
+  --brand-on-primary: #214800;
+  --content: #e7ebf3;
+  --content-muted: #a7abb2;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: var(--content);
+  background-color: var(--surface);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — tonal, no hard borders */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--surface-low);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--surface-bright);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #43484e;
 }
 
-/* Custom animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -92,20 +89,14 @@ body {
   animation: scaleIn 0.2s ease-out;
 }
 
-/* Chess-specific styles */
 .chess-board {
-  background-image: 
-    repeating-conic-gradient(
-      #f0d9b5 0% 25%,
-      #b58863 0% 50%
-    );
+  background-image: repeating-conic-gradient(#f0d9b5 0% 25%, #b58863 0% 50%);
   background-size: 40px 40px;
 }
 
-/* Loading spinner */
 .loading-spinner {
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #3b82f6;
+  border: 2px solid var(--surface-container);
+  border-top: 2px solid var(--brand-primary);
   border-radius: 50%;
   width: 20px;
   height: 20px;
@@ -113,17 +104,40 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
-/* Custom utilities */
 .text-balance {
   text-wrap: balance;
 }
 
-.glass-effect {
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+@layer components {
+  .chessrun-label {
+    @apply font-sans text-xs font-semibold uppercase tracking-widest text-content-muted;
+  }
+
+  .chessrun-card {
+    @apply rounded-chess-md bg-surface-container p-6;
+  }
+
+  .chessrun-input {
+    @apply w-full rounded-chess bg-surface-container-highest px-4 py-3 text-content outline-none transition-all placeholder:text-content-muted/60 focus:ring-2 focus:ring-brand-primary/40;
+  }
+
+  .chessrun-btn-primary {
+    @apply rounded-chess bg-brand-primary px-4 py-2.5 font-semibold text-brand-on-primary shadow-brand-glow transition-all hover:shadow-brand-glow-lg disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .chessrun-btn-secondary {
+    @apply rounded-chess bg-surface-variant/40 px-4 py-2.5 font-medium text-content backdrop-blur-md transition-colors hover:bg-surface-bright/60 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .chessrun-page-bg {
+    @apply min-h-screen bg-surface text-content;
+  }
 }
