@@ -59,13 +59,13 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
         game = db.query(Game).filter(Game.id == game_id).first()
         if not game or not game.pgn:
             logger.warning(f"❌ {log_prefix}Game {game_id} not found or has no PGN")
-            job_store.mark_game_failed(job_id, game_id)
+            job_store.mark_game_failed(job_id, game_id, error="Game not found or has no PGN")
             return {"status": "failed", "reason": "Game not found or no PGN"}
-        
+
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             logger.warning(f"❌ {log_prefix}User {user_id} not found")
-            job_store.mark_game_failed(job_id, game_id)
+            job_store.mark_game_failed(job_id, game_id, error="User not found")
             return {"status": "failed", "reason": "User not found"}
         
         logger.info(
@@ -134,7 +134,7 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             raise self.retry(exc=e)
         else:
             logger.error(f"💀 {log_prefix}Max retries reached for game {game_id}")
-            job_store.mark_game_failed(job_id, game_id)
+            job_store.mark_game_failed(job_id, game_id, error=str(e))
             return {
                 "status": "failed",
                 "game_id": game_id,

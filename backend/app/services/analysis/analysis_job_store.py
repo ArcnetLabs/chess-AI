@@ -35,6 +35,10 @@ def user_active_key(user_id: int) -> str:
     return f"{ANALYSIS_USER_ACTIVE_KEY_PREFIX}:{user_id}:active"
 
 
+def user_last_key(user_id: int) -> str:
+    return f"{ANALYSIS_USER_ACTIVE_KEY_PREFIX}:{user_id}:last"
+
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -55,8 +59,10 @@ def _empty_job(
         "total_games": len(game_ids),
         "completed_games": 0,
         "failed_games": 0,
+        "failed_game_ids": [],
         "pending_game_ids": list(game_ids),
         "current_game_id": None,
+        "last_error": None,
         "created_at": now,
         "updated_at": now,
     }
@@ -78,6 +84,7 @@ class AnalysisJobStore:
         )
         self._memory_jobs: Dict[str, Dict[str, Any]] = {}
         self._memory_active: Dict[int, str] = {}
+        self._memory_last: Dict[int, str] = {}
 
     @property
     def uses_redis(self) -> bool:
@@ -100,6 +107,7 @@ class AnalysisJobStore:
         )
         self._save_job(payload)
         self._set_active_job(user_id, job_id)
+        self._set_last_job(user_id, job_id)
         return payload
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -118,6 +126,17 @@ class AnalysisJobStore:
 
     def get_active_job(self, user_id: int) -> Optional[Dict[str, Any]]:
         job_id = self._get_active_job_id(user_id)
+        if not job_id:
+            return None
+        return self.get_job(job_id)
+
+    def get_last_job(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Most recent job for the user — survives terminal status (unlike active).
+
+        Used by pipeline diagnostics so a finished/failed run's reason stays
+        visible after the active pointer is cleared.
+        """
+        job_id = self._get_last_job_id(user_id)
         if not job_id:
             return None
         return self.get_job(job_id)
@@ -151,7 +170,12 @@ class AnalysisJobStore:
         self._finalize_status(job)
         self._save_job(job)
 
-    def mark_game_failed(self, job_id: Optional[str], game_id: int) -> None:
+    def mark_game_failed(
+        self,
+        job_id: Optional[str],
+        game_id: int,
+        error: Optional[str] = None,
+    ) -> None:
         if not job_id:
             return
 
@@ -162,6 +186,11 @@ class AnalysisJobStore:
         pending = [gid for gid in job.get("pending_game_ids", []) if gid != game_id]
         job["pending_game_ids"] = pending
         job["failed_games"] = int(job.get("failed_games", 0)) + 1
+        failed_ids = list(job.get("failed_game_ids", []))
+        failed_ids.append(game_id)
+        job["failed_game_ids"] = failed_ids
+        if error:
+            job["last_error"] = error
         job["current_game_id"] = pending[0] if pending else None
         job["updated_at"] = _utc_now_iso()
         self._finalize_status(job)
@@ -228,6 +257,33 @@ class AnalysisJobStore:
                 )
 
         return self._memory_active.get(user_id)
+
+    def _set_last_job(self, user_id: int, job_id: str) -> None:
+        if self._redis is None:
+            self._memory_last[user_id] = job_id
+            return
+
+        try:
+            self._redis.setex(user_last_key(user_id), self._ttl, job_id)
+        except Exception as exc:
+            logger.warning(
+                f"Redis last-job set failed for user {user_id}: {exc}; "
+                "using in-memory fallback"
+            )
+            self._memory_last[user_id] = job_id
+
+    def _get_last_job_id(self, user_id: int) -> Optional[str]:
+        if self._redis is not None:
+            try:
+                raw = self._redis.get(user_last_key(user_id))
+                if raw:
+                    return raw
+            except Exception as exc:
+                logger.warning(
+                    f"Redis last-job get failed for user {user_id}: {exc}"
+                )
+
+        return self._memory_last.get(user_id)
 
     def _clear_active_job(self, user_id: int) -> None:
         if self._redis is not None:
