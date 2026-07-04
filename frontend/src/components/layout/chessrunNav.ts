@@ -16,18 +16,30 @@ export interface ChessrunNavItem {
 
 export const CHESSRUN_SIDEBAR_NAV: ChessrunNavItem[] = [
   {
+<<<<<<< HEAD
     href: '/dashboard',
     label: 'Analysis',
     icon: BarChart3,
     match: ['/dashboard'],
   },
   {
+=======
+>>>>>>> 6ffce60 (new changes)
     href: '/coach',
     label: 'Coach',
     icon: Brain,
     match: ['/coach'],
   },
   {
+<<<<<<< HEAD
+=======
+    href: '/dashboard',
+    label: 'Analysis',
+    icon: BarChart3,
+    match: ['/dashboard'],
+  },
+  {
+>>>>>>> 6ffce60 (new changes)
     href: '/patterns',
     label: 'Tactics',
     icon: LayoutGrid,
@@ -42,9 +54,15 @@ export const CHESSRUN_SIDEBAR_NAV: ChessrunNavItem[] = [
 ];
 
 export const CHESSRUN_MOBILE_NAV: ChessrunNavItem[] = [
+<<<<<<< HEAD
   { href: '/dashboard', label: 'Home', icon: BarChart3, match: ['/dashboard'] },
   { href: '/patterns', label: 'Tactics', icon: LayoutGrid, match: ['/patterns'] },
   { href: '/coach', label: 'Coach', icon: Brain, match: ['/coach'] },
+=======
+  { href: '/coach', label: 'Coach', icon: Brain, match: ['/coach'] },
+  { href: '/dashboard', label: 'Analysis', icon: BarChart3, match: ['/dashboard'] },
+  { href: '/patterns', label: 'Tactics', icon: LayoutGrid, match: ['/patterns'] },
+>>>>>>> 6ffce60 (new changes)
   { href: '/training', label: 'Training', icon: BookOpen, match: ['/training'] },
 ];
 

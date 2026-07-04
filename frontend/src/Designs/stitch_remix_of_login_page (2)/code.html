@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Grandmaster AI - Coaching Assistant</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#cfffa7",
+                    "on-secondary-container": "#e1ffec",
+                    "primary-fixed-dim": "#7bef00",
+                    "primary-container": "#84ff00",
+                    "inverse-primary": "#346c00",
+                    "outline-variant": "#43484e",
+                    "tertiary-fixed-dim": "#eeef5e",
+                    "surface-container-highest": "#1f262e",
+                    "surface-container": "#141a20",
+                    "error-container": "#b92902",
+                    "surface-container-high": "#1a2027",
+                    "secondary-dim": "#58e7ab",
+                    "on-secondary": "#005a3c",
+                    "tertiary-dim": "#eeef5e",
+                    "tertiary-fixed": "#fdfe6a",
+                    "on-error": "#450900",
+                    "on-tertiary-container": "#595a00",
+                    "on-secondary-fixed-variant": "#006544",
+                    "surface-tint": "#cfffa7",
+                    "tertiary": "#ffff95",
+                    "inverse-on-surface": "#51555c",
+                    "primary-dim": "#7bef00",
+                    "error": "#ff7351",
+                    "secondary-fixed-dim": "#58e7ab",
+                    "on-primary-container": "#2c5d00",
+                    "error-dim": "#d53d18",
+                    "secondary": "#69f6b8",
+                    "on-secondary-fixed": "#00452d",
+                    "surface-container-low": "#0e1419",
+                    "on-surface": "#e7ebf3",
+                    "on-background": "#e7ebf3",
+                    "on-primary": "#316600",
+                    "tertiary-container": "#f1f260",
+                    "on-tertiary-fixed": "#4e4e00",
+                    "surface-bright": "#252d35",
+                    "secondary-container": "#006c49",
+                    "secondary-fixed": "#69f6b8",
+                    "surface-container-lowest": "#000000",
+                    "on-tertiary": "#626200",
+                    "on-surface-variant": "#a7abb2",
+                    "on-primary-fixed": "#214800",
+                    "surface-variant": "#1f262e",
+                    "primary-fixed": "#84ff00",
+                    "on-primary-fixed-variant": "#326800",
+                    "surface": "#0a0f14",
+                    "surface-dim": "#0a0f14",
+                    "outline": "#71767c",
+                    "on-tertiary-fixed-variant": "#6b6c00",
+                    "background": "#0a0f14",
+                    "on-error-container": "#ffd2c8",
+                    "inverse-surface": "#f7f9ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {},
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "display": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            },
+            "fontSize": {}
+          },
+        },
+      }
+    </script>
+<style>
+        /* Custom utilities matching Design System */
+        .glass-gradient {
+            background: linear-gradient(135deg, rgba(207, 255, 167, 0.1), rgba(132, 255, 0, 0.1));
+            backdrop-filter: blur(12px);
+        }
+        .neon-glow-hover:hover {
+            box-shadow: 0 0 8px #84ff00;
+        }
+        .text-glow {
+            text-shadow: 0 0 12px rgba(132, 255, 0, 0.4);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1f262e; border-radius: 0.125rem; }
+        ::-webkit-scrollbar-thumb:hover { background: #43484e; }
+        
+        /* Modal Transitions */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: opacity 200ms, transform 200ms; }
+        .modal-leave { opacity: 1; transform: scale(1); }
+        .modal-leave-active { opacity: 0; transform: scale(0.95); transition: opacity 200ms, transform 200ms; }
+        
+        /* Toast Transitions */
+        .toast-enter { opacity: 0; transform: translateY(100%); }
+        .toast-enter-active { opacity: 1; transform: translateY(0); transition: opacity 300ms, transform 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+        .toast-leave { opacity: 1; transform: translateY(0); }
+        .toast-leave-active { opacity: 0; transform: translateY(100%); transition: opacity 300ms, transform 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen flex flex-col overflow-hidden font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopNavBar -->
+<header class="bg-surface/90 backdrop-blur-md sticky top-0 w-full z-40 border-b border-outline-variant/10">
+<div class="max-w-5xl mx-auto flex justify-between items-center px-4 py-3">
+<!-- Brand -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary-fixed/10 flex items-center justify-center text-primary-fixed">
+<span class="material-symbols-outlined text-xl">psychology</span>
+</div>
+<div class="text-xl font-headline font-bold text-primary-fixed tracking-tight">
+                Grandmaster AI
+            </div>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<div class="hidden sm:flex items-center gap-2 text-on-surface-variant text-xs font-label">
+<span class="w-2 h-2 rounded-full bg-primary-fixed animate-pulse"></span>
+                Context Synced
+            </div>
+<button class="bg-primary-fixed text-on-primary-fixed px-4 py-1.5 rounded text-sm font-headline font-bold hover:bg-primary-dim transition-colors active:scale-95 neon-glow-hover" onclick="document.getElementById('analyzeModal').classList.remove('hidden')">
+                Analyze Games
+            </button>
+</div>
+</div>
+</header>
+<!-- Main Chat Canvas -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface relative overflow-hidden">
+<!-- Chat Thread Area -->
+<div class="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
+<div class="max-w-3xl mx-auto flex flex-col gap-6 pb-40">
+<!-- Player Intelligence Profile -->
+<div class="bg-surface-container/30 border border-outline-variant/10 rounded-xl p-4 mb-4">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high border border-outline-variant/20 flex items-center justify-center overflow-hidden shrink-0">
+<img alt="Player Avatar" class="w-full h-full object-cover opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLR1CLsMEQ7MUe7-0br1u6rcljP8cxIYUEOO-0vvaG9QlF3q-m0v9eS1YCorMuo683FuLLhqPRJwc_64-4gbJD-p_gTMkikEMkLJ37P5mGzKErJbRpasDoD1v7wOAJ12o61ycUEf0gn_Fg51CLAnqNWtNyeW5Sy0ZVrfQWvYjAzRPk--I0IwbWNocjcf7Z254RUVgvb5X2qBEleI7PcvFMGFanQjbrnLzo-g_w_dUs3cN4YC77CN5cEOmEn1NRYl9G7gwTXX9ouQ"/>
+</div>
+<div>
+<h2 class="text-sm font-headline font-bold text-on-surface">Player Intelligence Profile</h2>
+<p class="text-xs text-on-surface-variant font-body">Games Analyzed: <span class="text-on-surface">1,248</span> • Range: <span class="text-on-surface">Jan 2024 → Today</span></p>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 text-xs font-label">
+<div class="px-2 py-1 bg-surface-container rounded border border-outline-variant/10 text-on-surface-variant">
+<span class="text-primary-fixed mr-1">Patterns:</span> 27
+                        </div>
+<div class="px-2 py-1 bg-surface-container rounded border border-outline-variant/10 text-on-surface-variant">
+<span class="text-primary-fixed mr-1">Strength:</span> Open Tactical
+                        </div>
+<div class="px-2 py-1 bg-surface-container rounded border border-outline-variant/10 text-on-surface-variant">
+<span class="text-error-dim mr-1">Weakness:</span> Passive Structures
+                        </div>
+</div>
+</div>
+<div class="mt-3 flex items-center justify-between border-t border-outline-variant/10 pt-3">
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider font-label">Context loaded successfully</div>
+<div class="text-[10px] text-on-surface-variant font-body">Updated: 5m ago</div>
+</div>
+</div>
+<!-- Empty State / Starter Prompts (Hidden if messages exist, shown for demo) -->
+<div class="flex flex-col items-center justify-center text-center mt-12 mb-8" id="emptyState">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-high border border-outline-variant/10 flex items-center justify-center mb-6 shadow-lg shadow-black/50">
+<span class="material-symbols-outlined text-primary-fixed text-3xl">psychology</span>
+</div>
+<h1 class="text-2xl font-headline font-bold text-on-surface mb-2">How can I help you improve today?</h1>
+<p class="text-sm text-on-surface-variant max-w-md mx-auto mb-8 font-body">
+                    I've analyzed your recent games and built a profile of your playing style. Ask me anything about your strengths, weaknesses, or specific positions.
+                </p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+<button class="bg-surface-container border border-outline-variant/10 hover:border-primary-fixed/30 hover:bg-surface-container-high transition-all rounded-lg p-4 text-left group flex flex-col gap-2">
+<span class="material-symbols-outlined text-primary-fixed text-lg">scatter_plot</span>
+<span class="text-sm font-body text-on-surface group-hover:text-primary-fixed transition-colors">What patterns do you see in my games?</span>
+</button>
+<button class="bg-surface-container border border-outline-variant/10 hover:border-primary-fixed/30 hover:bg-surface-container-high transition-all rounded-lg p-4 text-left group flex flex-col gap-2">
+<span class="material-symbols-outlined text-primary-fixed text-lg">trending_down</span>
+<span class="text-sm font-body text-on-surface group-hover:text-primary-fixed transition-colors">Why do I lose winning positions?</span>
+</button>
+<button class="bg-surface-container border border-outline-variant/10 hover:border-primary-fixed/30 hover:bg-surface-container-high transition-all rounded-lg p-4 text-left group flex flex-col gap-2 sm:col-span-2">
+<span class="material-symbols-outlined text-primary-fixed text-lg">emoji_events</span>
+<span class="text-sm font-body text-on-surface group-hover:text-primary-fixed transition-colors">What's holding me back from 1800 Elo?</span>
+</button>
+</div>
+</div>
+<!-- Chat Messages (Example content, hidden initially to show empty state better) -->
+<div class="hidden flex-col gap-6" id="chatHistory">
+<!-- Bot Message -->
+<div class="flex gap-4">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0 border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary-fixed text-sm">psychology</span>
+</div>
+<div class="flex-1 pt-1">
+<div class="font-headline font-bold text-xs text-on-surface mb-1 opacity-70">Grandmaster AI</div>
+<div class="text-on-surface text-[15px] leading-relaxed font-body prose prose-invert max-w-none">
+<p>I've noticed a recurring pattern in your recent games. You handle tactical complications very well (your tactical vision is playing above your Elo), but you often struggle when the position simplifies into a passive structure, particularly when defending.</p>
+<p>Would you like to look at a specific example from your recent games where this happened, or should we discuss general defensive concepts in these structures?</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sticky Input Area -->
+<div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-surface via-surface to-transparent pb-6 pt-12 px-4">
+<div class="max-w-3xl mx-auto relative">
+<!-- Input Box -->
+<div class="relative bg-surface-container rounded-2xl border border-outline-variant/20 overflow-hidden flex items-end min-h-[60px] shadow-2xl shadow-black/50 focus-within:border-primary-fixed/50 focus-within:ring-1 focus-within:ring-primary-fixed/50 transition-all">
+<button class="p-4 text-on-surface-variant hover:text-primary-fixed transition-colors shrink-0 outline-none">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<textarea class="w-full bg-transparent border-none text-on-surface placeholder:text-on-surface-variant/60 focus:ring-0 resize-none py-4 text-[15px] font-body caret-primary-fixed outline-none" placeholder="Message Grandmaster AI..." rows="1" style="max-height: 200px;"></textarea>
+<div class="p-2 shrink-0">
+<button class="w-9 h-9 bg-primary-fixed text-on-primary-fixed rounded-xl hover:bg-primary-dim transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">arrow_upward</span>
+</button>
+</div>
+</div>
+<div class="text-center mt-3 text-xs text-on-surface-variant/50 font-body">
+                    AI can make mistakes. Consider verifying important information.
+                </div>
+</div>
+</div>
+</main>
+<!-- Analyze Games Modal -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden" id="analyzeModal">
+<div class="bg-surface-container-low border border-outline-variant/20 rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
+<div class="p-5 border-b border-outline-variant/10 flex justify-between items-center">
+<h3 class="font-headline font-bold text-lg text-on-surface">Analyze Recent Games</h3>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors" onclick="document.getElementById('analyzeModal').classList.add('hidden')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="p-5 space-y-4">
+<p class="text-sm text-on-surface-variant font-body">Select the time range of games to pull from connected platforms (Chess.com, Lichess) to update your intelligence profile.</p>
+<div class="space-y-2">
+<label class="flex items-center gap-3 p-3 rounded-lg border border-outline-variant/20 hover:border-primary-fixed/50 cursor-pointer bg-surface-container transition-colors group">
+<input checked="" class="text-primary-fixed focus:ring-primary-fixed bg-surface-container-high border-outline-variant/30" name="timeRange" type="radio"/>
+<span class="text-sm font-body text-on-surface group-hover:text-primary-fixed transition-colors">Last 7 Days (Fastest)</span>
+</label>
+<label class="flex items-center gap-3 p-3 rounded-lg border border-outline-variant/20 hover:border-primary-fixed/50 cursor-pointer bg-surface-container transition-colors group">
+<input class="text-primary-fixed focus:ring-primary-fixed bg-surface-container-high border-outline-variant/30" name="timeRange" type="radio"/>
+<span class="text-sm font-body text-on-surface group-hover:text-primary-fixed transition-colors">Last 30 Days</span>
+</label>
+<label class="flex items-center gap-3 p-3 rounded-lg border border-outline-variant/20 hover:border-primary-fixed/50 cursor-pointer bg-surface-container transition-colors group">
+<input class="text-primary-fixed focus:ring-primary-fixed bg-surface-container-high border-outline-variant/30" name="timeRange" type="radio"/>
+<span class="text-sm font-body text-on-surface group-hover:text-primary-fixed transition-colors">All Time (Deep Scan)</span>
+</label>
+</div>
+</div>
+<div class="p-5 border-t border-outline-variant/10 bg-surface-container/50 flex justify-end gap-3">
+<button class="px-4 py-2 text-sm font-headline font-bold text-on-surface-variant hover:text-on-surface transition-colors" onclick="document.getElementById('analyzeModal').classList.add('hidden')">Cancel</button>
+<button class="px-4 py-2 bg-primary-fixed text-on-primary-fixed rounded text-sm font-headline font-bold hover:bg-primary-dim transition-colors" onclick="startAnalysis()">Start Analysis</button>
+</div>
+</div>
+</div>
+<!-- Success Toast -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 hidden" id="successToast">
+<div class="bg-surface-container-highest border border-outline-variant/20 text-on-surface px-4 py-3 rounded-full shadow-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed text-sm">check_circle</span>
+<span class="text-sm font-body">Coaching Memory Refreshed</span>
+</div>
+</div>
+<script>
+        // Auto-expanding textarea
+        const textarea = document.querySelector('textarea');
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.value === '') {
+                this.style.height = 'auto';
+            }
+        });
+
+        // Simulate analysis flow
+        function startAnalysis() {
+            const modal = document.getElementById('analyzeModal');
+            const toast = document.getElementById('successToast');
+            const btn = modal.querySelector('button.bg-primary-fixed');
+            
+            btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm mr-2">sync</span> Analyzing...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                btn.innerHTML = 'Start Analysis';
+                btn.disabled = false;
+                
+                toast.classList.remove('hidden');
+                toast.classList.add('toast-enter-active');
+                
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                    toast.classList.remove('toast-enter-active');
+                }, 3000);
+            }, 1500);
+        }
+    </script>
+</body></html>

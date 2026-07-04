@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>ChessIQ Coaching</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#214800",
+                        "primary-fixed-dim": "#7bef00",
+                        "primary": "#cfffa7",
+                        "on-error-container": "#ffd2c8",
+                        "inverse-on-surface": "#51555c",
+                        "on-error": "#450900",
+                        "outline": "#71767c",
+                        "secondary-container": "#006c49",
+                        "surface-container-lowest": "#000000",
+                        "secondary-dim": "#58e7ab",
+                        "outline-variant": "#43484e",
+                        "tertiary-fixed": "#fdfe6a",
+                        "secondary": "#69f6b8",
+                        "primary-dim": "#7bef00",
+                        "on-secondary-fixed": "#00452d",
+                        "on-primary": "#316600",
+                        "on-secondary-container": "#e1ffec",
+                        "error-dim": "#d53d18",
+                        "tertiary-container": "#f1f260",
+                        "surface-bright": "#252d35",
+                        "on-primary-fixed-variant": "#326800",
+                        "inverse-surface": "#f7f9ff",
+                        "on-secondary": "#005a3c",
+                        "surface-container-low": "#0e1419",
+                        "on-tertiary": "#626200",
+                        "primary-fixed": "#84ff00",
+                        "on-tertiary-container": "#595a00",
+                        "secondary-fixed-dim": "#58e7ab",
+                        "error-container": "#b92902",
+                        "on-background": "#e7ebf3",
+                        "surface": "#0a0f14",
+                        "surface-variant": "#1f262e",
+                        "on-surface": "#e7ebf3",
+                        "tertiary": "#ffff95",
+                        "on-tertiary-fixed": "#4e4e00",
+                        "error": "#ff7351",
+                        "surface-tint": "#cfffa7",
+                        "tertiary-fixed-dim": "#eeef5e",
+                        "on-surface-variant": "#a7abb2",
+                        "on-tertiary-fixed-variant": "#6b6c00",
+                        "secondary-fixed": "#69f6b8",
+                        "on-secondary-fixed-variant": "#006544",
+                        "on-primary-container": "#2c5d00",
+                        "inverse-primary": "#346c00",
+                        "tertiary-dim": "#eeef5e",
+                        "surface-dim": "#0a0f14",
+                        "surface-container-highest": "#1f262e",
+                        "primary-container": "#84ff00",
+                        "surface-container-high": "#1a2027",
+                        "surface-container": "#141a20",
+                        "background": "#0a0f14"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "display": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom Utilities for hiding scrollbar but keeping functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Glassmorphism gradient text utility */
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body h-screen w-screen overflow-hidden flex flex-col relative selection:bg-primary-fixed selection:text-surface">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-40 bg-surface/90 backdrop-blur-md px-4 py-4 flex justify-between items-center shadow-md border-b border-outline-variant/10">
+<div class="flex items-center gap-3">
+<button class="p-2 -ml-2 rounded-full hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="text-lg font-headline font-bold text-on-surface tracking-tight">Grandmaster AI</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1.5 bg-surface-container rounded-sm px-2 py-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#69f6b8]"></span>
+<span class="font-label text-[10px] uppercase tracking-widest text-secondary font-medium hidden sm:inline">Sync Status</span>
+</div>
+<button class="p-2 rounded-full hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Player Intelligence Profile (Collapsible Summary) -->
+<div class="fixed top-16 w-full z-30 px-4 pt-2 bg-gradient-to-b from-surface/90 to-surface/0 backdrop-blur-sm pointer-events-none">
+<div class="bg-surface-container rounded-lg p-3 border border-outline-variant/20 shadow-lg pointer-events-auto flex items-center justify-between cursor-pointer active:scale-95 transition-transform group">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed/10 flex items-center justify-center border border-primary-fixed/30">
+<span class="material-symbols-outlined text-primary-fixed text-lg">insights</span>
+</div>
+<div>
+<h3 class="font-headline font-semibold text-on-surface text-sm">Player Profile Active</h3>
+<p class="font-label text-xs text-on-surface-variant">1,248 Games • Tactical Specialist</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary-fixed transition-colors">expand_more</span>
+</div>
+</div>
+<!-- Floating Analyze CTA -->
+<div class="fixed top-36 right-4 z-40">
+<button class="bg-primary-fixed text-on-primary-fixed rounded-full px-4 py-3 flex items-center gap-2 shadow-[0_4px_12px_rgba(132,255,0,0.2)] hover:shadow-[0_6px_16px_rgba(132,255,0,0.3)] hover:scale-105 active:scale-95 transition-all font-headline font-bold text-sm border border-primary-fixed-dim/50">
+<span class="material-symbols-outlined text-lg">troubleshoot</span>
+            Analyze Games
+        </button>
+</div>
+<!-- Main Chat Canvas -->
+<main class="flex-1 w-full overflow-y-auto no-scrollbar pt-44 pb-24 px-4 flex flex-col gap-6 relative z-10">
+<!-- Contextual Date -->
+<div class="flex justify-center mt-2">
+<span class="font-label text-xs uppercase tracking-widest text-on-surface-variant bg-surface-container-highest/50 px-3 py-1 rounded-full backdrop-blur-sm">Today, 14:00</span>
+</div>
+<!-- AI Message -->
+<div class="flex gap-3 max-w-[90%]">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center shrink-0 border border-outline-variant/20 mt-1">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-sm text-sm leading-relaxed text-on-surface border border-outline-variant/10 shadow-sm">
+                Welcome back. Your tactical awareness in the endgame against <span class="font-mono text-primary-dim">@HikaruFan</span> showed improvement, but your opening repertoire needs calibration. Shall we begin the daily diagnostic?
+            </div>
+</div>
+<!-- User Message -->
+<div class="flex justify-end gap-3 max-w-[90%] self-end">
+<div class="bg-primary-fixed/10 p-4 rounded-2xl rounded-tr-sm text-sm leading-relaxed text-on-surface border border-primary-fixed/20 shadow-sm">
+                Let's focus on my blunders from the weekend tournament first.
+            </div>
+</div>
+<!-- AI Message -->
+<div class="flex gap-3 max-w-[95%]">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center shrink-0 border border-outline-variant/20 mt-1">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex flex-col gap-2 w-full">
+<div class="bg-surface-container-low p-4 rounded-2xl rounded-tl-sm text-sm leading-relaxed text-on-surface border border-outline-variant/10 shadow-sm">
+                    Acknowledged. To build an accurate blunder profile, I need to ingest the PGN data from those specific matches.
+                </div>
+</div>
+</div>
+<!-- Empty State / Starter Questions (Simulated as next logical step) -->
+<div class="mt-4 flex flex-col gap-2">
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-widest ml-11 mb-1">Suggested Prompts</p>
+<div class="flex flex-col gap-2 ml-11">
+<button class="bg-surface-bright border border-outline-variant/20 text-on-surface text-sm text-left p-3 rounded-lg hover:bg-surface-container-highest transition-colors active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-dim text-sm">trending_up</span>
+                    How has my play changed recently?
+                </button>
+<button class="bg-surface-bright border border-outline-variant/20 text-on-surface text-sm text-left p-3 rounded-lg hover:bg-surface-container-highest transition-colors active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-dim text-sm">strategy</span>
+                    Review my typical opening mistakes.
+                </button>
+</div>
+</div>
+<!-- Spacer for scrolling -->
+<div class="h-8"></div>
+</main>
+<!-- Fixed Bottom Input -->
+<div class="fixed bottom-0 w-full bg-surface/90 backdrop-blur-xl z-30 pb-safe border-t border-outline-variant/10 p-4">
+<div class="flex gap-3 items-end max-w-3xl mx-auto">
+<button class="p-3 bg-surface-container-high rounded-full text-on-surface-variant hover:text-primary-fixed hover:bg-surface-container-highest transition-all active:scale-95 mb-0.5 shrink-0 border border-outline-variant/10">
+<span class="material-symbols-outlined">add</span>
+</button>
+<div class="bg-surface-container-highest flex-1 rounded-2xl flex items-center px-4 py-3 border border-outline-variant/20 focus-within:border-primary-fixed/50 transition-colors shadow-inner">
+<input class="bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/50 flex-1 font-body text-base caret-primary-fixed w-full min-h-[24px]" placeholder="Ask anything about your game..." type="text"/>
+<button class="ml-2 text-on-surface-variant hover:text-primary-fixed transition-colors active:scale-90 p-1">
+<span class="material-symbols-outlined">mic</span>
+</button>
+</div>
+<button class="bg-primary-fixed text-on-primary-fixed p-3 rounded-full flex items-center justify-center hover:bg-primary-fixed-dim transition-colors active:scale-95 mb-0.5 shrink-0 shadow-sm border border-primary-fixed-dim/50">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+<!-- OVERLAY / BOTTOM SHEET CONTEXT -->
+<!-- Darkened Backdrop -->
+<div class="fixed inset-0 bg-surface/80 backdrop-blur-md z-50 transition-opacity flex items-end">
+<!-- Bottom Sheet -->
+<div class="w-full bg-surface-container rounded-t-3xl p-6 pb-safe shadow-[0_-20px_50px_rgba(0,0,0,0.5)] transform transition-transform duration-300 ease-out border-t border-outline-variant/10 relative overflow-hidden flex flex-col max-h-[85vh]">
+<!-- Drag Handle -->
+<div class="w-12 h-1.5 bg-outline-variant/40 rounded-full mx-auto mb-6 shrink-0 cursor-grab"></div>
+<!-- Header Sticky Area -->
+<div class="flex items-center gap-3 mb-6 shrink-0">
+<div class="w-12 h-12 rounded-xl bg-primary-fixed/10 flex items-center justify-center border border-primary-fixed/30">
+<span class="material-symbols-outlined text-primary-fixed text-xl" style="font-variation-settings: 'FILL' 1;">database</span>
+</div>
+<div>
+<h2 class="font-headline font-bold text-2xl text-on-surface tracking-tight">Data Ingestion</h2>
+<p class="font-label text-xs uppercase text-on-surface-variant tracking-widest mt-1">Select Timeframe</p>
+</div>
+</div>
+<!-- Scrollable Content -->
+<div class="flex flex-col gap-3 overflow-y-auto no-scrollbar pb-6 flex-1">
+<!-- Option: Analyze All Games -->
+<button class="w-full text-left px-5 py-5 bg-surface-bright hover:bg-surface-container-highest rounded-xl font-body text-primary-fixed font-medium flex justify-between items-center transition-all group relative overflow-hidden active:scale-[0.98] border border-primary-fixed/20 shadow-sm">
+<div class="absolute inset-0 bg-primary-fixed/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="relative z-10 flex items-center gap-3 text-lg">
+<span class="material-symbols-outlined">all_inclusive</span>
+                        Analyze All Games
+                    </span>
+<span class="material-symbols-outlined text-primary-fixed relative z-10 group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+<!-- Option: Last 7 Days -->
+<button class="w-full text-left px-5 py-5 bg-surface-container hover:bg-surface-bright rounded-xl font-body text-on-surface flex items-center justify-between transition-colors active:scale-[0.98] border border-outline-variant/10">
+<span class="text-base font-medium">Last 7 Days</span>
+<span class="font-label text-sm text-on-surface-variant bg-surface-container-high px-2 py-1 rounded-md">Est. 42 games</span>
+</button>
+<!-- Option: Last 30 Days -->
+<button class="w-full text-left px-5 py-5 bg-surface-container hover:bg-surface-bright rounded-xl font-body text-on-surface flex items-center justify-between transition-colors active:scale-[0.98] border border-outline-variant/10">
+<span class="text-base font-medium">Last 30 Days</span>
+<span class="font-label text-sm text-on-surface-variant bg-surface-container-high px-2 py-1 rounded-md">Est. 156 games</span>
+</button>
+<!-- Option: This Month -->
+<button class="w-full text-left px-5 py-5 bg-surface-container hover:bg-surface-bright rounded-xl font-body text-on-surface flex items-center justify-between transition-colors active:scale-[0.98] border border-outline-variant/10">
+<span class="text-base font-medium">This Month</span>
+<span class="font-label text-sm text-on-surface-variant bg-surface-container-high px-2 py-1 rounded-md">Est. 28 games</span>
+</button>
+<!-- Option: Custom Range -->
+<button class="w-full text-left px-5 py-5 bg-surface-container hover:bg-surface-bright rounded-xl font-body text-on-surface-variant flex justify-between items-center transition-colors active:scale-[0.98] mt-2 border border-outline-variant/20 border-dashed">
+<span class="flex items-center gap-3 text-base">
+<span class="material-symbols-outlined">calendar_month</span>
+                        Custom Range
+                    </span>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+<!-- Bottom Sticky Area for explicit close -->
+<div class="pt-4 mt-auto border-t border-outline-variant/10 shrink-0">
+<button class="w-full py-4 text-center font-headline font-bold text-on-surface hover:bg-surface-bright rounded-xl transition-colors active:scale-95 border border-transparent hover:border-outline-variant/20">
+                    Cancel
+                </button>
+</div>
+</div>
+</div>
+</body></html>
