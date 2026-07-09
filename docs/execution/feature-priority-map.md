@@ -1,4 +1,4 @@
-# ChessIQ Feature Priority Map
+# ChessRun Feature Priority Map
 
 **Date:** 2026-05-26  
 **Status:** Active — post-remediation feature execution  
@@ -9,7 +9,7 @@
 
 ## Executive summary
 
-ChessIQ’s moat is **longitudinal chess intelligence**: turning Stockfish-verified analysis into durable player patterns, coaching memory, and adaptive guidance — not one-off engine scores.
+ChessRun’s moat is **longitudinal chess intelligence**: turning Stockfish-verified analysis into durable player patterns, coaching memory, and adaptive guidance — not one-off engine scores.
 
 Remediation is complete (auth, Stockfish pool, backend consolidation, frontend hooks layer, deployment). Feature work now follows an **intelligence-first** order: build durable backend truth before visualization and advanced AI.
 
@@ -155,7 +155,7 @@ Scores: **Impact** (1–5) × **Dependency readiness** (0.5–1.0) ÷ **Effort**
 
 ---
 
-## What ChessIQ is NOT building (yet)
+## What ChessRun is NOT building (yet)
 
 Explicitly deferred to protect focus:
 

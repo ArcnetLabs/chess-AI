@@ -1,6 +1,6 @@
 # Stockfish Architecture
 
-> Canonical reference for how ChessIQ accesses the Stockfish chess engine.
+> Canonical reference for how ChessRun accesses the Stockfish chess engine.
 > Enforced by invariant **FP-4 / SF-1–SF-5** and `scripts/review-loops/check-stockfish-violations.ps1`.
 
 ---

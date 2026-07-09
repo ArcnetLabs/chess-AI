@@ -1,6 +1,8 @@
-# ChessIQ — Documentation Index
+# ChessRun - Documentation Index
 
-This directory is the canonical source of truth for ChessIQ (Chess Insight AI) documentation. It is organized by document _type_ so that both humans and AI agents can quickly locate the document they need.
+This directory is the canonical source of truth for ChessRun documentation. It is organized by document _type_ so that both humans and AI agents can quickly locate the document they need.
+
+> **Current MVP product truth:** Start with [`product/CHESSRUN_MVP_UX.md`](./product/CHESSRUN_MVP_UX.md). ChessRun is an AI chess coach with a conversational primary interface. Older dashboard, report, and training-mode language in legacy sections should be treated as future/non-MVP unless confirmed in the MVP UX doc.
 
 > For the project overview, tech stack, and local development setup, see the root [`../README.md`](../README.md).
 
@@ -18,6 +20,7 @@ docs/
 │   ├── repository-invariants.md        # Authoritative architectural rules (paired with scripts/review-loops/)
 │   └── stockfish-architecture.md       # Canonical Stockfish pool access (2026-05-26)
 ├── product/                        # Product requirements
+│   ├── CHESSRUN_MVP_UX.md             # Canonical MVP UX and product loop
 │   └── FRD_PRODUCT.md
 ├── requirements/                   # Technical requirements
 │   └── FRD_TECHNICAL.md
@@ -68,7 +71,7 @@ docs/
 
 | If you are… | Read |
 | --- | --- |
-| New to the project | [`../README.md`](../README.md) → [`product/FRD_PRODUCT.md`](./product/FRD_PRODUCT.md) → [`audit/README.md`](./audit/README.md) |
+| New to the project | [`../README.md`](../README.md) → [`product/CHESSRUN_MVP_UX.md`](./product/CHESSRUN_MVP_UX.md) → [`product/FRD_PRODUCT.md`](./product/FRD_PRODUCT.md) |
 | **Picking up the codebase after recent changes** | [`audit/system-state-audit.md`](./audit/system-state-audit.md) — current health, broken systems, remediation plan |
 | **Implementing features (post-remediation)** | [`execution/README.md`](./execution/README.md) → [`execution/feature-progress-tracker.md`](./execution/feature-progress-tracker.md) → [`execution/feature-execution-roadmap.md`](./execution/feature-execution-roadmap.md) |
 | Building a feature | [`execution/feature-execution-roadmap.md`](./execution/feature-execution-roadmap.md) → [`requirements/FRD_TECHNICAL.md`](./requirements/FRD_TECHNICAL.md) → relevant doc in [`architecture/`](./architecture/) |
@@ -86,14 +89,15 @@ Authoritative technical design documents that describe how subsystems work.
 - **`AI_MODEL_STRATEGY.md`** — Model selection, prompting, evaluation, and inference strategy for the AI subsystem.
 - **`MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`** — Long-term memory, retrieval, and context assembly architecture for the chatbot/coach.
 - **`reference-context-system.md`** — Why reference-driven development matters, how the `reference/` + `prompts/` system reduces agent hallucination, and how to maintain it.
-- **`repository-invariants.md`** — The authoritative list of architectural rules ChessIQ enforces. Paired with `scripts/review-loops/`, `.cursor/rules/`, and the review workflows. Changing a rule changes this document first.
+- **`repository-invariants.md`** — The authoritative list of architectural rules ChessRun enforces. Paired with `scripts/review-loops/`, `.cursor/rules/`, and the review workflows. Changing a rule changes this document first.
 - **`stockfish-architecture.md`** — Single canonical path for Stockfish via `engine_pool.py`; thread/queue safety and consumer map.
 
 ### Review reports (`review-reports/`)
 Generated, rotating telemetry from `scripts/review-loops/full-review.ps1 -Report`. See [`review-reports/README.md`](./review-reports/README.md) for filename patterns, retention policy, and how they feed back into the implementation / architecture / refactor review loops.
 
 ### Product (`product/`)
-- **`FRD_PRODUCT.md`** — Product functional requirements (features, user flows, target audience, success criteria).
+- **`CHESSRUN_MVP_UX.md`** - Canonical MVP UX, product loop, coaching philosophy, and design direction.
+- **`FRD_PRODUCT.md`** - Product functional requirements. Treat dashboard/report/training sections as future-facing when they conflict with `CHESSRUN_MVP_UX.md`.
 
 ### Requirements (`requirements/`)
 - **`FRD_TECHNICAL.md`** — Technical functional requirements (APIs, data models, integrations, non-functional requirements).
@@ -131,4 +135,4 @@ Pure noise: generated phase-completion reports, status snapshots, one-off bugfix
 
 ---
 
-**Maintained by:** ChessIQ team
+**Maintained by:** ChessRun team

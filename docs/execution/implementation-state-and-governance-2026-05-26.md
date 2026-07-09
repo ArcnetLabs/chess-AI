@@ -1,4 +1,4 @@
-# ChessIQ Implementation State & Execution Governance
+# ChessRun Implementation State & Execution Governance
 
 **Date:** 2026-05-26 *(updated 2026-05-27)*  
 **Author:** Principal Architect / Orchestration Agent  
@@ -9,7 +9,7 @@
 
 ## Executive summary
 
-ChessIQ has completed **Phase 1 backend intelligence** on `staging` (exit gate PR #62; post-gate PRs #63–#65). Profile snapshots, pattern-linked recommendations, Redis chat sessions, and coach context assembly are **done**. Frontend API clients and React Query hooks are merged; **feature UI (P1-FE-02) remains deferred**.
+ChessRun has completed **Phase 1 backend intelligence** on `staging` (exit gate PR #62; post-gate PRs #63–#65). Profile snapshots, pattern-linked recommendations, Redis chat sessions, and coach context assembly are **done**. Frontend API clients and React Query hooks are merged; **feature UI (P1-FE-02) remains deferred**.
 
 **Strategic priority now:** promote `staging` → `main` for Phase 1 release; optional enrichment (P1-PR-03, P1-DB-03) and route cleanup in follow-up PRs.
 

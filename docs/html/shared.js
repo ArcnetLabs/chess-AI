@@ -1,5 +1,5 @@
 /* ============================================================
-   ChessIQ Document Suite — shared.js
+   ChessRun Document Suite — shared.js
    ============================================================ */
 
 /* ── IntersectionObserver: Active TOC highlighting ──────────── */

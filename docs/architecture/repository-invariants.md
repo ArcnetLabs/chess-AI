@@ -1,6 +1,6 @@
-# ChessIQ Repository Invariants
+# ChessRun Repository Invariants
 
-> The authoritative list of architectural rules ChessIQ enforces.
+> The authoritative list of architectural rules ChessRun enforces.
 > Every grep-loop check, every Cursor rule, and every PR review aligns
 > against this document. If you change a rule, change it here **first**,
 > then update the script and the IDE rule to match.
@@ -414,7 +414,7 @@ is forbidden. The doc is the source of truth.
 | Frontend lib (`lib/*.ts`)           | 200  | 250  |
 
 These limits are not arbitrary. They reflect the empirical
-observation that ChessIQ files become unreviewable past these
+observation that ChessRun files become unreviewable past these
 thresholds.
 
 Enforced by `check-file-sizes.ps1`.

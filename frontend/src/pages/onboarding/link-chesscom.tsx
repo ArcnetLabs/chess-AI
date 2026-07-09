@@ -10,7 +10,7 @@
  *  2. POST /users/me/link-chesscom validates against the Chess.com public
  *     API and persists the link on the authenticated user's row.
  *  3. The backend kicks off a background fetch of recent games.
- *  4. On success, redirect to /dashboard (or `next` query param).
+ *  4. On success, redirect to /coach (or `next` query param).
  *
  * Errors surface inline (404 username unknown, 409 already linked to
  * someone else, 429 rate limit, etc.). The form never collects an email
@@ -35,7 +35,7 @@ export default function LinkChesscomPage(_props: Props) {
   const [loading, setLoading] = useState(false);
 
   const next =
-    typeof router.query.next === 'string' ? router.query.next : '/dashboard';
+    typeof router.query.next === 'string' ? router.query.next : '/coach';
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -115,7 +115,7 @@ export default function LinkChesscomPage(_props: Props) {
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
-          ChessIQ only uses public game data via the Chess.com API.
+          ChessRun only uses public game data via the Chess.com API.
           We never request your Chess.com password.
         </p>
       </div>

@@ -8,7 +8,7 @@
 
 ## Executive summary
 
-ChessIQ’s P0 infrastructure work removes silent failure modes (SQLite fallback, `create_all` drift), fixes deployment entrypoints, and documents the canonical **Supabase Postgres + Render Redis + Alembic** stack.
+ChessRun’s P0 infrastructure work removes silent failure modes (SQLite fallback, `create_all` drift), fixes deployment entrypoints, and documents the canonical **Supabase Postgres + Render Redis + Alembic** stack.
 
 The backend now **fails fast** when:
 

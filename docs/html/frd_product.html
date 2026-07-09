@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Product FRD — ChessIQ Docs</title>
+  <title>Product FRD — ChessRun Docs</title>
   <link rel="stylesheet" href="shared.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
 </head>
 <body>
 
 <header class="topbar">
-  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <a href="index.html" class="topbar-brand">ChessRun</a>
   <div class="topbar-right">
     <span class="topbar-title">Product FRD</span>
     <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
@@ -45,7 +45,7 @@
 </nav>
 
 <div class="doc-header">
-  <h1 class="doc-title">FRD — ChessIQ (Product &amp; Functional Requirements)</h1>
+  <h1 class="doc-title">FRD — ChessRun (Product &amp; Functional Requirements)</h1>
   <div class="meta-pills">
     <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
     <span class="meta-pill"><span class="pill-label">Status</span>Active</span>
@@ -77,11 +77,11 @@
 
     <div id="s1-1"></div>
     <h3 class="sub-heading">1.1 Vision</h3>
-    <p>ChessIQ is an <strong>AI-powered personalized chess intelligence and coaching platform</strong> that transforms how players improve at chess. Unlike traditional game analyzers that provide one-off engine evaluations, ChessIQ builds a comprehensive understanding of each player's unique patterns, tendencies, and developmental needs across their entire game history.</p>
+    <p>ChessRun is an <strong>AI-powered personalized chess intelligence and coaching platform</strong> that transforms how players improve at chess. Unlike traditional game analyzers that provide one-off engine evaluations, ChessRun builds a comprehensive understanding of each player's unique patterns, tendencies, and developmental needs across their entire game history.</p>
 
     <div class="table-wrapper">
       <table>
-        <thead><tr><th>ChessIQ Is NOT</th><th>ChessIQ IS</th></tr></thead>
+        <thead><tr><th>ChessRun Is NOT</th><th>ChessRun IS</th></tr></thead>
         <tbody>
           <tr><td>Just a game analyzer</td><td>A <strong>personalized AI chess coach</strong> that learns your unique playing style</td></tr>
           <tr><td>Just a Stockfish wrapper</td><td>A <strong>behavioral pattern recognition system</strong> identifying recurring tendencies across hundreds of games</td></tr>
@@ -103,7 +103,7 @@
       <li><strong>Lightweight game storage</strong> — recently fetched games are temporarily cached; Stockfish analysis outputs and detected patterns are stored permanently</li>
       <li>Batch analysis of games using Stockfish via Celery workers</li>
       <li>Move timing and clock data ingestion for behavioral analysis</li>
-      <li><strong>Analysis depth advantage:</strong> ChessIQ's free-tier analysis depth may exceed Chess.com's free analysis, framed as deeper analysis + personalized coaching + longitudinal intelligence</li>
+      <li><strong>Analysis depth advantage:</strong> ChessRun's free-tier analysis depth may exceed Chess.com's free analysis, framed as deeper analysis + personalized coaching + longitudinal intelligence</li>
     </ul>
 
     <h4 class="sub-sub-heading">Pattern Recognition Engine</h4>
@@ -144,7 +144,7 @@
     <h4 class="sub-sub-heading">First-Time Setup</h4>
     <ol>
       <li>Enters Chess.com username and email</li>
-      <li>ChessIQ creates or finds user</li>
+      <li>ChessRun creates or finds user</li>
       <li>User chooses filters (e.g., last 25 rapid rated games)</li>
       <li>Games fetched, stored, and visible on dashboard as "Not analyzed"</li>
       <li>User clicks "Analyze All Games" to start analysis</li>
@@ -177,7 +177,7 @@
     <h4 class="sub-sub-heading">3.2.1 Filters &amp; Options</h4>
     <div class="fr-item"><div class="fr-id">FR-GAMES-1</div><div class="fr-text">User can choose: <code class="inline">game_count</code> (10, 25, 50, 100), <code class="inline">time_controls</code> (rapid, blitz, bullet, daily), <code class="inline">rated_filter</code> (rated, unrated, both), optional <code class="inline">start_date</code>/<code class="inline">end_date</code>.</div></div>
     <h4 class="sub-sub-heading">3.2.2 Behavior</h4>
-    <div class="fr-item"><div class="fr-id">FR-GAMES-2</div><div class="fr-text">On new fetch, app uses <strong>replace all</strong> semantics: remove or logically archive prior games within scope. Chess.com is the external source of truth; ChessIQ maintains only the working cache needed for active analysis and coaching.</div></div>
+    <div class="fr-item"><div class="fr-id">FR-GAMES-2</div><div class="fr-text">On new fetch, app uses <strong>replace all</strong> semantics: remove or logically archive prior games within scope. Chess.com is the external source of truth; ChessRun maintains only the working cache needed for active analysis and coaching.</div></div>
     <div class="fr-item"><div class="fr-id">FR-GAMES-3</div><div class="fr-text">"Get Started" flow: Find/create user → POST <code class="inline">games/fetch</code> with filters → show progress → toast fetched count → redirect to <code class="inline">/dashboard</code>.</div></div>
     <div class="fr-item"><div class="fr-id">FR-GAMES-4</div><div class="fr-text">Backend ensures idempotent storage (no duplicate games per <code class="inline">user_id</code> + external game id).</div></div>
 
@@ -245,7 +245,7 @@
 
     <div id="s3-9"></div>
     <h3 class="sub-heading">3.9 Move Timing &amp; Clock Data Analysis</h3>
-    <p>ChessIQ analyzes not just <em>what</em> moves were played, but <em>how</em> time was used — revealing behavioral patterns invisible to traditional engine analysis.</p>
+    <p>ChessRun analyzes not just <em>what</em> moves were played, but <em>how</em> time was used — revealing behavioral patterns invisible to traditional engine analysis.</p>
 
     <h4 class="sub-sub-heading">3.9.1 Time Data Ingestion</h4>
     <div class="fr-item"><div class="fr-id">FR-TIMING-1</div><div class="fr-text"><strong>Clock Data Capture</strong> — Ingest move timestamps from Chess.com PGNs; calculate think time per move; store clock remaining; track time spent by phase.</div></div>
@@ -262,7 +262,7 @@
 
     <div id="s3-10"></div>
     <h3 class="sub-heading">3.10 AI Coach / Conversational Interface</h3>
-    <p>The AI Coach is a <strong>primary interface</strong> of ChessIQ — not an add-on, but a core way users interact with their chess intelligence.</p>
+    <p>The AI Coach is a <strong>primary interface</strong> of ChessRun — not an add-on, but a core way users interact with their chess intelligence.</p>
 
     <h4 class="sub-sub-heading">3.10.1 Conversational Capabilities</h4>
     <div class="fr-item"><div class="fr-id">FR-AICOACH-1</div><div class="fr-text"><strong>Pattern-Based Questions</strong> — "Why do I keep blundering in the middlegame?", "What openings fit my style?", "How has my play changed over the last 3 months?"</div></div>

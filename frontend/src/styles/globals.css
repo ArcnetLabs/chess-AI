@@ -2,18 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --surface: #0a0f14;
-  --surface-low: #0e1419;
-  --surface-container: #141a20;
-  --surface-bright: #252d35;
-  --brand-primary: #84ff00;
-  --brand-on-primary: #214800;
-  --content: #e7ebf3;
-  --content-muted: #a7abb2;
+  --surface: #131313;
+  --surface-low: #1c1b1b;
+  --surface-container: #201f1f;
+  --surface-bright: #3a3939;
+  --brand-primary: #4edea3;
+  --brand-on-primary: #003824;
+  --content: #e5e2e1;
+  --content-muted: #bbcabf;
 }
 
 html {
@@ -23,7 +22,7 @@ html {
 body {
   color: var(--content);
   background-color: var(--surface);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

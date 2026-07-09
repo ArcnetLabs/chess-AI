@@ -7,7 +7,7 @@
  * layer (see `docs/architecture/auth-system.md`).
  *
  * The page is now a thin SSR redirect:
- *   - Authenticated users → /dashboard
+ *   - Authenticated users → /coach
  *   - Unauthenticated users → /auth/login
  *
  * Keeping the redirect server-side means the user never sees a flash of
@@ -21,7 +21,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const user = await getServerUser(context.req, context.res);
   return {
     redirect: {
-      destination: user ? '/dashboard' : '/auth/login',
+      destination: user ? '/coach' : '/auth/login',
       permanent: false,
     },
   };

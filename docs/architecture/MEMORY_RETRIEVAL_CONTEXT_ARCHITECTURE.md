@@ -1,4 +1,4 @@
-# ChessIQ — Memory, Retrieval, and AI Context Architecture
+# ChessRun - Memory, Retrieval, and AI Context Architecture
 
 **Version:** 1.0  
 **Status:** Technical Architecture / Implementation Specification  
@@ -8,9 +8,11 @@
 
 ## Executive Summary
 
-ChessIQ implements a **hybrid memory and retrieval architecture** that combines **structured relational storage** (Supabase Postgres) with **semantic vector retrieval** (pgvector) and **ephemeral caching** (Redis). This three-tier approach enables both **transactional integrity** for chess data and **semantic intelligence** for AI coaching, while maintaining **grounded truth** through Stockfish analysis.
+ChessRun implements a **hybrid memory and retrieval architecture** that combines **structured relational storage** (Supabase Postgres) with **semantic vector retrieval** (pgvector) and **ephemeral caching** (Redis). This three-tier approach enables both **transactional integrity** for chess data and **semantic intelligence** for AI coaching, while maintaining **grounded truth** through Stockfish analysis.
 
-**Core Innovation:** ChessIQ's AI context system is not generic document RAG. It is **structured chess intelligence retrieval** — a domain-specific architecture that grounds LLM explanations in verified chess analysis, behavioral patterns, and longitudinal player memory.
+> **MVP UX authority:** [`../product/CHESSRUN_MVP_UX.md`](../product/CHESSRUN_MVP_UX.md) defines the current launch experience. Retrieval should assemble context for coaching conversations and the collapsible Playing Profile; standalone reports and analytics dashboards are future-facing.
+
+**Core Innovation:** ChessRun's AI context system is not generic document RAG. It is **structured chess intelligence retrieval** — a domain-specific architecture that grounds LLM explanations in verified chess analysis, behavioral patterns, and longitudinal player memory.
 
 **Key Principle:** The LLM never invents chess truth. Stockfish provides objective analysis. The retrieval system assembles contextual intelligence. The LLM explains, personalizes, and coaches.
 
@@ -18,11 +20,11 @@ ChessIQ implements a **hybrid memory and retrieval architecture** that combines 
 
 ## 1. Core Principle: Structured AI Coaching, Not Generic Chatbot
 
-### 1.1 What ChessIQ Is NOT
+### 1.1 What ChessRun Is NOT
 
-ChessIQ is fundamentally different from generic AI chatbots:
+ChessRun is fundamentally different from generic AI chatbots:
 
-| Generic Chatbot | ChessIQ |
+| Generic Chatbot | ChessRun |
 |-----------------|---------|
 | Open-ended conversation | Structured, domain-specific coaching |
 | LLM generates all content | LLM explains pre-computed analysis |
@@ -37,7 +39,7 @@ ChessIQ is fundamentally different from generic AI chatbots:
 - Ratings, timestamps, metadata
 - Game URLs and opponent information
 
-ChessIQ fetches game data from Chess.com on-demand or via periodic sync. ChessIQ is **not** attempting to replicate Chess.com's archival infrastructure. Its purpose is to derive persistent coaching intelligence from that raw game data, not to duplicate it.
+ChessRun fetches game data from Chess.com on-demand or via periodic sync. ChessRun is **not** attempting to replicate Chess.com's archival infrastructure. Its purpose is to derive persistent coaching intelligence from that raw game data, not to duplicate it.
 
 **Stockfish remains the source of objective chess truth:**
 - Position evaluation (centipawns)
@@ -58,11 +60,11 @@ ChessIQ fetches game data from Chess.com on-demand or via periodic sync. ChessIQ
 
 ## 2. Database Architecture Overview
 
-ChessIQ employs a **three-tier storage architecture**, each with distinct responsibilities:
+ChessRun employs a **three-tier storage architecture**, each with distinct responsibilities:
 
 ```mermaid
 flowchart TB
-    subgraph Application["ChessIQ Application Layer"]
+    subgraph Application["ChessRun Application Layer"]
         API[FastAPI Backend]
         COACH[AI Coach Service]
         PATTERN[Pattern Engine]
@@ -111,7 +113,7 @@ flowchart TB
 
 ### 2.1 Tier 1: Supabase / Postgres — Primary Source of Truth
 
-**Philosophy:** All transactional, relational, authoritative data lives here. This is ChessIQ's internal source of truth — not a replacement for Chess.com's game archive, but the home for coaching intelligence derived from it.
+**Philosophy:** All transactional, relational, authoritative data lives here. This is ChessRun's internal source of truth — not a replacement for Chess.com's game archive, but the home for coaching intelligence derived from it.
 
 **Responsibilities:**
 - User accounts and authentication
@@ -125,13 +127,13 @@ flowchart TB
 
 #### Game Storage Architecture
 
-ChessIQ uses a **lightweight hybrid game storage model**. Chess.com remains the external source of truth for raw game history. ChessIQ's database is optimized for coaching intelligence, not game archival.
+ChessRun uses a **lightweight hybrid game storage model**. Chess.com remains the external source of truth for raw game history. ChessRun's database is optimized for coaching intelligence, not game archival.
 
 | Layer | Content | Retention | Purpose |
 |-------|---------|-----------|----------|
 | **External (Chess.com)** | All historical games, full PGNs, ratings, timestamps | Permanent (external) | Source of truth for raw game data |
 | **Cached Game Layer** | Recently fetched PGNs, lightweight metadata | Configurable window (e.g., last 30–60 days) | Avoid repeated API calls; support recent analysis and conversational context |
-| **Analysis Layer** | Stockfish evaluations, blunders, ACPL, critical moments, coaching summaries | Permanent (never deleted) | ChessIQ's primary long-term value; versioned and reprocessable |
+| **Analysis Layer** | Stockfish evaluations, blunders, ACPL, critical moments, coaching summaries | Permanent (never deleted) | ChessRun's primary long-term value; versioned and reprocessable |
 | **Intelligence Layer** | Patterns, behavioral insights, AI memory, semantic embeddings, player profiles | Permanent (never deleted) | Powers personalized coaching, longitudinal intelligence, and conversational context |
 
 **Architectural principle:** Raw PGN storage should remain lightweight; coaching intelligence storage should remain persistent. The platform optimizes for insights, not archival duplication.
@@ -279,7 +281,7 @@ TTL: 60s
 
 ## 3. AI Memory Architecture
 
-ChessIQ implements a **multi-horizon memory system** that spans from immediate conversation context to years-long player patterns.
+ChessRun implements a **multi-horizon memory system** that spans from immediate conversation context to years-long player patterns.
 
 ```mermaid
 flowchart TB
@@ -501,7 +503,7 @@ class MemoryRanker:
 
 ## 4. Retrieval-Augmented Generation (RAG) Architecture
 
-ChessIQ's RAG system is **domain-specific structured retrieval**, not generic document search.
+ChessRun's RAG system is **domain-specific structured retrieval**, not generic document search.
 
 ### 4.1 RAG Flow Overview
 
@@ -1237,12 +1239,12 @@ flowchart TB
     subgraph SQLResponsibilities["SQL / Relational Layer"]
         TRANS[Transactional Truth]
         STRUCT[Structured Filtering]
-        ANALYTICS[Analytics & Reporting]
+        ANALYTICS[Coaching Aggregates]
         RELATIONS[Relational Integrity]
 
         TRANS --> EXAMPLES1["User subscriptions<br/>Game results<br/>Payment records"]
         STRUCT --> EXAMPLES2["Find all 'critical' patterns<br/>Games from last 30 days<br/>Patterns by type"]
-        ANALYTICS --> EXAMPLES3["Win rate trends<br/>Improvement curves<br/>Usage dashboards"]
+        ANALYTICS --> EXAMPLES3["Playing Profile summary<br/>Improvement signals<br/>Operational usage metrics"]
         RELATIONS --> EXAMPLES4["User owns Games<br/>Pattern belongs to User<br/>Chat belongs to Session"]
     end
 
@@ -1383,7 +1385,7 @@ class HybridQueryEngine:
 
 ### 9.1 The Grounding Principle
 
-ChessIQ enforces a **strict boundary** between chess truth (Stockfish) and AI explanation (LLM):
+ChessRun enforces a **strict boundary** between chess truth (Stockfish) and AI explanation (LLM):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1424,7 +1426,7 @@ ChessIQ enforces a **strict boundary** between chess truth (Stockfish) and AI ex
 
 ```python
 CONSTRAINED_SYSTEM_PROMPT = """
-You are ChessIQ, an expert chess coach AI. Your role is to EXPLAIN and COACH based on provided data.
+You are ChessRun, an expert chess coach AI. Your role is to EXPLAIN and COACH based on provided data.
 
 CRITICAL RULES:
 1. You will be provided with Stockfish evaluations, pattern data, and player history.
@@ -1722,7 +1724,7 @@ class OptimizedLLMClient:
 
 ## 11. Summary
 
-ChessIQ's memory and retrieval architecture represents a **domain-specific evolution of RAG** tailored for chess coaching intelligence:
+ChessRun's memory and retrieval architecture represents a **domain-specific evolution of RAG** tailored for chess coaching intelligence:
 
 ### Architectural Principles
 
@@ -1749,7 +1751,7 @@ ChessIQ's memory and retrieval architecture represents a **domain-specific evolu
 
 ### Technical Differentiation
 
-| Generic RAG | ChessIQ Structured RAG |
+| Generic RAG | ChessRun Structured RAG |
 |-------------|------------------------|
 | Document chunks | Pattern summaries, coaching insights |
 | Open-domain queries | Intent-classified, domain-specific |
@@ -1774,7 +1776,7 @@ This architecture is **production-ready** with:
 - Hallucination mitigation layers
 - Scaling roadmaps for 1K → 100K+ users
 
-ChessIQ is **not a generic chatbot with chess knowledge** — it is a **structured chess intelligence system** that leverages semantic retrieval and conversational AI to deliver personalized coaching grounded in verified analysis.
+ChessRun is **not a generic chatbot with chess knowledge** — it is a **structured chess intelligence system** that leverages semantic retrieval and conversational AI to deliver personalized coaching grounded in verified analysis.
 
 ---
 

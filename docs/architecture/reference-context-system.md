@@ -2,7 +2,7 @@
 
 ## Overview
 
-ChessIQ uses a structured **reference-context system** to make AI agent contributions reliable, consistent, and architecturally sound. This document explains what the system is, why it was built, and how it prevents the most common failure modes of AI-assisted software development.
+ChessRun uses a structured **reference-context system** to make AI agent contributions reliable, consistent, and architecturally sound. This document explains what the system is, why it was built, and how it prevents the most common failure modes of AI-assisted software development.
 
 ---
 
@@ -112,7 +112,7 @@ The system enforces that each concern has exactly one canonical location:
 
 Every agent session starts with the same architectural map. The `reference/` README lists every domain's canonical file. The `skills/` guides specify the exact directories to search. The `prompts/` templates build the search steps directly into the implementation workflow.
 
-New agents working on ChessIQ for the first time can find the existing engine pool, the existing auth HOC, and the existing API client in under 60 seconds — using the grep commands documented in each reference README.
+New agents working on ChessRun for the first time can find the existing engine pool, the existing auth HOC, and the existing API client in under 60 seconds — using the grep commands documented in each reference README.
 
 ---
 
@@ -137,7 +137,7 @@ The protocol:
 
 ### When to update reference READMEs
 
-- When a new canonical ChessIQ service is established (add it to "Reuse Safeguards").
+- When a new canonical ChessRun service is established (add it to "Reuse Safeguards").
 - When a new duplication pattern is discovered (add a grep check).
 - When a library deprecates an API (update the "Populate" instructions).
 

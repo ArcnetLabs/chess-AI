@@ -1,4 +1,4 @@
-# ChessIQ — Future Services, Intelligence Expansion, and Long-Term Revenue Opportunities
+# ChessRun — Future Services, Intelligence Expansion, and Long-Term Revenue Opportunities
 
 **Version:** 1.0  
 **Status:** Strategic Vision / Long-Range Planning  
@@ -8,21 +8,23 @@
 
 ## Executive Summary
 
-ChessIQ launches as a personalized AI chess coaching platform. But the intelligence infrastructure it builds — longitudinal behavioral pattern recognition, structured game analytics, persistent player memory, and conversational AI grounded in chess expertise — has a surface area that extends far beyond individual coaching.
+ChessRun launches as a personalized AI chess coaching platform. But the intelligence infrastructure it builds — longitudinal behavioral pattern recognition, structured game analytics, persistent player memory, and conversational AI grounded in chess expertise — has a surface area that extends far beyond individual coaching.
+
+> **MVP scope note:** The current launch product is defined in [`../product/CHESSRUN_MVP_UX.md`](../product/CHESSRUN_MVP_UX.md). Future services such as opponent reports, academy dashboards, adaptive training, and enterprise analytics should build on the coach-first ChessRun MVP rather than replace the primary coaching conversation.
 
 Every user interaction generates structured behavioral data: how players think under pressure, which tactical patterns they miss repeatedly, how their style evolves over months, where their decisions break down in complex positions. Aggregated carefully and analyzed at scale, this data becomes a uniquely valuable asset — one that has applications in coaching education, competitive preparation, federation analytics, research, and eventually, a foundational chess intelligence ecosystem.
 
-This document maps that expansion: what it looks like technically, who pays for it, how it phases over time, and what ChessIQ can ultimately become.
+This document maps that expansion: what it looks like technically, who pays for it, how it phases over time, and what ChessRun can ultimately become.
 
-**Core thesis:** ChessIQ is not building a chess app with AI features. It is building the behavioral memory and intelligence infrastructure for chess improvement — a platform that compounds in value the more it is used, across every user and every game.
+**Core thesis:** ChessRun is not building a chess app with AI features. It is building the behavioral memory and intelligence infrastructure for chess improvement — a platform that compounds in value the more it is used, across every user and every game.
 
 ---
 
 ## 1. Platform Evolution: From Coaching App to Chess Intelligence Ecosystem
 
-### 1.1 The Three Phases of ChessIQ's Platform Identity
+### 1.1 The Three Phases of ChessRun's Platform Identity
 
-ChessIQ's long-term trajectory moves through three clearly distinct phases:
+ChessRun's long-term trajectory moves through three clearly distinct phases:
 
 ```mermaid
 flowchart LR
@@ -41,11 +43,11 @@ The product as described in the FRDs. Individual users link Chess.com, get Stock
 The coaching infrastructure becomes a platform. Opponent intelligence reports, enterprise academy dashboards, aggregate behavioral analytics, and advanced training systems emerge as distinct product lines. The user base generates data that makes the platform smarter for everyone.
 
 **Phase 3 — Chess AI Ecosystem:**  
-ChessIQ's accumulated training data, fine-tuned coaching models, and behavioral intelligence position it as the foundational infrastructure layer for chess improvement at scale. Federation partnerships, research collaborations, and potentially a chess-native language model make ChessIQ the intelligence layer underneath other chess tools and services.
+ChessRun's accumulated training data, fine-tuned coaching models, and behavioral intelligence position it as the foundational infrastructure layer for chess improvement at scale. Federation partnerships, research collaborations, and potentially a chess-native language model make ChessRun the intelligence layer underneath other chess tools and services.
 
 ### 1.2 What Makes This Trajectory Credible
 
-This is not speculative product expansion. It follows directly from what ChessIQ builds in Phase 1:
+This is not speculative product expansion. It follows directly from what ChessRun builds in Phase 1:
 
 | Phase 1 Asset | Phase 2/3 Application |
 |---------------|----------------------|
@@ -64,13 +66,13 @@ The expansion is not a pivot. It is the natural monetization of infrastructure a
 
 ### 2.1 The Opportunity
 
-ChessIQ accumulates something no other chess platform currently monetizes systematically: **structured behavioral chess data at scale** — not just win/loss records, but *how* players at specific rating bands, time controls, and regions make decisions, collapse under pressure, and develop over time.
+ChessRun accumulates something no other chess platform currently monetizes systematically: **structured behavioral chess data at scale** — not just win/loss records, but *how* players at specific rating bands, time controls, and regions make decisions, collapse under pressure, and develop over time.
 
 At sufficient user scale, this data enables a new category of product: **aggregate chess behavioral intelligence** — insights about populations of players, not individuals.
 
 ### 2.2 What This Data Looks Like
 
-As ChessIQ's user base grows across geographies and rating bands, it accumulates:
+As ChessRun's user base grows across geographies and rating bands, it accumulates:
 
 **By Rating Band:**
 - Which tactical themes 1200-1400 players miss most frequently
@@ -145,11 +147,11 @@ Aggregate behavioral intelligence must be built on a rigorous privacy-first foun
 
 Serious chess players — from club competitors to tournament regulars to professional players — spend time researching opponents before important games. This process is currently manual, time-consuming, and incomplete: downloading PGNs from Chess.com or databases, running analysis locally, and trying to identify patterns without systematic tooling.
 
-ChessIQ can automate and productize this research: **pre-game opponent intelligence reports**.
+ChessRun can automate and productize this research: **pre-game opponent intelligence reports**.
 
 ### 3.2 What an Opponent Intelligence Report Contains
 
-For any Chess.com user whose games are publicly available, ChessIQ can generate a structured intelligence report:
+For any Chess.com user whose games are publicly available, ChessRun can generate a structured intelligence report:
 
 **Opening Profile:**
 - Preferred openings as White and Black (by frequency and success rate)
@@ -198,7 +200,7 @@ For any Chess.com user whose games are publicly available, ChessIQ can generate 
 
 ### 3.4 Technical Architecture
 
-Opponent intelligence reports build directly on ChessIQ's existing analysis pipeline:
+Opponent intelligence reports build directly on ChessRun's existing analysis pipeline:
 
 ```mermaid
 flowchart TB
@@ -246,7 +248,7 @@ flowchart TB
     LLM --> PREP
 ```
 
-**Important consideration:** Opponent reports are generated only for publicly available game data. ChessIQ respects Chess.com's API terms and does not surface private game data. Users who opt out of Chess.com's public game sharing are not included in opponent reports.
+**Important consideration:** Opponent reports are generated only for publicly available game data. ChessRun respects Chess.com's API terms and does not surface private game data. Users who opt out of Chess.com's public game sharing are not included in opponent reports.
 
 ---
 
@@ -256,7 +258,7 @@ flowchart TB
 
 General-purpose language models (GPT-4, Claude, Llama) are capable chess explainers when given structured context. But they are not chess-native: they have no persistent understanding of game phases, tactical patterns, coaching progression, or chess-specific language at an architectural level.
 
-ChessIQ's long-term trajectory — if executed deliberately — positions it to build something no one else currently has: **a conversational intelligence model that is natively chess-specialized**.
+ChessRun's long-term trajectory — if executed deliberately — positions it to build something no one else currently has: **a conversational intelligence model that is natively chess-specialized**.
 
 This is not a near-term claim. It is a multi-year architectural ambition with a credible pathway.
 
@@ -264,11 +266,11 @@ This is not a near-term claim. It is a multi-year architectural ambition with a 
 
 **Stage 1 (Current — MVP):** General instruction-tuned model (Llama 3 8B) with chess-aware prompting and structured context injection from Stockfish + pattern database. The model is a capable explainer because context is rich and structured — not because the model understands chess.
 
-**Stage 2 (12–24 months):** Domain-adapted fine-tuning on ChessIQ's accumulated coaching conversations, pattern explanations, and structured game analyses. The model begins to develop chess-idiomatic language and coaching patterns. Performance improves on explanation quality, recommendation accuracy, and coaching continuity.
+**Stage 2 (12–24 months):** Domain-adapted fine-tuning on ChessRun's accumulated coaching conversations, pattern explanations, and structured game analyses. The model begins to develop chess-idiomatic language and coaching patterns. Performance improves on explanation quality, recommendation accuracy, and coaching continuity.
 
-**Stage 3 (24–48 months):** If ChessIQ's user base is large enough, the coaching corpus — millions of structured coaching interactions, with feedback signals from user satisfaction and improvement metrics — becomes a proprietary training dataset. Combined with RLHF tuned specifically on coaching quality, the resulting model has meaningfully different chess coaching capability than any general model.
+**Stage 3 (24–48 months):** If ChessRun's user base is large enough, the coaching corpus — millions of structured coaching interactions, with feedback signals from user satisfaction and improvement metrics — becomes a proprietary training dataset. Combined with RLHF tuned specifically on coaching quality, the resulting model has meaningfully different chess coaching capability than any general model.
 
-**Stage 4 (48+ months):** At sufficient scale, ChessIQ could pursue development or partnership on a chess-native base model: a model pre-trained or heavily adapted on chess-specific corpora (PGNs, chess books, coaching literature, pattern databases, tactical puzzles, game commentary). This model would represent a qualitatively different capability: **chess-native reasoning**, not just chess-informed explanation.
+**Stage 4 (48+ months):** At sufficient scale, ChessRun could pursue development or partnership on a chess-native base model: a model pre-trained or heavily adapted on chess-specific corpora (PGNs, chess books, coaching literature, pattern databases, tactical puzzles, game commentary). This model would represent a qualitatively different capability: **chess-native reasoning**, not just chess-informed explanation.
 
 ### 4.3 What a Chess-Native Model Enables
 
@@ -285,7 +287,7 @@ A deeply chess-specialized model goes beyond general instruction-tuning in speci
 
 ### 4.4 Strategic Value of a Chess-Native Model
 
-If ChessIQ successfully develops a chess-specialized intelligence model, it becomes a platform asset, not just a product feature:
+If ChessRun successfully develops a chess-specialized intelligence model, it becomes a platform asset, not just a product feature:
 
 - **License the model** to chess academies, publishers, and content platforms
 - **API access** for third-party chess apps to integrate coaching intelligence
@@ -293,7 +295,7 @@ If ChessIQ successfully develops a chess-specialized intelligence model, it beco
 - **Federation partnerships**: national training programs powered by the model
 - **Educational publishing**: structured chess curricula generated and personalized by the model
 
-**Positioning:** ChessIQ would be the first company to have a production-grade, validated, chess-specialized coaching intelligence model built on real coaching interactions and improvement feedback — not just a general model prompted to play chess.
+**Positioning:** ChessRun would be the first company to have a production-grade, validated, chess-specialized coaching intelligence model built on real coaching interactions and improvement feedback — not just a general model prompted to play chess.
 
 ### 4.5 What This Is NOT
 
@@ -310,14 +312,14 @@ To be clear about scope:
 
 ### 5.1 From Insight to Systematic Improvement
 
-ChessIQ's current coaching layer identifies patterns and generates recommendations. The natural evolution is to close the loop: not just tell users what to fix, but actively train them to fix it through structured, adaptive learning systems.
+ChessRun's current coaching layer identifies patterns and generates recommendations. The natural evolution is to close the loop: not just tell users what to fix, but actively train them to fix it through structured, adaptive learning systems.
 
 ### 5.2 Adaptive Drill Generation
 
 Current training mode offers drill replay of analyzed critical moments. The evolved version is an **adaptive training system** that generates original drills targeted at a player's specific weaknesses:
 
 **Weakness-Targeted Puzzle Generation:**
-- ChessIQ identifies that a player misses knight fork opportunities in 15-move middlegame positions
+- ChessRun identifies that a player misses knight fork opportunities in 15-move middlegame positions
 - The system generates (or curates from existing datasets) a targeted set of positions featuring exactly this pattern at the appropriate difficulty for that player's rating
 - Drill difficulty scales adaptively based on performance — easier if the player fails repeatedly, harder as mastery improves
 - Progress is tracked and fed back into the pattern database, updating the player's tactical profile
@@ -334,7 +336,7 @@ The drill generation system builds on the pattern database and existing Stockfis
 **Concept:** An AI opponent that plays to a player's specific weaknesses — not a strong chess engine, but a pedagogically designed sparring partner.
 
 **How it works:**
-- ChessIQ's pattern database identifies the player's key weaknesses
+- ChessRun's pattern database identifies the player's key weaknesses
 - The AI sparring engine adjusts its play to create the specific positions and pressure points the player struggles with
 - After each sparring game, the coaching layer analyzes the performance and identifies whether the player is improving in the targeted areas
 
@@ -345,7 +347,7 @@ This is a qualitatively different training experience from playing against Stock
 
 ### 5.4 Personalized Opening Repertoire Builder
 
-**Concept:** Based on a player's style profile, win/loss data by opening, and tactical/positional tendencies, ChessIQ builds a recommended opening repertoire — and then teaches it.
+**Concept:** Based on a player's style profile, win/loss data by opening, and tactical/positional tendencies, ChessRun builds a recommended opening repertoire — and then teaches it.
 
 **Repertoire recommendation logic:**
 - Player with strong tactical instincts and aggressive tendencies → King's Indian Attack, Sicilian Najdorf
@@ -369,7 +371,7 @@ For players preparing for specific tournaments or opponents:
 
 ### 5.6 Emotional and Timing Coaching
 
-Chess is as much a psychological game as a technical one. ChessIQ's timing data creates the foundation for a category of coaching that is currently very hard to systematize:
+Chess is as much a psychological game as a technical one. ChessRun's timing data creates the foundation for a category of coaching that is currently very hard to systematize:
 
 **Clock Anxiety Detection:**
 - Players who consume disproportionate time in certain position types regardless of complexity
@@ -394,7 +396,7 @@ Chess is as much a psychological game as a technical one. ChessIQ's timing data 
 
 Individual subscription revenue scales linearly with users. Enterprise sales can scale non-linearly: a single chess academy might represent 50–200 student accounts, and a national federation might represent thousands.
 
-The enterprise opportunity requires adapting ChessIQ's individual coaching infrastructure into **organizational intelligence tools**: analytics for coaches, academies, and institutions rather than (or in addition to) individual players.
+The enterprise opportunity requires adapting ChessRun's individual coaching infrastructure into **organizational intelligence tools**: analytics for coaches, academies, and institutions rather than (or in addition to) individual players.
 
 ### 6.2 Chess Academy Platform
 
@@ -422,7 +424,7 @@ The enterprise opportunity requires adapting ChessIQ's individual coaching infra
 
 **Target customer:** Independent chess coaches working with individual students.
 
-**Problem:** Independent coaches spend significant time on analysis, reporting, and homework design. ChessIQ can automate the analytical and reporting layer, freeing coaches to focus on instruction.
+**Problem:** Independent coaches spend significant time on analysis, reporting, and homework design. ChessRun can automate the analytical and reporting layer, freeing coaches to focus on instruction.
 
 **Product:** Coach Pro — a professional tier designed for coaches managing a roster of students.
 
@@ -447,7 +449,7 @@ The enterprise opportunity requires adapting ChessIQ's individual coaching infra
 - National team preparation tools
 - Curriculum development intelligence
 
-**What ChessIQ offers:**
+**What ChessRun offers:**
 - Federation analytics dashboard: aggregate behavioral data for registered players
 - Training program outcome tracking: do players in Program A improve faster than Program B?
 - National style profiling: what are the systemic strengths and weaknesses of this federation's player base?
@@ -455,7 +457,7 @@ The enterprise opportunity requires adapting ChessIQ's individual coaching infra
 
 **Partnership model:**
 - Custom enterprise agreements with federations
-- Data sharing arrangement: federation provides access to their official game database; ChessIQ provides analytics infrastructure
+- Data sharing arrangement: federation provides access to their official game database; ChessRun provides analytics infrastructure
 - Co-development of national curriculum tools
 
 ### 6.5 Esports and Content Creator Tools
@@ -467,11 +469,11 @@ The enterprise opportunity requires adapting ChessIQ's individual coaching infra
 - Esports organizations need systematic player development and matchup analysis
 - Content creators need data-driven narratives
 
-**ChessIQ offering:**
+**ChessRun offering:**
 - Streamer Intelligence Pack: opponent analysis reports formatted for on-stream presentation
 - Player career analytics: timeline of a player's style evolution (compelling narrative for content)
 - Live game coaching overlay: analysis data formatted for broadcast context
-- Matchup analysis: head-to-head behavioral data when both players are in the ChessIQ database
+- Matchup analysis: head-to-head behavioral data when both players are in the ChessRun database
 
 ---
 
@@ -479,7 +481,7 @@ The enterprise opportunity requires adapting ChessIQ's individual coaching infra
 
 ### 7.1 The Data Asset
 
-As ChessIQ scales, it accumulates a dataset that is genuinely novel in the chess world: **structured behavioral coaching data linked to improvement outcomes**. This is different from raw game databases (which Chess.com and lichess already provide at massive scale). ChessIQ's data contains:
+As ChessRun scales, it accumulates a dataset that is genuinely novel in the chess world: **structured behavioral coaching data linked to improvement outcomes**. This is different from raw game databases (which Chess.com and lichess already provide at massive scale). ChessRun's data contains:
 
 - Behavioral pattern classifications linked to specific games
 - Improvement trajectories measured over months
@@ -487,12 +489,12 @@ As ChessIQ scales, it accumulates a dataset that is genuinely novel in the chess
 - Timing and psychological behavioral data
 - Style evolution and archetype transition data
 
-This dataset has potential value beyond ChessIQ's own products.
+This dataset has potential value beyond ChessRun's own products.
 
 ### 7.2 Research Partnership Opportunities
 
 **Cognitive science and decision-making research:**
-Chess is a widely used model system for studying human decision-making, pattern recognition, expertise development, and performance under pressure. ChessIQ's behavioral dataset — especially timing data, decision quality under time pressure, and improvement trajectories — is relevant to:
+Chess is a widely used model system for studying human decision-making, pattern recognition, expertise development, and performance under pressure. ChessRun's behavioral dataset — especially timing data, decision quality under time pressure, and improvement trajectories — is relevant to:
 
 - Studies on how expertise develops in complex domains
 - Research on decision-making under time and cognitive constraints
@@ -512,14 +514,14 @@ Chess is a widely used model system for studying human decision-making, pattern 
 
 ### 7.3 Monetization of Data Intelligence
 
-ChessIQ can generate revenue from its data asset through carefully structured commercial arrangements:
+ChessRun can generate revenue from its data asset through carefully structured commercial arrangements:
 
 | Revenue Stream | Model | Notes |
 |---------------|-------|-------|
 | **Research dataset licensing** | One-time or annual licensing fees | Anonymized, aggregated datasets; no individual data |
 | **Custom analytics reports** | Project-based consulting | Federation or publisher commissions specific research questions |
 | **Academic partnerships** | Grant co-applicant or data contributor | Non-monetary, but builds reputation and validation |
-| **Publisher partnerships** | Revenue share on ChessIQ-powered educational content | Chess book or curriculum publishers using ChessIQ's behavioral data |
+| **Publisher partnerships** | Revenue share on ChessRun-powered educational content | Chess book or curriculum publishers using ChessRun's behavioral data |
 
 ### 7.4 Privacy and Ethics Framework
 
@@ -558,9 +560,9 @@ Data intelligence opportunities must be built on a rigorous, explicit ethical an
 
 ### 8.1 The Memory Layer for Chess Improvement
 
-The most durable long-term position for ChessIQ is not as a product with features, but as **the intelligence infrastructure that underlies chess improvement**.
+The most durable long-term position for ChessRun is not as a product with features, but as **the intelligence infrastructure that underlies chess improvement**.
 
-Just as Spotify became the memory layer for music listening — accumulating taste data and behavioral patterns that make its recommendations irreplaceable — ChessIQ can become the behavioral memory layer for chess improvement. The more a player uses ChessIQ, the more irreplaceable it becomes: years of coaching history, pattern evolution, improvement tracking, and conversational coaching context that no other platform holds.
+Just as Spotify became the memory layer for music listening — accumulating taste data and behavioral patterns that make its recommendations irreplaceable — ChessRun can become the behavioral memory layer for chess improvement. The more a player uses ChessRun, the more irreplaceable it becomes: years of coaching history, pattern evolution, improvement tracking, and conversational coaching context that no other platform holds.
 
 This creates a compounding switching cost that is genuinely difficult to replicate:
 
@@ -572,11 +574,11 @@ This creates a compounding switching cost that is genuinely difficult to replica
 | Style evolution data | Understanding not just where the player is, but how they've evolved |
 | Strength/weakness trajectory | Context that makes future coaching faster, more targeted |
 
-**After 12 months of use, ChessIQ knows more about a player's chess behavior than any human coach who hasn't studied that player's games systematically.** That is the durable differentiation.
+**After 12 months of use, ChessRun knows more about a player's chess behavior than any human coach who hasn't studied that player's games systematically.** That is the durable differentiation.
 
 ### 8.2 A Conversational Chess Intelligence System
 
-The long-term conversational experience ChessIQ is building is not a chatbot with chess knowledge. It is a **persistent conversational coaching relationship** — one that:
+The long-term conversational experience ChessRun is building is not a chatbot with chess knowledge. It is a **persistent conversational coaching relationship** — one that:
 
 - Remembers everything previously discussed and analyzed
 - Tracks whether prior recommendations were acted on
@@ -589,11 +591,11 @@ This is closer to the relationship between a serious student and a long-term per
 
 ### 8.3 The Chess Intelligence Ecosystem
 
-At full scale, ChessIQ's platform becomes the connective tissue between multiple chess improvement contexts:
+At full scale, ChessRun's platform becomes the connective tissue between multiple chess improvement contexts:
 
 ```mermaid
 flowchart TB
-    subgraph Core["ChessIQ Core Intelligence Platform"]
+    subgraph Core["ChessRun Core Intelligence Platform"]
         PLAYER[Player Memory\nand Behavioral Engine]
         COACH[Conversational\nAI Coach]
         PATTERN[Pattern Recognition\nand Analytics]
@@ -630,11 +632,11 @@ flowchart TB
     Core --> Ecosystem
 ```
 
-In this architecture, ChessIQ's core intelligence layer powers multiple product surfaces and external integrations. Third-party chess platforms can access coaching intelligence via API. Publishers can license curricula generated by the platform. Federations can embed ChessIQ's analytics. The intelligence layer compounds in value because every surface area contributes more training data.
+In this architecture, ChessRun's core intelligence layer powers multiple product surfaces and external integrations. Third-party chess platforms can access coaching intelligence via API. Publishers can license curricula generated by the platform. Federations can embed ChessRun's analytics. The intelligence layer compounds in value because every surface area contributes more training data.
 
-### 8.4 What ChessIQ Is Becoming
+### 8.4 What ChessRun Is Becoming
 
-ChessIQ's long-term identity is best captured as:
+ChessRun's long-term identity is best captured as:
 
 **A persistent AI chess intelligence platform** that serves as:
 - The behavioral memory for individual chess improvement
@@ -650,7 +652,7 @@ This is a fundamentally different business than a chess app. It is a **compound 
 
 ### 9.1 Revenue Surface Area
 
-ChessIQ's expanded product surface creates multiple independent revenue streams:
+ChessRun's expanded product surface creates multiple independent revenue streams:
 
 ```mermaid
 flowchart LR
@@ -714,9 +716,9 @@ Not all revenue streams should be pursued simultaneously. The correct sequencing
 
 | Risk | Description | Mitigation |
 |------|-------------|------------|
-| **Chess.com expands coaching** | Chess.com builds a competing coaching AI with first-party game access | ChessIQ's longitudinal behavioral memory and personalization depth are not replicable quickly; proprietary coaching corpus is the moat |
-| **General LLM commoditization** | GPT-5 / Claude 4 becomes good enough at chess coaching without specialization | ChessIQ's value is not in LLM capability alone — it is in the behavioral data, pattern database, and long-term player memory that powers the LLM |
-| **Stockfish alternatives** | Better open-source engines emerge | ChessIQ is engine-agnostic; switching the analysis engine does not affect the intelligence layer |
+| **Chess.com expands coaching** | Chess.com builds a competing coaching AI with first-party game access | ChessRun's longitudinal behavioral memory and personalization depth are not replicable quickly; proprietary coaching corpus is the moat |
+| **General LLM commoditization** | GPT-5 / Claude 4 becomes good enough at chess coaching without specialization | ChessRun's value is not in LLM capability alone — it is in the behavioral data, pattern database, and long-term player memory that powers the LLM |
+| **Stockfish alternatives** | Better open-source engines emerge | ChessRun is engine-agnostic; switching the analysis engine does not affect the intelligence layer |
 | **Data privacy regulation** | Stricter data regulations limit aggregate intelligence products | Privacy-first architecture and consent system are built defensively from day one |
 
 ### 10.2 Execution Risks
@@ -732,19 +734,19 @@ Not all revenue streams should be pursued simultaneously. The correct sequencing
 
 1. **Product quality first.** No expansion should happen before the core coaching product is compelling. A weak individual product makes every other expansion opportunity smaller.
 
-2. **Data accumulation is the strategy.** Every user, every game, every coaching interaction makes the platform more valuable. Growth is not just a revenue target — it is the mechanism by which ChessIQ builds its moat.
+2. **Data accumulation is the strategy.** Every user, every game, every coaching interaction makes the platform more valuable. Growth is not just a revenue target — it is the mechanism by which ChessRun builds its moat.
 
 3. **Privacy is foundational, not compliance.** The entire data intelligence strategy depends on user trust. Privacy architecture must be built before it is needed, not retroactively.
 
-4. **Expand the surface area of the intelligence, not the surface area of the UI.** ChessIQ should resist building too many product surfaces too quickly. The intelligence layer should power fewer, more polished surfaces rather than many underdeveloped ones.
+4. **Expand the surface area of the intelligence, not the surface area of the UI.** ChessRun should resist building too many product surfaces too quickly. The intelligence layer should power fewer, more polished surfaces rather than many underdeveloped ones.
 
-5. **Chess.com is a partner, not a competitor.** ChessIQ's dependency on Chess.com for game data makes a collaborative posture preferable. Potential for formal partnership, white-label analytics, or integration agreements — not adversarial competition.
+5. **Chess.com is a partner, not a competitor.** ChessRun's dependency on Chess.com for game data makes a collaborative posture preferable. Potential for formal partnership, white-label analytics, or integration agreements — not adversarial competition.
 
 ---
 
-## 11. Summary: What ChessIQ Is Building
+## 11. Summary: What ChessRun Is Building
 
-ChessIQ begins by solving a specific problem for a specific user: helping intermediate chess players understand and fix their recurring mistakes through personalized AI coaching.
+ChessRun begins by solving a specific problem for a specific user: helping intermediate chess players understand and fix their recurring mistakes through personalized AI coaching.
 
 But the infrastructure it builds to solve that problem — behavioral pattern recognition at scale, persistent player memory, structured chess analytics, conversational AI grounded in chess expertise — is the foundation for a much larger platform.
 
@@ -754,9 +756,9 @@ The long-term opportunity is not "a better chess analyzer" or "a chess chatbot."
 
 Every game analyzed, every coaching session conducted, every pattern identified makes that intelligence layer deeper and more valuable. The platform compounds. The moat widens.
 
-The product starts as a coaching tool. The business becomes a chess intelligence platform. The long-term asset is a proprietary behavioral dataset and specialized model infrastructure that positions ChessIQ as the definitive AI infrastructure for chess development at every level of the game.
+The product starts as a coaching tool. The business becomes a chess intelligence platform. The long-term asset is a proprietary behavioral dataset and specialized model infrastructure that positions ChessRun as the definitive AI infrastructure for chess development at every level of the game.
 
-That is the opportunity this document describes. It is ambitious. It is technically grounded. And it is built on infrastructure that ChessIQ is constructing from day one.
+That is the opportunity this document describes. It is ambitious. It is technically grounded. And it is built on infrastructure that ChessRun is constructing from day one.
 
 ---
 
