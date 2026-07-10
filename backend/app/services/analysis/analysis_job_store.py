@@ -162,7 +162,11 @@ class AnalysisJobStore:
         if not job:
             return
 
-        pending = [gid for gid in job.get("pending_game_ids", []) if gid != game_id]
+        pending_before = list(job.get("pending_game_ids", []))
+        if game_id not in pending_before:
+            return
+
+        pending = [gid for gid in pending_before if gid != game_id]
         job["pending_game_ids"] = pending
         job["completed_games"] = int(job.get("completed_games", 0)) + 1
         job["current_game_id"] = pending[0] if pending else None
@@ -183,7 +187,11 @@ class AnalysisJobStore:
         if not job:
             return
 
-        pending = [gid for gid in job.get("pending_game_ids", []) if gid != game_id]
+        pending_before = list(job.get("pending_game_ids", []))
+        if game_id not in pending_before:
+            return
+
+        pending = [gid for gid in pending_before if gid != game_id]
         job["pending_game_ids"] = pending
         job["failed_games"] = int(job.get("failed_games", 0)) + 1
         failed_ids = list(job.get("failed_game_ids", []))

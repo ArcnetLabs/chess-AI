@@ -57,6 +57,11 @@ celery_app.conf.update(
     
     task_acks_late=True,
     task_reject_on_worker_lost=True,
+    broker_transport_options={
+        # Analysis tasks are bounded below this value. A shorter visibility
+        # timeout lets Redis recover work promptly after an instance OOM/restart.
+        'visibility_timeout': 600,
+    },
     
     result_expires=3600,
 )
