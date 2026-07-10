@@ -5,7 +5,8 @@ export type AnalysisJobState =
   | 'running'
   | 'completed'
   | 'partial'
-  | 'failed';
+  | 'failed'
+  | 'cancelled';
 
 export interface AnalysisJobStatus {
   job_id: string;

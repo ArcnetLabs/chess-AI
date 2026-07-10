@@ -71,6 +71,11 @@ class IntentClassifier:
             r"help.*with.*\b(tactics|strategy|endgame|opening)\b",
             r"learn.*about",
             r"teach.*me",
+            r"what.*tell.*about.*my.*playing",
+            r"what.*see.*in.*my.*games",
+            r"based.*on.*(?:my|the).*(?:games|analysis)",
+            r"(?:analy[sz]ed|recent).*games",
+            r"my.*playing.*style",
         ],
         ChatIntent.SMALL_TALK: [
             r"^(hi|hello|hey|greetings)",

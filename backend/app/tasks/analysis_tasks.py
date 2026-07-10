@@ -15,7 +15,27 @@ from app.services.analysis.analysis_service import (
     persist_game_analysis,
 )
 from app.services.analysis.analysis_job_store import get_analysis_job_store
+from app.services.analysis.unified_analyzer import AnalysisCancelledError
+from app.services.engine.engine_pool import StockfishEnginePool
 from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
+
+
+async def _analyze_with_engine_cleanup(
+    game: Game,
+    user: User,
+    log_prefix: str,
+    should_cancel,
+):
+    """Analyze one game and release its Stockfish process before closing the loop."""
+    try:
+        return await analyze_game_for_user(
+            game,
+            user,
+            log_prefix=log_prefix,
+            should_cancel=should_cancel,
+        )
+    finally:
+        await StockfishEnginePool.shutdown()
 
 
 @celery_app.task(
@@ -54,6 +74,8 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
     
     try:
         logger.info(f"🔍 {log_prefix}Starting Stockfish analysis for game {game_id}")
+        if job_store.is_cancelled(job_id):
+            return {"status": "cancelled", "game_id": game_id}
         job_store.mark_game_running(job_id, game_id)
         
         game = db.query(Game).filter(Game.id == game_id).first()
@@ -61,6 +83,11 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             logger.warning(f"❌ {log_prefix}Game {game_id} not found or has no PGN")
             job_store.mark_game_failed(job_id, game_id, error="Game not found or has no PGN")
             return {"status": "failed", "reason": "Game not found or no PGN"}
+
+        if game.is_analyzed:
+            logger.info(f"{log_prefix}Game {game_id} is already analyzed; marking complete")
+            job_store.mark_game_completed(job_id, game_id)
+            return {"status": "already_analyzed", "game_id": game_id}
 
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -74,14 +101,17 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
         )
         analysis_start = time.time()
         
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(
-                analyze_game_for_user(game, user, log_prefix=log_prefix)
+        result = asyncio.run(
+            _analyze_with_engine_cleanup(
+                game,
+                user,
+                log_prefix,
+                should_cancel=lambda: job_store.is_cancelled(job_id),
             )
-        finally:
-            loop.close()
+        )
+
+        if job_store.is_cancelled(job_id):
+            return {"status": "cancelled", "game_id": game_id}
         
         analysis_time = time.time() - analysis_start
         logger.info(f"⏱️ {log_prefix}Analysis completed in {analysis_time:.2f} seconds")
@@ -122,6 +152,10 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             "analysis_time": total_time
         }
         
+    except AnalysisCancelledError:
+        db.rollback()
+        logger.info(f"{log_prefix}Analysis cancelled for game {game_id}")
+        return {"status": "cancelled", "game_id": game_id}
     except Exception as e:
         db.rollback()
         logger.error(f"❌ {log_prefix}Error analyzing game {game_id}: {str(e)}")

@@ -25,10 +25,15 @@ class AnalysisJobStatus(str, Enum):
     COMPLETED = "completed"
     PARTIAL = "partial"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 def job_key(job_id: str) -> str:
     return f"{ANALYSIS_JOB_KEY_PREFIX}:{job_id}"
+
+
+def cancel_key(job_id: str) -> str:
+    return f"{ANALYSIS_JOB_KEY_PREFIX}:{job_id}:cancelled"
 
 
 def user_active_key(user_id: int) -> str:
@@ -85,6 +90,7 @@ class AnalysisJobStore:
         self._memory_jobs: Dict[str, Dict[str, Any]] = {}
         self._memory_active: Dict[int, str] = {}
         self._memory_last: Dict[int, str] = {}
+        self._memory_cancelled: set[str] = set()
 
     @property
     def uses_redis(self) -> bool:
@@ -144,9 +150,13 @@ class AnalysisJobStore:
     def mark_game_running(self, job_id: Optional[str], game_id: int) -> None:
         if not job_id:
             return
+        if self.is_cancelled(job_id):
+            return
 
         job = self.get_job(job_id)
         if not job:
+            return
+        if job.get("status") == AnalysisJobStatus.CANCELLED.value:
             return
 
         job["status"] = AnalysisJobStatus.RUNNING.value
@@ -157,12 +167,20 @@ class AnalysisJobStore:
     def mark_game_completed(self, job_id: Optional[str], game_id: int) -> None:
         if not job_id:
             return
+        if self.is_cancelled(job_id):
+            return
 
         job = self.get_job(job_id)
         if not job:
             return
+        if job.get("status") == AnalysisJobStatus.CANCELLED.value:
+            return
 
-        pending = [gid for gid in job.get("pending_game_ids", []) if gid != game_id]
+        pending_before = list(job.get("pending_game_ids", []))
+        if game_id not in pending_before:
+            return
+
+        pending = [gid for gid in pending_before if gid != game_id]
         job["pending_game_ids"] = pending
         job["completed_games"] = int(job.get("completed_games", 0)) + 1
         job["current_game_id"] = pending[0] if pending else None
@@ -178,12 +196,20 @@ class AnalysisJobStore:
     ) -> None:
         if not job_id:
             return
+        if self.is_cancelled(job_id):
+            return
 
         job = self.get_job(job_id)
         if not job:
             return
+        if job.get("status") == AnalysisJobStatus.CANCELLED.value:
+            return
 
-        pending = [gid for gid in job.get("pending_game_ids", []) if gid != game_id]
+        pending_before = list(job.get("pending_game_ids", []))
+        if game_id not in pending_before:
+            return
+
+        pending = [gid for gid in pending_before if gid != game_id]
         job["pending_game_ids"] = pending
         job["failed_games"] = int(job.get("failed_games", 0)) + 1
         failed_ids = list(job.get("failed_game_ids", []))
@@ -195,6 +221,50 @@ class AnalysisJobStore:
         job["updated_at"] = _utc_now_iso()
         self._finalize_status(job)
         self._save_job(job)
+
+    def is_cancelled(self, job_id: Optional[str]) -> bool:
+        if not job_id:
+            return False
+        if job_id in self._memory_cancelled:
+            return True
+        if self._redis is not None:
+            try:
+                if self._redis.get(cancel_key(job_id)):
+                    return True
+            except Exception as exc:
+                logger.warning(f"Redis cancellation check failed for job {job_id}: {exc}")
+        job = self.get_job(job_id)
+        return bool(job and job.get("status") == AnalysisJobStatus.CANCELLED.value)
+
+    def cancel_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Mark a job cancelled so queued and active tasks stop cooperatively."""
+        job = self.get_job(job_id)
+        if not job:
+            return None
+
+        if job.get("status") in {
+            AnalysisJobStatus.COMPLETED.value,
+            AnalysisJobStatus.PARTIAL.value,
+            AnalysisJobStatus.FAILED.value,
+            AnalysisJobStatus.CANCELLED.value,
+        }:
+            return job
+
+        self._memory_cancelled.add(job_id)
+        if self._redis is not None:
+            try:
+                self._redis.setex(cancel_key(job_id), self._ttl, "1")
+            except Exception as exc:
+                logger.warning(f"Redis cancellation marker failed for job {job_id}: {exc}")
+
+        job["status"] = AnalysisJobStatus.CANCELLED.value
+        job["current_game_id"] = None
+        job["updated_at"] = _utc_now_iso()
+        user_id = int(job["user_id"])
+        if self._get_active_job_id(user_id) == job_id:
+            self._clear_active_job(user_id)
+        self._save_job(job)
+        return job
 
     def _finalize_status(self, job: Dict[str, Any]) -> None:
         total = int(job.get("total_games", 0))

@@ -77,6 +77,32 @@ def test_mark_game_failed_all_failed(store):
     assert store.get_active_job(3) is None
 
 
+def test_duplicate_task_delivery_does_not_double_count(store):
+    store.create_job(job_id="job-duplicate", user_id=4, game_ids=[31, 32], source="manual")
+
+    store.mark_game_completed("job-duplicate", 31)
+    store.mark_game_completed("job-duplicate", 31)
+    store.mark_game_failed("job-duplicate", 31, error="late duplicate")
+
+    job = store.get_job("job-duplicate")
+    assert job["completed_games"] == 1
+    assert job["failed_games"] == 0
+    assert job["pending_game_ids"] == [32]
+
+
+def test_cancel_job_is_terminal_and_idempotent(store):
+    store.create_job(job_id="job-cancel", user_id=5, game_ids=[40, 41], source="manual")
+    store.mark_game_running("job-cancel", 40)
+
+    cancelled = store.cancel_job("job-cancel")
+    store.mark_game_completed("job-cancel", 40)
+
+    assert cancelled["status"] == AnalysisJobStatus.CANCELLED.value
+    assert store.is_cancelled("job-cancel") is True
+    assert store.get_active_job(5) is None
+    assert store.get_job("job-cancel")["completed_games"] == 0
+
+
 def test_get_job_missing_returns_none(store):
     assert store.get_job("missing") is None
     assert store.get_active_job(999) is None

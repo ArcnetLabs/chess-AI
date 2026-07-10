@@ -67,9 +67,13 @@ services:
       - key: STOCKFISH_PATH
         value: stockfish/stockfish
       - key: STOCKFISH_DEPTH
-        value: 15
+        value: 14
       - key: STOCKFISH_TIME
-        value: 1.0
+        value: 0.35
+      - key: STOCKFISH_THREADS
+        value: 1
+      - key: STOCKFISH_HASH
+        value: 64
       - key: UPLOAD_DIR
         value: /tmp/uploads
       - key: REPORTS_DIR
@@ -93,7 +97,7 @@ services:
       pip install -r requirements.txt
     # Render did not retain the generated binary in one deploy. Re-running the
     # idempotent installer at startup guarantees the worker never starts without it.
-    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -Q analysis --concurrency=1
+    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -Q analysis --pool=solo --concurrency=1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -127,9 +131,13 @@ services:
       - key: STOCKFISH_PATH
         value: stockfish/stockfish
       - key: STOCKFISH_DEPTH
-        value: 15
+        value: 14
       - key: STOCKFISH_TIME
-        value: 1.0
+        value: 0.35
+      - key: STOCKFISH_THREADS
+        value: 1
+      - key: STOCKFISH_HASH
+        value: 64
       - key: LOG_LEVEL
         value: INFO
       - key: UPLOAD_DIR

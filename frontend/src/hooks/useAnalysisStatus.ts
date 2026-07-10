@@ -12,7 +12,7 @@ export interface WatchAnalysisJobOptions {
 }
 
 function isTerminal(status: AnalysisJobStatus['status']): boolean {
-  return status === 'completed' || status === 'partial' || status === 'failed';
+  return status === 'completed' || status === 'partial' || status === 'failed' || status === 'cancelled';
 }
 
 /**
@@ -97,6 +97,15 @@ export function useAnalysisStatus(userId: number | undefined) {
     [stop, userId],
   );
 
+  const cancelJob = useCallback(async () => {
+    if (!userId || !status?.job_id) throw new Error('No active analysis job to cancel.');
+    const cancelledStatus = await api.analysis.cancelJob(userId, status.job_id);
+    stop();
+    setError(null);
+    setStatus(cancelledStatus);
+    return cancelledStatus;
+  }, [status?.job_id, stop, userId]);
+
   useEffect(() => {
     if (!userId || isTracking || status) return;
 
@@ -129,6 +138,7 @@ export function useAnalysisStatus(userId: number | undefined) {
     isStreaming: isTracking,
     error,
     watchJob,
+    cancelJob,
     watchJobAsync: async (jobId?: string, options?: WatchAnalysisJobOptions) => {
       watchJob(jobId, options);
     },
