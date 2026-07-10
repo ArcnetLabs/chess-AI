@@ -27,6 +27,14 @@ _COACHING_HISTORY_KEYWORDS = (
     r"\bprevious advice\b",
 )
 
+_COACHING_QUESTION_START = re.compile(
+    r"^(?:what|why|how|which|where|when|can|could|should|do|am|is|are)\b"
+)
+
+_PLAYER_FOCUS_SIGNALS = re.compile(
+    r"\b(?:i|i'm|i've|me|my|mine|rating|elo|game|games|play|playing)\b"
+)
+
 
 class IntentClassifier:
     """
@@ -125,9 +133,21 @@ class IntentClassifier:
         
         if any(term in message_lower for term in chess_terms):
             return ChatIntent.GENERAL_QUESTION, 0.5
+
+        # Natural-language coaching questions do not need chess keywords. A rating
+        # goal such as "What's holding me back from 1800?" should reach grounded
+        # profile retrieval instead of falling through to the generic unknown reply.
+        if self._looks_like_personal_coaching_question(message_lower):
+            return ChatIntent.GENERAL_QUESTION, 0.45
         
         # Unknown intent
         return ChatIntent.UNKNOWN, 0.3
+
+    def _looks_like_personal_coaching_question(self, message: str) -> bool:
+        return bool(
+            _COACHING_QUESTION_START.search(message)
+            and _PLAYER_FOCUS_SIGNALS.search(message)
+        )
 
     def retrieval_content_types(self, intent: ChatIntent, message: str) -> list[str]:
         """

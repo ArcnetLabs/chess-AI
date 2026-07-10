@@ -91,6 +91,13 @@ def test_profile_questions_route_to_general_coaching(classifier, message):
     assert confidence >= 0.5
 
 
+def test_rating_goal_routes_to_general_coaching(classifier):
+    intent, confidence = classifier.classify("What's holding me back from 1800?")
+
+    assert intent == ChatIntent.GENERAL_QUESTION
+    assert confidence == 0.45
+
+
 def test_profile_question_fallback_uses_coach_language():
     coach = ChessCoach()
     response = coach._general_question_template(

@@ -399,12 +399,22 @@ class ChessCoach:
                         "content": (
                             f"{coach_context}\n\n"
                             "You are a chess improvement coach. Answer using only the "
-                            "facts above for personalization. Do not compute or invent "
+                            "facts above for personalization. Start with one high-impact "
+                            "theme, explain it in plain language, and give one practical "
+                            "next step or question. Do not dump a report, compute or invent "
                             f"chess engine evaluations.{memory_instruction}"
                         ),
                     },
-                    {"role": "user", "content": message},
                 ]
+                llm_messages.extend(
+                    {
+                        "role": history_message.role.value,
+                        "content": history_message.content,
+                    }
+                    for history_message in context.get_recent_messages(7)[:-1]
+                    if history_message.role in {MessageRole.USER, MessageRole.ASSISTANT}
+                )
+                llm_messages.append({"role": "user", "content": message})
                 result = await self.ai_client.chat_completion(
                     messages=llm_messages,
                     temperature=0.7,
