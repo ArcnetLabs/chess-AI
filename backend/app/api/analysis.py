@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
@@ -49,7 +50,7 @@ class AnalysisResponse(BaseModel):
 
 class AnalysisRequest(BaseModel):
     game_ids: Optional[List[int]] = None  # Specific games to analyze
-    days: int = 7  # Analyze games from last N days
+    days: Optional[int] = None  # None analyzes all games; otherwise use the recent window
     time_classes: Optional[List[str]] = None  # Filter by time classes
     force_reanalysis: bool = False  # Re-analyze already analyzed games
     mode: str = "auto"  # "auto", "stockfish-only", or "ai-enhanced"
@@ -223,11 +224,18 @@ async def analyze_user_games(
             Game.id.in_(request.game_ids)
         )
     else:
-        # Analyze ALL games for the user (not just recent ones)
-        logger.info(f"Analyzing all games for user {user_id}")
         games_query = db.query(Game).filter(
             Game.user_id == user_id
         )
+
+        if request.days is not None:
+            if request.days < 1:
+                raise HTTPException(status_code=422, detail="days must be at least 1")
+            cutoff = datetime.now(timezone.utc) - timedelta(days=request.days)
+            games_query = games_query.filter(Game.end_time >= cutoff)
+            logger.info(f"Analyzing games from the last {request.days} days for user {user_id}")
+        else:
+            logger.info(f"Analyzing all games for user {user_id}")
         
         if request.time_classes:
             games_query = games_query.filter(Game.time_class.in_(request.time_classes))

@@ -2,7 +2,7 @@
 # Install Stockfish binary for Render native Python builds (web + Celery worker).
 set -euo pipefail
 
-ROOT="${1:-.}"
+ROOT="$(cd "${1:-.}" && pwd)"
 STOCKFISH_DIR="${ROOT}/stockfish"
 BINARY="${STOCKFISH_DIR}/stockfish"
 

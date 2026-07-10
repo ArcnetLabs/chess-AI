@@ -16,6 +16,7 @@ services:
     buildCommand: |
       cd backend
       bash scripts/render_install_stockfish.sh .
+      test -x stockfish/stockfish
       pip install -r requirements.txt
       alembic upgrade head
     startCommand: |
@@ -88,11 +89,11 @@ services:
     buildCommand: |
       cd backend
       bash scripts/render_install_stockfish.sh .
+      test -x stockfish/stockfish
       pip install -r requirements.txt
-    startCommand: |
-      cd backend
-      python scripts/verify_celery_worker_env.py
-      celery -A app.celery_app:celery_app worker --loglevel=info -Q analysis --concurrency=1
+    # Render did not retain the generated binary in one deploy. Re-running the
+    # idempotent installer at startup guarantees the worker never starts without it.
+    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -Q analysis --concurrency=1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
