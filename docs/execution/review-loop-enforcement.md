@@ -1,4 +1,4 @@
-# ChessIQ Review Loop Enforcement
+# ChessRun Review Loop Enforcement
 
 **Date:** 2026-05-26  
 **Purpose:** Mandatory quality gates for feature execution — grep, architecture, duplication, performance, service layer  

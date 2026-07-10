@@ -1,35 +1,38 @@
-# FRD — ChessIQ (Product & Functional Requirements)
+# FRD - ChessRun (Product & Functional Requirements)
 
 ## 1. Product Overview
 
 ### 1.1 Vision
 
-ChessIQ is an **AI-powered personalized chess intelligence and coaching platform** that transforms how players improve at chess. Unlike traditional game analyzers that provide one-off engine evaluations, ChessIQ builds a comprehensive understanding of each player's unique patterns, tendencies, and developmental needs across their entire game history.
+> **MVP direction:** [`CHESSRUN_MVP_UX.md`](./CHESSRUN_MVP_UX.md) is the canonical product definition for the current launch scope. ChessRun is an AI chess coach whose primary interface is conversation. Dashboard, report, and training-mode concepts in this FRD are future-facing unless explicitly described in the MVP UX document.
 
-ChessIQ is not:
+ChessRun is an **AI chess coach** that uses game analysis to personalize coaching conversations. Unlike traditional game analyzers that provide one-off engine evaluations or static reports, ChessRun builds a concise Playing Profile from a player's games and uses that context to guide a persistent coaching conversation.
+
+ChessRun is not:
 - Just a game analyzer
 - Just a Stockfish wrapper  
-- Just a dashboard for metrics
+- A chess analytics dashboard
+- A report delivery product
 
-ChessIQ is:
+ChessRun is:
 - A **personalized AI chess coach** that learns your unique playing style
 - A **behavioral pattern recognition system** that identifies recurring tendencies across hundreds of games
-- A **conversational chess intelligence platform** where players can ask questions and receive contextual, personalized guidance
+- A **conversational coaching system** where players receive contextual, personalized guidance
 
 The key differentiator is **long-term pattern recognition**: The AI learns recurring patterns across a player's games and provides personalized coaching based on those longitudinal insights, not just individual game analysis.
 
-Target users: Intermediate online players (~1000–2200 Elo) seeking personalized, actionable coaching that evolves with their play.
+Target users: Intermediate online players (~1000-2200 Elo) seeking personalized, actionable coaching that evolves with their play.
 
 ### 1.2 High-Level Capabilities
 
 **Core Platform:**
 - Chess.com account linking by username (no OAuth in MVP).
 - Game fetching with filters: count, time control, rated/unrated, date range.
-- **Chess.com is the external source of truth** for raw game data (PGNs, move history, ratings, timestamps). ChessIQ fetches games on-demand or via periodic sync — it does not attempt to permanently archive all historical games.
-- **Lightweight game storage** — recently fetched games are temporarily cached (configurable retention window). Stockfish analysis outputs and detected patterns are stored permanently as ChessIQ's core long-term value.
+- **Chess.com is the external source of truth** for raw game data (PGNs, move history, ratings, timestamps). ChessRun fetches games on-demand or via periodic sync — it does not attempt to permanently archive all historical games.
+- **Lightweight game storage** — recently fetched games are temporarily cached (configurable retention window). Stockfish analysis outputs and detected patterns are stored permanently as ChessRun's core long-term value.
 - Batch analysis of games using Stockfish via Celery workers.
 - Move timing and clock data ingestion for behavioral analysis.
-- **Analysis depth advantage**: ChessIQ's default free-tier analysis depth may exceed Chess.com's free analysis depth. This is framed not as raw depth but as **deeper analysis + personalized coaching + longitudinal intelligence**.
+- **Analysis depth advantage**: ChessRun's default free-tier analysis depth may exceed Chess.com's free analysis depth. This is framed not as raw depth but as **deeper analysis + personalized coaching + longitudinal intelligence**.
 
 **Pattern Recognition Engine:**
 - Long-term behavioral pattern detection across hundreds of games.
@@ -49,18 +52,19 @@ Target users: Intermediate online players (~1000–2200 Elo) seeking personalize
 - Natural language Q&A about player patterns and games.
 - Personalized improvement recommendations.
 - Context-aware coaching explanations.
-- Interactive drill and study suggestions.
 - Conversational exploration of player strengths and weaknesses.
+- Persistent coaching threads where prior context can be restored.
+- Pattern-aware starter suggestions and follow-up questions.
 
-**Dashboard & Visualization:**
-- Fetched games list (collapsible).
-- Analysis summary (ACPL, accuracy, blunder/mistake counts).
-- Phase-based performance breakdown.
-- Pattern-based insights & recommendations.
-- Long-term trend visualization.
-- Behavioral pattern dashboard.
+**Playing Profile:**
+- Collapsible coaching context panel.
+- Games analyzed.
+- Patterns identified.
+- Strongest area.
+- Biggest bottleneck.
+- Last analysis timestamp.
 
-**Training Mode:**
+**Future Training Mode:**
 - Pattern-specific drills based on recurring weaknesses.
 - Critical moment replay with coaching context.
 - Personalized study plans based on pattern analysis.
@@ -88,16 +92,19 @@ Target users: Intermediate online players (~1000–2200 Elo) seeking personalize
 ### 2.2 Primary User Journeys
 
 - **First-Time Setup**
-  - Enters Chess.com username and email.
-  - IQChess creates or finds user.
-  - User chooses filters (e.g., last 25 rapid rated games).
-  - Games fetched, stored, and visible on dashboard as "Not analyzed".
-  - User clicks "Analyze All Games" to start analysis.
+  - Enters Chess.com or Lichess username.
+  - Clicks **Start Coaching**.
+  - ChessRun creates or finds the user.
+  - User is taken directly into the AI Coaching Interface.
+  - Coach welcomes the user and explains that game analysis can build a personalized Playing Profile.
+  - User opens the Analyze Games modal, selects a timeframe, and analysis runs in the background while the conversation remains available.
+  - When analysis completes, the Playing Profile updates and the coach starts a personalized coaching conversation around one high-impact pattern.
 
 - **Return Visit**
-  - Lands directly on `/dashboard?username=…`.
-  - Sees summary of performance and last analyzed period.
-  - Can sync new games, re-analyze, or enter Training Mode.
+  - Lands directly in the coaching workspace.
+  - Can start a new chat or reopen previous coaching conversations from the sidebar.
+  - Can reopen Analyze Games from the sidebar or mobile menu.
+  - Playing Profile remains persistent and collapsible.
 
 ---
 
@@ -123,49 +130,39 @@ Target users: Intermediate online players (~1000–2200 Elo) seeking personalize
 
 #### 3.2.2 Behavior
 
-- **FR-GAMES-2**: On new fetch, app uses **replace all** semantics for that user: remove or logically archive prior games within scope. This is consistent with the lightweight cached game storage model — the user's full game history remains available on Chess.com; ChessIQ maintains only the working cache needed for active analysis and coaching.
-- **FR-GAMES-3**: "Get Started" flow:
+- **FR-GAMES-2**: On new fetch, app uses **replace all** semantics for that user: remove or logically archive prior games within scope. This is consistent with the lightweight cached game storage model — the user's full game history remains available on Chess.com; ChessRun maintains only the working cache needed for active analysis and coaching.
+- **FR-GAMES-3**: "Start Coaching" flow:
   1. Find or create user.
-  2. POST to `games/fetch` with filters.
-  3. Show progress message (e.g., "Fetching your games…").
-  4. On success, toast the number of fetched games.
-  5. Redirect to `/dashboard?username={username}`.
+  2. Open the AI Coaching Interface.
+  3. Coach offers to analyze games to build a Playing Profile.
+  4. User opens the Analyze Games modal and selects a timeframe.
+  5. Backend fetches games and queues analysis.
+  6. Conversation stays available while progress updates in the coaching workspace.
 - **FR-GAMES-4**: Backend ensures idempotent storage (no duplicate games per `user_id` + external game id).
 
-### 3.3 Dashboard – Fetched Games
+### 3.3 Coaching Workspace - Analyze Games
 
-- **FR-DASH-GAMES-1**: Dashboard displays **Fetched Games** section:
-  - Title: "Fetched Games".
-  - Subtext: `{N} games` (N = number of games stored for that user).
-- **FR-DASH-GAMES-2**: Each game card shows:
-  - Opponent username.
-  - Result (Win/Loss/Draw with icon).
-  - Time control.
-  - Rated/unrated.
-  - Date/time.
-  - Link to Chess.com game.
-  - Badge: `Not analyzed` or `Analyzed`.
-- **FR-DASH-GAMES-3**: Section is **collapsible**:
-  - Default expanded.
-  - Clicking header toggles collapsed/expanded state.
-- **FR-DASH-GAMES-4**: Top-right actions:
-  - "Analyze All Games" button.
-  - Disabled if:
-    - Analysis currently running, or
-    - All games already analyzed.
+- **FR-ANALYZE-1**: Analyze Games is always a modal overlay, never a standalone page.
+- **FR-ANALYZE-2**: The modal offers:
+  - Last 7 Days.
+  - Last 30 Days.
+  - This Month.
+  - Analyze All Games.
+  - Custom Range.
+- **FR-ANALYZE-3**: Click **Analyze Games** to open the modal. Click **Cancel** or outside the modal to close it. Clicking **Analyze Games** again reopens it.
+- **FR-ANALYZE-4**: Desktop keeps Analyze Games visible in the sidebar. Mobile exposes it through a menu or sync action.
 
-### 3.4 Dashboard – Analysis Summary & Insights
+### 3.4 Playing Profile
 
-- **FR-ANALYSIS-1**: Summary panel shows:
-  - Total games analyzed (in last N days or globally, configurable).
-  - Overall accuracy metric (0–100).
-  - Win/draw/loss distribution.
-  - ACPL trend or last-period vs previous-period comparison.
-- **FR-ANALYSIS-2**: Phase-based breakdown:
-  - Opening, middlegame, endgame scores (0–100 or graded A–E).
-  - Phase-level blunders/mistakes/inaccuracies.
-- **FR-ANALYSIS-3**: Move-quality chart (pie or stacked bar) summarizing:
-  - Best, excellent, good, inaccuracy, mistake, blunder.
+- **FR-PROFILE-1**: Rename **Player Intelligence Profile** to **Playing Profile**.
+- **FR-PROFILE-2**: Playing Profile is persistent across coaching sessions and collapsible in the coaching workspace.
+- **FR-PROFILE-3**: Playing Profile summarizes:
+  - Games Analyzed.
+  - Patterns Identified.
+  - Strongest Area.
+  - Biggest Bottleneck.
+  - Last Analysis Timestamp.
+- **FR-PROFILE-4**: Playing Profile should read like a coach's scouting report, not a statistics dashboard.
 
 ### 3.5 Coaching / Recommendations
 
@@ -190,9 +187,9 @@ Target users: Intermediate online players (~1000–2200 Elo) seeking personalize
   - All queued games show `is_analyzed = true`, or
   - Timeout / max polling attempts hit.
 - **FR-WORKFLOW-3**: On completion:
-  - Modal closes.
-  - Dashboard summary and game list update.
-  - Toast notification that analysis finished.
+  - Playing Profile updates automatically.
+  - Coach sends a conversational follow-up focused on one high-impact pattern.
+  - Conversation remains the primary surface for interpreting results.
 - **FR-WORKFLOW-4**: Re-analysis option:
   - "Re-analyze" button for advanced users.
   - Forces backend to recompute analyses even if previously analyzed.
@@ -209,10 +206,12 @@ Target users: Intermediate online players (~1000–2200 Elo) seeking personalize
   - Summary covers: new patterns detected, accuracy trends, opening performance changes.
   - Report delivered as in-app notification and optionally via email.
   - Purpose: drive retention, maintain habit loops, and keep AI memory continuously updated without requiring manual user action.
+  - **Non-MVP note:** Scheduled reports are future-facing. The MVP should keep analysis output inside coaching conversations.
 
-### 3.7 Training Mode
+### 3.7 Future Training Mode
 
-- **FR-TRAIN-1**: User can enter Training Mode from:
+- **FR-TRAIN-0**: Training mode is not part of the ChessRun MVP. Preserve backend/domain ideas for future planning, but do not block MVP launch on drill UX or training-plan lifecycle.
+- **FR-TRAIN-1**: In a future release, user can enter Training Mode from:
   - Game row ("Train this game").
   - Insight card ("Practice rook endgames").
 - **FR-TRAIN-2**: Training mode includes:
@@ -309,7 +308,7 @@ The Pattern Recognition Engine is the **intelligence layer** that transforms ind
 
 ### 3.9 Move Timing & Clock Data Analysis
 
-ChessIQ analyzes not just *what* moves were played, but *how* time was used—revealing behavioral patterns invisible to traditional engine analysis.
+ChessRun analyzes not just *what* moves were played, but *how* time was used—revealing behavioral patterns invisible to traditional engine analysis.
 
 #### 3.9.1 Time Data Ingestion
 
@@ -357,7 +356,9 @@ ChessIQ analyzes not just *what* moves were played, but *how* time was used—re
 
 ### 3.10 AI Coach / Conversational Interface
 
-The AI Coach is one of the **primary interfaces** of ChessIQ—not an add-on, but a core way users interact with their chess intelligence. It transforms raw data into conversational, personalized guidance.
+The AI Coach is the **primary interface** of ChessRun. It is not an add-on, dashboard widget, or report reader. It transforms raw analysis into conversational, personalized guidance.
+
+The coach should never dump analysis results. It should identify one high-impact improvement opportunity and begin a conversation around it.
 
 #### 3.10.1 Conversational Capabilities
 
@@ -414,7 +415,7 @@ AI Coach synthesizes information from:
 
 **FR-AICOACH-9: Actionable Recommendations**
 - Every recommendation should be specific and actionable.
-- Include direct links to relevant training drills.
+- In the MVP, recommendations should stay conversational and may suggest study themes or example positions. Direct training-drill links are future-facing.
 - Suggest specific studies, ChessReps lines, or external resources when applicable.
 - Prioritize recommendations by impact and feasibility.
 
@@ -428,8 +429,9 @@ AI Coach synthesizes information from:
 
 **FR-AICOACH-11: Evidence-Based Coaching**
 - Cite specific evidence from user's games ("In 12 similar positions...").
-- Show statistics to support recommendations.
+- Use statistics sparingly to support coaching, not as the main output.
 - Reference patterns by confidence level.
+- Prefer one clear coaching theme over broad result dumps.
 
 ---
 
@@ -438,7 +440,7 @@ AI Coach synthesizes information from:
 ### 4.1 Performance
 
 - Single batch analysis of ~25 rapid games should typically complete within **2–5 minutes** under normal load.
-- Dashboard load time (summary + games) should be under **1.5 seconds** P95 on a typical broadband connection.
+- Coaching workspace initial load (conversation shell + Playing Profile summary) should be under **1.5 seconds** P95 on a typical broadband connection.
 
 ### 4.2 Scalability
 
@@ -472,45 +474,41 @@ AI Coach synthesizes information from:
 
 - Clear explanation of value prop.
 - Simple form with:
-  - Chess.com username.
-  - Email.
-  - Filters (count, time control, rated).
-- Primary CTA: "Get Started".
-- Show status messages inline: "Creating account…", "Fetching your games…", etc.
+  - Chess.com or Lichess username.
+- Primary CTA: "Start Coaching".
+- On submit, route directly into the AI Coaching Interface.
 
-### 5.2 Dashboard Layout
+### 5.2 Coaching Workspace Layout
 
-Recommended main sections in order:
+Desktop behaves similarly to ChatGPT. The conversation is the primary workspace.
 
-1. **Top Bar**: Greeting, username, and quick navigation.
-2. **AI Coach Widget** (New Primary Interface):
-   - Quick-access chat interface or prominent CTA to "Ask Your AI Coach".
-   - Recent conversation snippets or suggested questions.
-   - Pattern alerts: "New insight: You struggle with rook endgames".
-3. **Key Metrics / Performance Cards**:
-   - Overall accuracy.
-   - ACPL.
-   - Win rate.
-   - Time management score.
-4. **Pattern Recognition Panel** (New):
-   - Player archetype summary ("The Tactician with Endgame Blind Spots").
-   - Top 3-5 recurring patterns (strengths and weaknesses).
-   - Pattern evolution indicators (improving/declining).
-5. **Move Quality / Phase Charts**.
-6. **Coaching Insights** (Pattern-driven):
-   - Insights derived from longitudinal pattern analysis.
-   - Severity-ranked recommendations with specific drill links.
-7. **Time Management Insights** (New):
-   - Time usage visualization.
-   - Overthinking/impulsive play alerts.
-8. **Fetched Games (collapsible)**.
+Recommended layout:
+
+1. **Sidebar**:
+   - New Chat.
+   - Conversation History.
+   - Analyze Games in the bottom section.
+2. **Conversation Workspace**:
+   - Persistent chat thread.
+   - Coach welcome and pattern-aware follow-ups.
+   - Message composer fixed near the bottom.
+3. **Playing Profile**:
+   - Collapsible context panel.
+   - Collapsed by default on smaller screens.
+   - Summarizes coaching context rather than detailed analytics.
+4. **Analyze Games Modal**:
+   - Opens over the coaching workspace.
+   - Offers fixed timeframe choices and custom range.
+   - Does not take the user away from the conversation.
 
 ### 5.3 Empty States
 
 - No games fetched:
-  - Show CTA to go back to landing or "Fetch your first games" button.
+  - Coach explains that analyzing games will build a personalized Playing Profile.
+  - Show **Analyze Games** as the primary next action inside the coaching workspace.
 - No analysis yet:
-  - Show explanation and prominent "Analyze All Games" button.
+  - Keep the coach conversational and invite the user to analyze recent games.
+  - Avoid empty analytics panels.
 
 ---
 
@@ -536,10 +534,10 @@ flowchart TB
         AI[AI Coach Layer]
     end
 
-    subgraph Output["User Interfaces"]
-        DASH[Dashboard]
-        CHAT[AI Coach Chat]
-        TRAIN[Training Mode]
+    subgraph Output["Coaching Experience"]
+        CHAT[Coaching Conversation]
+        PROFILE_UI[Playing Profile]
+        MODAL[Analyze Games Modal]
     end
 
     CC --> PGN
@@ -549,9 +547,9 @@ flowchart TB
     PR --> |Patterns| PP
     TIME --> |Time patterns| PP
     PP --> |Player profile| AI
-    AI --> DASH
     AI --> CHAT
-    AI --> TRAIN
+    PP --> PROFILE_UI
+    CHAT --> MODAL
 ```
 
 ### 6.2 Game Analysis & Pattern Recognition Flow
@@ -574,9 +572,9 @@ sequenceDiagram
     CC-->>BE: PGN/JSON with timestamps
     BE->>DB: Store games with timing data
     BE-->>FE: { games_added: N }
-    FE-->>U: Show games list
+    FE-->>U: Show analysis progress in coaching workspace
 
-    U->>FE: "Analyze All Games"
+    U->>FE: Open Analyze Games modal
     FE->>BE: POST /analysis/{userId}/analyze-games
     BE->>DB: Queue Celery tasks
 
@@ -598,8 +596,9 @@ sequenceDiagram
     FE->>BE: Poll /analysis/{userId}/summary
     BE->>DB: Get analysis + patterns
     DB-->>BE: Complete player data
-    BE-->>FE: Analysis + patterns + insights
-    FE-->>U: Dashboard with pattern insights
+    BE-->>FE: Playing Profile context + coaching signals
+    FE-->>U: Playing Profile updates
+    FE-->>U: Coach starts personalized follow-up
 
     U->>FE: "Why do I blunder in endgames?"
     FE->>BE: POST /coach/chat

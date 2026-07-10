@@ -1,4 +1,4 @@
-# ChessIQ Parallel Development Workflows
+# ChessRun Parallel Development Workflows
 
 **Date:** 2026-05-26  
 **Purpose:** Safe parallel implementation across agents, branches, and layers  

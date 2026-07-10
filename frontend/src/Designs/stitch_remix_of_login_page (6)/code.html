@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChessRun - AI Coach</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-lowest": "#0e0e0e",
+                      "on-secondary-fixed-variant": "#3a485c",
+                      "surface-container-high": "#2a2a2a",
+                      "inverse-on-surface": "#313030",
+                      "on-primary": "#003824",
+                      "tertiary-container": "#fc7c78",
+                      "on-secondary": "#233144",
+                      "surface-tint": "#4edea3",
+                      "on-tertiary-fixed-variant": "#842225",
+                      "surface-container-highest": "#353534",
+                      "on-surface": "#e5e2e1",
+                      "background": "#131313",
+                      "outline-variant": "#3c4a42",
+                      "surface-variant": "#353534",
+                      "on-surface-variant": "#bbcabf",
+                      "primary-fixed-dim": "#4edea3",
+                      "outline": "#86948a",
+                      "on-secondary-container": "#abb9d2",
+                      "on-primary-fixed": "#002113",
+                      "on-error-container": "#ffdad6",
+                      "on-primary-container": "#00422b",
+                      "surface-dim": "#131313",
+                      "tertiary-fixed": "#ffdad7",
+                      "on-error": "#690005",
+                      "surface-bright": "#3a3939",
+                      "inverse-surface": "#e5e2e1",
+                      "tertiary": "#ffb3af",
+                      "on-tertiary-container": "#711419",
+                      "secondary": "#b9c7e0",
+                      "surface": "#131313",
+                      "on-tertiary-fixed": "#410005",
+                      "error-container": "#93000a",
+                      "secondary-fixed": "#d5e3fd",
+                      "tertiary-fixed-dim": "#ffb3af",
+                      "secondary-fixed-dim": "#b9c7e0",
+                      "on-tertiary": "#650911",
+                      "surface-container": "#201f1f",
+                      "secondary-container": "#3c4a5e",
+                      "inverse-primary": "#006c49",
+                      "error": "#ffb4ab",
+                      "on-primary-fixed-variant": "#005236",
+                      "on-secondary-fixed": "#0d1c2f",
+                      "primary": "#4edea3",
+                      "surface-container-low": "#1c1b1b",
+                      "on-background": "#e5e2e1",
+                      "primary-container": "#10b981",
+                      "primary-fixed": "#6ffbbe"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "xl": "40px",
+                      "xs": "4px",
+                      "gutter": "24px",
+                      "md": "16px",
+                      "base": "4px",
+                      "lg": "24px",
+                      "container-max": "1200px",
+                      "sm": "8px"
+              },
+              "fontFamily": {
+                      "headline-lg-mobile": [
+                              "Geist"
+                      ],
+                      "body-md": [
+                              "Geist"
+                      ],
+                      "label-md": [
+                              "JetBrains Mono"
+                      ],
+                      "label-sm": [
+                              "Geist"
+                      ],
+                      "headline-lg": [
+                              "Geist"
+                      ],
+                      "body-lg": [
+                              "Geist"
+                      ],
+                      "headline-md": [
+                              "Geist"
+                      ],
+                      "display": [
+                              "Geist"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "display": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        /* Font-face mapping for Geist since it's locally referenced in typical setups, we'll use a system fallback mimicking its geometry for this sandbox if not available, but assuming Next.js/Geist context normally. For sandbox, we'll map to sans. */
+        @font-face {
+            font-family: 'Geist';
+            src: local('Inter'), local('Helvetica Neue'), sans-serif;
+        }
+        
+        body {
+            background-color: #0a0a0a;
+            color: #e5e2e1;
+        }
+        
+        .chat-scroll {
+            scrollbar-width: none;
+        }
+        .chat-scroll::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-[#0a0a0a] text-on-background font-body-md min-h-screen flex flex-col items-center">
+<div class="w-full max-w-[800px] flex flex-col h-screen relative">
+<!-- TopNavBar (Mobile First context) -->
+<header class="bg-background dark:bg-background border-b border-outline-variant dark:border-outline-variant flex justify-between items-center w-full px-lg py-md h-16 sticky top-0 z-50">
+<div class="flex items-center gap-md">
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-primary">ChessRun</span>
+</div>
+<div class="flex items-center gap-md text-on-surface-variant dark:text-on-surface-variant">
+<button class="hover:text-primary dark:hover:text-primary transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">analytics</span>
+</button>
+<button class="hover:text-primary dark:hover:text-primary transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Chat Area -->
+<main class="flex-1 overflow-y-auto chat-scroll p-md flex flex-col gap-lg pb-32">
+<!-- Intelligence Profile Collapsible (Simulated state) -->
+<div class="bg-[#171717] border border-[#262626] rounded-xl p-md flex flex-col gap-sm">
+<div class="flex justify-between items-center cursor-pointer">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-sm">psychology</span>
+<span class="text-label-md font-label-md text-on-surface-variant">Your Playing Profile</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">expand_more</span>
+</div>
+<!-- Collapsed content hidden by default in this static view, but structurally present -->
+<div class="hidden">
+<p class="text-body-md font-body-md text-on-surface">Recent performance shows a +12% ELO drift in Caro-Kann structures.</p>
+</div>
+</div>
+<!-- AI Message -->
+<div class="flex flex-col gap-xs max-w-[90%] self-start">
+<span class="text-label-sm font-label-sm text-on-surface-variant ml-2">ChessRun Coach</span>
+<div class="p-md rounded-xl bg-transparent border-none text-body-md font-body-md text-on-surface border-t-2 border-primary">
+<p>I've finished reviewing your recent games. One pattern keeps showing up: you often leave the opening with an equal position, but gradually give up central control in the middlegame. Would you like me to show a few examples from recent games where this occurred?</p>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex flex-col gap-xs max-w-[85%] self-end">
+<div class="p-md rounded-xl bg-[#171717] border border-[#262626] text-body-md font-body-md text-on-surface">
+<p>Interesting. Can you show me an example of when I did that recently?</p>
+</div>
+</div>
+<!-- AI Message (Typing indicator / Next response) -->
+</main>
+<!-- Sticky Bottom Input -->
+<footer class="absolute bottom-0 w-full bg-[#0a0a0a] border-t border-[#262626] p-md z-40">
+<div class="flex items-center gap-md bg-[#171717] border border-[#262626] rounded-full p-xs focus-within:border-primary focus-within:shadow-[inset_0_0_8px_rgba(78,222,163,0.1)] transition-all">
+<button class="p-sm bg-primary text-[#000000] rounded-full flex items-center justify-center hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant px-sm outline-none" placeholder="Ask about your games..." type="text"/>
+<button class="p-sm text-primary rounded-full flex items-center justify-center hover:bg-[#262626] transition-colors">
+<span class="material-symbols-outlined text-sm">send</span>
+</button>
+</div>
+</footer>
+</div>
+</body></html>

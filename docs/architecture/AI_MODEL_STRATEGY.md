@@ -1,4 +1,4 @@
-# ChessIQ — AI Model Strategy, Conversational AI Architecture & LLM Infrastructure
+# ChessRun - AI Model Strategy, Conversational AI Architecture & LLM Infrastructure
 
 **Version:** 1.0  
 **Status:** Draft / Architecture Definition  
@@ -8,7 +8,9 @@
 
 ## Executive Summary
 
-ChessIQ implements a **hybrid AI architecture** that prioritizes **local LLM inference** for core coaching workloads while maintaining **hosted LLM fallbacks** for premium escalations and edge cases. This strategy is economically essential: API costs for hosted LLMs become unsustainable at conversational scale, while Stockfish already handles all chess-specific reasoning.
+ChessRun implements a **hybrid AI architecture** that prioritizes **local LLM inference** for core coaching workloads while maintaining **hosted LLM fallbacks** for premium escalations and edge cases. This strategy is economically essential: API costs for hosted LLMs become unsustainable at conversational scale, while Stockfish already handles all chess-specific reasoning.
+
+> **MVP UX authority:** [`../product/CHESSRUN_MVP_UX.md`](../product/CHESSRUN_MVP_UX.md) defines the current launch experience. The LLM should optimize for persistent coaching conversations, not report generation or dashboard narration. The temporary local testing LLM remains an implementation provider behind the local-first abstraction and can later be replaced by a hosted local runtime.
 
 **Core Thesis:** The LLM's role is not to "play chess" but to translate structured chess intelligence (Stockfish analysis, behavioral patterns, timing data) into personalized, conversational coaching.
 
@@ -38,9 +40,9 @@ Hosted LLM costs for conversational chess coaching are economically prohibitive 
 
 At 10K+ active users, hosted-only architecture becomes a business viability issue.
 
-### 1.2 Why Local Models Are Viable for ChessIQ
+### 1.2 Why Local Models Are Viable for ChessRun
 
-Unlike general reasoning systems, ChessIQ's AI workload is **constrained and structured**:
+Unlike general reasoning systems, ChessRun's AI workload is **constrained and structured**:
 
 **What Stockfish Handles (Not the LLM):**
 - Position evaluation (centipawn loss calculation)
@@ -78,7 +80,7 @@ This is a **translation and explanation** task, not a **chess reasoning** task. 
 
 ### 1.3 Architectural Principle: Model Agnosticism
 
-ChessIQ is **never tightly coupled** to any single model provider:
+ChessRun is **never tightly coupled** to any single model provider:
 
 | Layer | Abstraction |
 |-------|-------------|
@@ -100,14 +102,15 @@ ChessIQ is **never tightly coupled** to any single model provider:
 
 ### 2.1 Service Overview
 
-The AI Coach Service is the **central abstraction layer** between ChessIQ application logic and underlying LLM infrastructure. All conversational AI flows through this service.
+The AI Coach Service is the **central abstraction layer** between ChessRun application logic and underlying LLM infrastructure. All conversational AI flows through this service.
 
 ```mermaid
 flowchart TB
-    subgraph Application["ChessIQ Application"]
-        DASH[Dashboard UI]
-        COACH_UI[Coach Chat UI]
-        PATTERN_UI[Pattern Dashboard]
+    subgraph Application["ChessRun Application"]
+        COACH_UI[Coaching Workspace]
+        SIDEBAR[Conversation Sidebar]
+        PROFILE_UI[Playing Profile]
+        ANALYZE_MODAL[Analyze Games Modal]
     end
 
     subgraph CoachService["AI Coach Service"]
@@ -123,7 +126,7 @@ flowchart TB
         HOSTED[Hosted LLM Client]
     end
 
-    subgraph DataSources["ChessIQ Data Layer"]
+    subgraph DataSources["ChessRun Data Layer"]
         STOCKFISH[Stockfish Analysis]
         PATTERNS[Pattern Engine]
         TIMING[Timing Analysis]
@@ -131,9 +134,10 @@ flowchart TB
         PROFILE[Player Profile]
     end
 
-    DASH -->|Question| API
     COACH_UI -->|Chat| API
-    PATTERN_UI -->|Explain| API
+    SIDEBAR -->|Resume thread| API
+    PROFILE_UI -->|Explain profile signal| API
+    ANALYZE_MODAL -->|Post-analysis follow-up| API
 
     API --> CONTEXT
     CONTEXT --> STOCKFISH
@@ -303,11 +307,11 @@ class ModelRouter:
 
 ## 3. Local Model Strategy
 
-### 3.1 Why Local Models Work for ChessIQ
+### 3.1 Why Local Models Work for ChessRun
 
 **Task Characteristics (Favorable for Local LLMs):**
 
-| Characteristic | ChessIQ Workload | General LLM Workload |
+| Characteristic | ChessRun Workload | General LLM Workload |
 |----------------|------------------|---------------------|
 | Domain | Constrained (chess) | Open-ended |
 | Reasoning | Stockfish handles chess logic | LLM handles all reasoning |
@@ -316,7 +320,7 @@ class ModelRouter:
 | Creativity | Low (factual coaching) | High (creative writing) |
 | Hallucination Risk | Low (Stockfish ground truth) | High (no ground truth) |
 
-**Implication:** ChessIQ's LLM workload is essentially **structured-to-conversational translation** — a task where 7B-13B instruct models perform comparably to 70B+ models.
+**Implication:** ChessRun's LLM workload is essentially **structured-to-conversational translation** — a task where 7B-13B instruct models perform comparably to 70B+ models.
 
 ### 3.2 Local Runtime Options
 
@@ -560,7 +564,7 @@ CHESS_COACHING_SFT_CONFIG = {
 
 **Phase 2: Continuous Improvement**
 
-As ChessIQ gathers real user interactions:
+As ChessRun gathers real user interactions:
 
 1. **Preference Data Collection**
    - Thumbs up/down on coaching responses
@@ -1110,16 +1114,16 @@ Returns pattern-aware conversation starters:
 
 ---
 
-## 9. What ChessIQ Is (And Is Not)
+## 9. What ChessRun Is (And Is Not)
 
-### 9.1 ChessIQ Is NOT
+### 9.1 ChessRun Is NOT
 
 - **A generic chatbot:** We don't do open-ended conversation. Every interaction is grounded in structured chess intelligence.
 - **An LLM trying to "play chess":** Stockfish handles all chess calculation. The LLM never suggests moves without Stockfish validation.
 - **A replacement for human coaches:** We augment coaching with data-driven insights, not replace the human element.
 - **A simple Stockfish wrapper:** The value is in pattern recognition, behavioral analysis, and personalized explanation — not raw engine output.
 
-### 9.2 ChessIQ IS
+### 9.2 ChessRun IS
 
 - **A persistent conversational chess intelligence system:** Not a generic chatbot — a structured platform with long-term player memory, behavioral pattern recognition, and conversational coaching grounded in verified analysis.
 - **A structured AI coaching system:** Built on three layers — Stockfish (chess logic), Pattern Engine (longitudinal analysis), AI Coach (conversational explanation).
@@ -1164,7 +1168,7 @@ Returns pattern-aware conversation starters:
 
 ## 11. Summary
 
-ChessIQ's AI architecture represents a **fundamentally different approach** to LLM-powered applications:
+ChessRun's AI architecture represents a **fundamentally different approach** to LLM-powered applications:
 
 1. **Local-First:** Default to local inference for 95%+ of workloads
 2. **Structured Domain:** LLM translates chess intelligence, it doesn't generate it
@@ -1172,7 +1176,7 @@ ChessIQ's AI architecture represents a **fundamentally different approach** to L
 4. **Economically Scalable:** 90-98% cost reduction vs. hosted-only
 5. **Production Ready:** Built-in fallback, monitoring, and scaling
 
-This architecture enables ChessIQ to provide **sophisticated, personalized AI coaching at scale** while maintaining **sustainable unit economics** and **technical flexibility**.
+This architecture enables ChessRun to provide **sophisticated, personalized AI coaching at scale** while maintaining **sustainable unit economics** and **technical flexibility**.
 
 The result: A platform that can serve 100,000+ active users with personalized AI coaching without incurring prohibitive LLM API costs.
 

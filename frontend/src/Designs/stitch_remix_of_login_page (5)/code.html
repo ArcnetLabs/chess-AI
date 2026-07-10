@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChessRun - AI Coach</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-secondary-fixed-variant": "#3a485c",
+                        "surface-container-high": "#2a2a2a",
+                        "inverse-on-surface": "#313030",
+                        "on-primary": "#003824",
+                        "tertiary-container": "#fc7c78",
+                        "on-secondary": "#233144",
+                        "surface-tint": "#4edea3",
+                        "on-tertiary-fixed-variant": "#842225",
+                        "surface-container-highest": "#353534",
+                        "on-surface": "#e5e2e1",
+                        "background": "#131313",
+                        "outline-variant": "#3c4a42",
+                        "surface-variant": "#353534",
+                        "on-surface-variant": "#bbcabf",
+                        "primary-fixed-dim": "#4edea3",
+                        "outline": "#86948a",
+                        "on-secondary-container": "#abb9d2",
+                        "on-primary-fixed": "#002113",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-container": "#00422b",
+                        "surface-dim": "#131313",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-error": "#690005",
+                        "surface-bright": "#3a3939",
+                        "inverse-surface": "#e5e2e1",
+                        "tertiary": "#ffb3af",
+                        "on-tertiary-container": "#711419",
+                        "secondary": "#b9c7e0",
+                        "surface": "#131313",
+                        "on-tertiary-fixed": "#410005",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#d5e3fd",
+                        "tertiary-fixed-dim": "#ffb3af",
+                        "secondary-fixed-dim": "#b9c7e0",
+                        "on-tertiary": "#650911",
+                        "surface-container": "#201f1f",
+                        "secondary-container": "#3c4a5e",
+                        "inverse-primary": "#006c49",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#005236",
+                        "on-secondary-fixed": "#0d1c2f",
+                        "primary": "#4edea3",
+                        "surface-container-low": "#1c1b1b",
+                        "on-background": "#e5e2e1",
+                        "primary-container": "#10b981",
+                        "primary-fixed": "#6ffbbe"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "40px",
+                        "xs": "4px",
+                        "gutter": "24px",
+                        "md": "16px",
+                        "base": "4px",
+                        "lg": "24px",
+                        "container-max": "1200px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Geist"],
+                        "body-md": ["Geist"],
+                        "label-md": ["JetBrains Mono"],
+                        "label-sm": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "display": ["Geist"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "label-sm": ["11px", { "lineHeight": "1.2", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "display": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #0a0a0a; color: #e5e2e1; }
+        .glass-panel { background: rgba(23, 23, 23, 0.7); backdrop-filter: blur(12px); border: 1px solid #262626; }
+        .emerald-border-top { border-top: 2px solid #10b981; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .input-glow:focus-within { box-shadow: inset 0 0 0 1px #10b981; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden font-body-md text-body-md antialiased">
+<!-- SideNavBar (JSON) -->
+<nav class="hidden lg:flex flex-col h-screen fixed left-0 top-0 p-lg gap-lg w-64 bg-surface-container-low border-r border-outline-variant z-40">
+<!-- Header -->
+<div class="flex items-center gap-md px-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary font-bold">smart_toy</span>
+</div>
+<div>
+<h1 class="text-headline-md font-headline-md font-bold text-primary">ChessRun</h1>
+<p class="text-label-sm font-label-sm text-on-surface-variant">AI Grandmaster Coach</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-sm mt-md flex-1"><button class="flex items-center gap-md bg-surface-container-high text-on-surface rounded-lg px-md py-sm cursor-pointer hover:bg-surface-container-highest transition-all active:scale-95 duration-150 border border-outline-variant mb-md">
+<span class="material-symbols-outlined">add</span>
+<span class="text-label-md font-label-md">New Chat</span>
+</button>
+<div class="flex flex-col gap-xs">
+<h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider px-md mb-xs">Recent</h3>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm cursor-pointer hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="text-label-md font-label-md truncate group-hover:text-on-surface">Middlegame Weakness Analysis</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm cursor-pointer hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="text-label-md font-label-md truncate group-hover:text-on-surface">Why I Lose Winning Positions</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm cursor-pointer hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="text-label-md font-label-md truncate group-hover:text-on-surface">Openings for Aggressive Play</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm cursor-pointer hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="text-label-md font-label-md truncate group-hover:text-on-surface">My Last 30 Days Review</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-md py-sm cursor-pointer hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="text-label-md font-label-md truncate group-hover:text-on-surface">Climbing to 1800</span>
+</a>
+</div></div>
+<!-- CTA & Footer -->
+<div class="mt-auto flex flex-col gap-md border-t border-outline-variant pt-md">
+<button class="w-full bg-primary-container text-on-primary-container py-sm rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-sm"><span class="material-symbols-outlined text-sm">upload_file</span>Analyze Games</button>
+<div class="flex flex-col gap-sm mt-sm">
+<a class="flex items-center gap-md text-on-surface-variant px-sm py-xs hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-sm">help</span>
+<span class="text-label-sm font-label-sm">Help</span>
+</a>
+<a class="flex items-center gap-md text-on-surface-variant px-sm py-xs hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined text-sm">contact_support</span>
+<span class="text-label-sm font-label-sm">Support</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col lg:ml-64 relative h-full bg-[#0a0a0a]">
+<!-- Mobile TopAppBar (Hidden on desktop) -->
+<header class="flex lg:hidden justify-between items-center w-full px-lg py-md h-16 sticky top-0 z-50 bg-background border-b border-outline-variant">
+<h1 class="text-headline-md font-headline-md font-bold text-primary">ChessRun</h1>
+<button class="text-primary hover:text-primary transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</header>
+<!-- Chat Container -->
+<div class="flex-1 overflow-y-auto hide-scrollbar flex flex-col items-center pb-32">
+<div class="w-full max-w-[800px] px-md lg:px-lg py-xl flex flex-col gap-xl">
+<!-- Player Intelligence Profile -->
+<details class="glass-panel emerald-border-top rounded-xl animate-fade-in-up group">
+<summary class="flex items-center justify-between p-md cursor-pointer list-none">
+<div class="flex items-center gap-md overflow-hidden">
+<span class="material-symbols-outlined text-primary transition-transform group-open:rotate-180">expand_more</span>
+<h2 class="text-label-md font-label-md font-bold text-on-surface whitespace-nowrap">Your Playing Profile</h2>
+<div class="hidden md:flex items-center gap-md text-label-sm font-label-sm text-on-surface-variant border-l border-outline-variant pl-md">
+<span>1,248 Games</span>
+<span>27 Patterns</span>
+<span class="text-primary-fixed-dim">Tactical Positions</span>
+<span class="text-tertiary-fixed-dim">Passive Middlegame</span>
+<span class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-primary-container"></span> 2m ago</span>
+</div>
+</div>
+</summary>
+<div class="p-lg pt-0">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-md border-t border-outline-variant pt-md">
+<div class="flex flex-col gap-xs">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Games Analyzed</span>
+<span class="text-body-lg font-body-lg text-on-surface font-semibold">1,248</span>
+</div>
+<div class="flex flex-col gap-xs">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Patterns</span>
+<span class="text-body-lg font-body-lg text-on-surface font-semibold">27</span>
+</div>
+<div class="flex flex-col gap-xs col-span-2 md:col-span-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Strongest Area</span>
+<span class="text-body-md font-body-md text-primary-fixed-dim">Open Tactical Positions</span>
+</div>
+<div class="flex flex-col gap-xs col-span-2 md:col-span-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">Biggest Bottleneck</span>
+<span class="text-body-md font-body-md text-tertiary-fixed-dim">Passive Middlegame Structures</span>
+</div>
+</div>
+<div class="mt-md pt-sm border-t border-outline-variant flex justify-between items-center text-label-sm font-label-sm text-on-surface-variant">
+<span>Lichess Integration Active</span>
+<span class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-primary-container"></span> Last Sync: 2 mins ago</span>
+</div>
+</div>
+</details>
+<!-- Empty State / Welcome -->
+<div class="flex flex-col gap-lg animate-fade-in-up" style="animation-delay: 0.05s;">
+<div class="flex gap-md max-w-[85%]">
+<div class="w-8 h-8 rounded-full bg-primary-container flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container text-sm">smart_toy</span>
+</div>
+<div class="flex flex-col gap-sm">
+<div class="bg-surface-container-high p-md rounded-2xl rounded-tl-none text-on-surface font-body-md">I've finished reviewing your recent games. One pattern keeps showing up: you often leave the opening with an equal position, but gradually give up central control in the middlegame. The good news is that this appears consistently enough that it's very trainable. Would you like me to show a few examples from recent games where this occurred?</div>
+<span class="text-label-sm font-label-sm text-on-surface-variant ml-xs">Coach • Just now</span>
+</div>
+</div>
+</div><div class="flex flex-col items-center text-center mt-xl gap-md animate-fade-in-up" style="animation-delay: 0.1s;">
+<h3 class="text-headline-lg font-headline-lg text-on-surface">What should we focus on next?</h3>
+<p class="text-body-lg font-body-lg text-on-surface-variant max-w-lg">
+                        I've analyzed your recent games. Ask me anything about your play, or choose a starting point below.
+                    </p>
+</div>
+<!-- Smart Prompts -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md mt-lg animate-fade-in-up" style="animation-delay: 0.2s;">
+<button class="text-left p-md rounded-xl bg-[#171717] border border-[#262626] hover:bg-[#222222] hover:border-[#3f3f46] transition-all group">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-primary-fixed-dim text-sm">search_insights</span>
+<span class="text-label-md font-label-md font-bold text-on-surface group-hover:text-primary-fixed-dim transition-colors">Pattern Recognition</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">"What patterns do you see in my games?"</p>
+</button>
+<button class="text-left p-md rounded-xl bg-[#171717] border border-[#262626] hover:bg-[#222222] hover:border-[#3f3f46] transition-all group">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-sm">trending_down</span>
+<span class="text-label-md font-label-md font-bold text-on-surface group-hover:text-tertiary-fixed-dim transition-colors">Conversion Issues</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">"Why do I lose winning positions?"</p>
+</button>
+<button class="text-left p-md rounded-xl bg-[#171717] border border-[#262626] hover:bg-[#222222] hover:border-[#3f3f46] transition-all group">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-secondary-fixed-dim text-sm">route</span>
+<span class="text-label-md font-label-md font-bold text-on-surface group-hover:text-secondary-fixed-dim transition-colors">Rating Goals</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">"What's holding me back from 1800?"</p>
+</button>
+<button class="text-left p-md rounded-xl bg-[#171717] border border-[#262626] hover:bg-[#222222] hover:border-[#3f3f46] transition-all group">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">app_registration</span>
+<span class="text-label-md font-label-md font-bold text-on-surface group-hover:text-on-secondary-container transition-colors">Opening Prep</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">"Which openings fit my playing style?"</p>
+</button>
+</div>
+</div>
+</div>
+<!-- Sticky Input Area -->
+<div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent pt-xl pb-lg px-md lg:px-lg flex justify-center">
+<div class="w-full max-w-[800px] flex flex-col gap-sm">
+<div class="relative flex items-center bg-[#171717] border border-[#262626] rounded-xl input-glow transition-shadow duration-200 shadow-2xl">
+<button class="pl-md pr-sm py-md text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-xl">attach_file</span>
+</button>
+<input class="flex-1 bg-transparent border-none text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant py-md px-sm focus:ring-0" placeholder="Ask your coach anything..." type="text"/>
+<button class="pr-md pl-sm py-md text-primary-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+<div class="text-center">
+<span class="text-label-sm font-label-sm text-on-surface-variant">ChessRun AI can make mistakes. Always review critical analysis.</span>
+</div>
+</div>
+</div>
+</main>
+<style>
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.4s ease-out forwards;
+            opacity: 0;
+        }
+    </style>
+</body></html>

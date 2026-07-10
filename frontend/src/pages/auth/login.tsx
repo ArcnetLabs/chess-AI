@@ -96,7 +96,7 @@ export default function LoginPage() {
             <p className="text-content-muted">
               We sent a sign-in link to{' '}
               <strong className="text-content">{email.trim()}</strong>. Click it to
-              open ChessIQ — no password required.
+              open ChessRun — no password required.
             </p>
             <p className="text-sm text-content-muted">
               Chess.com username{' '}
@@ -121,7 +121,7 @@ export default function LoginPage() {
               ♜
             </span>
             <h2 className="font-display text-xl font-bold tracking-tight text-content">
-              ChessIQ
+              ChessRun
             </h2>
           </div>
         </header>
@@ -133,8 +133,7 @@ export default function LoginPage() {
                 Passwordless sign-in
               </div>
               <h1 className="font-display text-4xl font-bold tracking-tight text-content md:text-5xl">
-                Train like a{' '}
-                <span className="italic text-brand-primary">Grandmaster</span>
+                Your personal <span className="italic text-brand-primary">AI chess coach</span>
               </h1>
               <p className="text-lg text-content-muted">
                 Enter your email and Chess.com username. We&apos;ll send a secure
@@ -214,7 +213,7 @@ export default function LoginPage() {
         </main>
 
         <footer className="p-8 text-center text-xs uppercase tracking-widest text-content-muted/70">
-          © {new Date().getFullYear()} ChessIQ
+          © {new Date().getFullYear()} ChessRun
         </footer>
       </div>
     </div>

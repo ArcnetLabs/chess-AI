@@ -30,7 +30,7 @@ import { NextResponse, type NextRequest } from 'next/server'
  *   preserve any cookies that the Supabase client needs to set.
  */
 
-const PROTECTED_PATHS = ['/dashboard']
+const PROTECTED_PATHS = ['/coach', '/onboarding']
 const AUTH_PATHS = ['/auth/login', '/auth/signup']
 
 function isProtectedPath(pathname: string) {
@@ -99,10 +99,10 @@ export async function middleware(request: NextRequest) {
   // Authenticated user landing on auth pages → send to dashboard.
   // Prevents the confusing "back button to login" experience.
   if (user && isAuthPath(pathname)) {
-    const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/dashboard'
-    dashboardUrl.searchParams.delete('next')
-    return NextResponse.redirect(dashboardUrl)
+    const coachUrl = request.nextUrl.clone()
+    coachUrl.pathname = '/coach'
+    coachUrl.searchParams.delete('next')
+    return NextResponse.redirect(coachUrl)
   }
 
   return supabaseResponse

@@ -1,4 +1,4 @@
-# ChessIQ Multi-Agent Development Strategy
+# ChessRun Multi-Agent Development Strategy
 
 **Date:** 2026-05-26  
 **Purpose:** Define agent roles, boundaries, and review responsibilities for controlled parallel feature execution  
@@ -8,7 +8,7 @@
 
 ## Overview
 
-ChessIQ uses **four specialized agent roles** plus a coordinating **Principal Architect**. Each role has explicit folder ownership, forbidden zones, and review duties. This prevents the failure mode of multiple agents editing `api.ts`, `unified_analyzer.py`, or Alembic migrations simultaneously.
+ChessRun uses **four specialized agent roles** plus a coordinating **Principal Architect**. Each role has explicit folder ownership, forbidden zones, and review duties. This prevents the failure mode of multiple agents editing `api.ts`, `unified_analyzer.py`, or Alembic migrations simultaneously.
 
 Agents are **not** long-lived personas — they are **session scopes** assigned per task from this document.
 
@@ -280,7 +280,7 @@ Migration: 0007_player_patterns.py — tables player_patterns, pattern_occurrenc
 ## Session assignment prompt (copy for agents)
 
 ```markdown
-You are the **[Backend Intelligence | Frontend Experience | Infrastructure | Principal Architect]** agent for ChessIQ.
+You are the **[Backend Intelligence | Frontend Experience | Infrastructure | Principal Architect]** agent for ChessRun.
 
 Read first:
 - AGENTS.md

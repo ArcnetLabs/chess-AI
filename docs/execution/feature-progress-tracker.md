@@ -1,4 +1,4 @@
-# ChessIQ Feature Progress Tracker
+# ChessRun Feature Progress Tracker
 
 **Last updated:** 2026-05-28  
 **Integration branch:** `staging` (synced with `main` after release **#119**)  

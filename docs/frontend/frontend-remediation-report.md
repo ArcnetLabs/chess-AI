@@ -1,7 +1,7 @@
 # Frontend Architecture Remediation Report
 
 **Date:** 2026-05-26  
-**Scope:** ChessIQ Pages Router frontend — dashboard decomposition, hooks layer, API consolidation, polling isolation, chat wiring  
+**Scope:** ChessRun Pages Router frontend — dashboard decomposition, hooks layer, API consolidation, polling isolation, chat wiring
 **Out of scope:** New product features, UI redesign, pattern-recognition dashboards
 
 ---

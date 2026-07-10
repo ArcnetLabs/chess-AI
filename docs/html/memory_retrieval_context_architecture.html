@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memory &amp; Retrieval Architecture — ChessIQ Docs</title>
+  <title>Memory &amp; Retrieval Architecture — ChessRun Docs</title>
   <link rel="stylesheet" href="shared.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
 </head>
 <body>
 
 <header class="topbar">
-  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <a href="index.html" class="topbar-brand">ChessRun</a>
   <div class="topbar-right">
     <span class="topbar-title">Memory &amp; Retrieval Architecture</span>
     <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
@@ -48,7 +48,7 @@
 </nav>
 
 <div class="doc-header">
-  <h1 class="doc-title">ChessIQ — Memory, Retrieval, and AI Context Architecture</h1>
+  <h1 class="doc-title">ChessRun — Memory, Retrieval, and AI Context Architecture</h1>
   <div class="meta-pills">
     <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
     <span class="meta-pill"><span class="pill-label">Status</span>Technical Specification</span>
@@ -72,8 +72,8 @@
   <!-- Executive Summary -->
   <div class="exec-summary">
     <h2 class="exec-title">Executive Summary</h2>
-    <p>ChessIQ implements a <strong>hybrid memory and retrieval architecture</strong> that combines structured relational storage (Supabase Postgres) with semantic vector retrieval (pgvector) and ephemeral caching (Redis). This three-tier approach enables both transactional integrity for chess data and semantic intelligence for AI coaching, while maintaining grounded truth through Stockfish analysis.</p>
-    <p><strong>Core Innovation:</strong> ChessIQ's AI context system is not generic document RAG. It is <strong>structured chess intelligence retrieval</strong> — a domain-specific architecture that grounds LLM explanations in verified chess analysis, behavioral patterns, and longitudinal player memory.</p>
+    <p>ChessRun implements a <strong>hybrid memory and retrieval architecture</strong> that combines structured relational storage (Supabase Postgres) with semantic vector retrieval (pgvector) and ephemeral caching (Redis). This three-tier approach enables both transactional integrity for chess data and semantic intelligence for AI coaching, while maintaining grounded truth through Stockfish analysis.</p>
+    <p><strong>Core Innovation:</strong> ChessRun's AI context system is not generic document RAG. It is <strong>structured chess intelligence retrieval</strong> — a domain-specific architecture that grounds LLM explanations in verified chess analysis, behavioral patterns, and longitudinal player memory.</p>
     <p><strong>Key Principle:</strong> The LLM never invents chess truth. Stockfish provides objective analysis. The retrieval system assembles contextual intelligence. The LLM explains, personalizes, and coaches.</p>
   </div>
 
@@ -88,7 +88,7 @@
 
     <div class="table-wrapper">
       <table>
-        <thead><tr><th>Generic Chatbot</th><th>ChessIQ</th></tr></thead>
+        <thead><tr><th>Generic Chatbot</th><th>ChessRun</th></tr></thead>
         <tbody>
           <tr><td>Open-ended conversation</td><td>Structured, domain-specific coaching</td></tr>
           <tr><td>LLM generates all content</td><td>LLM explains pre-computed analysis</td></tr>
@@ -124,7 +124,7 @@
       <span class="diagram-label">Three-Tier Storage Architecture</span>
       <pre class="mermaid">
 flowchart TB
-    subgraph Application["ChessIQ Application Layer"]
+    subgraph Application["ChessRun Application Layer"]
         API[FastAPI Backend]
         COACH[AI Coach Service]
         PATTERN[Pattern Engine]
@@ -179,7 +179,7 @@ flowchart TB
         <tbody>
           <tr><td><strong>External (Chess.com)</strong></td><td>All historical games, PGNs, ratings, timestamps</td><td>Permanent (external)</td><td>Source of truth for raw game data</td></tr>
           <tr><td><strong>Cached Game Layer</strong></td><td>Recently fetched PGNs, lightweight metadata</td><td>Configurable window (30–60 days)</td><td>Avoid repeated API calls; support recent analysis</td></tr>
-          <tr><td><strong>Analysis Layer</strong></td><td>Stockfish evaluations, blunders, ACPL, critical moments</td><td><strong>Permanent</strong></td><td>ChessIQ's primary long-term value</td></tr>
+          <tr><td><strong>Analysis Layer</strong></td><td>Stockfish evaluations, blunders, ACPL, critical moments</td><td><strong>Permanent</strong></td><td>ChessRun's primary long-term value</td></tr>
           <tr><td><strong>Intelligence Layer</strong></td><td>Patterns, behavioral insights, AI memory, embeddings, profiles</td><td><strong>Permanent</strong></td><td>Powers personalized coaching and longitudinal intelligence</td></tr>
         </tbody>
       </table>
@@ -288,7 +288,7 @@ CREATE INDEX idx_semantic_user_type ON semantic_memory (user_id, memory_type);</
     </div>
     <div class="section-divider"></div>
 
-    <p>ChessIQ implements a <strong>multi-horizon memory system</strong> spanning from immediate conversation context to years-long player patterns.</p>
+    <p>ChessRun implements a <strong>multi-horizon memory system</strong> spanning from immediate conversation context to years-long player patterns.</p>
 
     <div class="diagram-wrapper">
       <span class="diagram-label">Multi-Horizon Memory System</span>
@@ -443,7 +443,7 @@ class PlayerProfile:
     </div>
     <div class="section-divider"></div>
 
-    <p>ChessIQ's RAG system is <strong>domain-specific structured retrieval</strong>, not generic document search.</p>
+    <p>ChessRun's RAG system is <strong>domain-specific structured retrieval</strong>, not generic document search.</p>
 
     <div class="diagram-wrapper">
       <span class="diagram-label">Full RAG Pipeline: Query → Retrieval → Generation → Storage</span>
@@ -876,7 +876,7 @@ flowchart TB
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
       <pre><code class="language-python">CONSTRAINED_SYSTEM_PROMPT = """
-You are ChessIQ, an expert chess coach AI. Your role is to EXPLAIN and COACH based on provided data.
+You are ChessRun, an expert chess coach AI. Your role is to EXPLAIN and COACH based on provided data.
 
 CRITICAL RULES:
 1. You will be provided with Stockfish evaluations, pattern data, and player history.
@@ -1059,7 +1059,7 @@ WHERE last_seen_at > NOW() - INTERVAL '90 days';</code></pre>
 
     <div class="table-wrapper">
       <table>
-        <thead><tr><th>Generic RAG</th><th>ChessIQ Structured RAG</th></tr></thead>
+        <thead><tr><th>Generic RAG</th><th>ChessRun Structured RAG</th></tr></thead>
         <tbody>
           <tr><td>Document chunks</td><td>Pattern summaries, coaching insights</td></tr>
           <tr><td>Open-domain queries</td><td>Intent-classified, domain-specific</td></tr>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChessIQ AI Coach</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+                    "primary": "#cfffa7",
+                    "on-secondary-container": "#e1ffec",
+                    "primary-fixed-dim": "#7bef00",
+                    "primary-container": "#84ff00",
+                    "inverse-primary": "#346c00",
+                    "outline-variant": "#43484e",
+                    "tertiary-fixed-dim": "#eeef5e",
+                    "surface-container-highest": "#1f262e",
+                    "surface-container": "#141a20",
+                    "error-container": "#b92902",
+                    "surface-container-high": "#1a2027",
+                    "secondary-dim": "#58e7ab",
+                    "on-secondary": "#005a3c",
+                    "tertiary-dim": "#eeef5e",
+                    "tertiary-fixed": "#fdfe6a",
+                    "on-error": "#450900",
+                    "on-tertiary-container": "#595a00",
+                    "on-secondary-fixed-variant": "#006544",
+                    "surface-tint": "#cfffa7",
+                    "tertiary": "#ffff95",
+                    "inverse-on-surface": "#51555c",
+                    "primary-dim": "#7bef00",
+                    "error": "#ff7351",
+                    "secondary-fixed-dim": "#58e7ab",
+                    "on-primary-container": "#2c5d00",
+                    "error-dim": "#d53d18",
+                    "secondary": "#69f6b8",
+                    "on-secondary-fixed": "#00452d",
+                    "surface-container-low": "#0e1419",
+                    "on-surface": "#e7ebf3",
+                    "on-background": "#e7ebf3",
+                    "on-primary": "#316600",
+                    "tertiary-container": "#f1f260",
+                    "on-tertiary-fixed": "#4e4e00",
+                    "surface-bright": "#252d35",
+                    "secondary-container": "#006c49",
+                    "secondary-fixed": "#69f6b8",
+                    "surface-container-lowest": "#000000",
+                    "on-tertiary": "#626200",
+                    "on-surface-variant": "#a7abb2",
+                    "on-primary-fixed": "#214800",
+                    "surface-variant": "#1f262e",
+                    "primary-fixed": "#84ff00",
+                    "on-primary-fixed-variant": "#326800",
+                    "surface": "#0a0f14",
+                    "surface-dim": "#0a0f14",
+                    "outline": "#71767c",
+                    "on-tertiary-fixed-variant": "#6b6c00",
+                    "background": "#0a0f14",
+                    "on-error-container": "#ffd2c8",
+                    "inverse-surface": "#f7f9ff"
+            },
+            borderRadius: {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            fontFamily: {
+                    "headline": ["Space Grotesk", "sans-serif"],
+                    "display": ["Space Grotesk", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Glass gradient for high priority readouts */
+        .glass-neon {
+            background: linear-gradient(135deg, rgba(207, 255, 167, 0.05) 0%, rgba(132, 255, 0, 0.1) 100%);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f262e;
+            border-radius: 0.125rem;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #43484e;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface font-body h-screen overflow-hidden flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface fixed top-0 w-full z-50 flex justify-between items-center px-6 py-3 border-b-0 shadow-none transition-colors" style="background-color: var(--surface); box-shadow: 0 4px 24px -4px rgba(132, 255, 0, 0.05);">
+<div class="flex items-center gap-8">
+<div class="text-xl font-headline font-bold text-primary-fixed dark:text-primary-fixed-dim tracking-tight flex items-center gap-2">
+<span class="material-symbols-outlined icon-fill text-primary-fixed">chess</span>
+                Grandmaster AI
+            </div>
+<div class="hidden md:flex gap-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-dim transition-colors cursor-pointer active:scale-95 font-body text-sm font-medium" href="#">Analysis</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary-dim transition-colors cursor-pointer active:scale-95 font-body text-sm font-medium" href="#">Study</a>
+<a class="text-primary-fixed dark:text-primary-fixed-dim border-b-2 border-primary-fixed pb-1 cursor-pointer active:scale-95 font-body text-sm font-bold" href="#">Coach</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-surface-container-high hover:bg-surface-bright text-on-surface text-xs font-label uppercase tracking-widest px-3 py-1.5 rounded transition-colors flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(105,246,184,0.6)]"></span>
+                Sync Status
+            </button>
+<button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-95 p-1 rounded-full">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</nav>
+<div class="flex flex-1 pt-[60px] h-full">
+<!-- SideNavBar -->
+<aside class="bg-surface-container-low dark:bg-surface-container-low h-full w-64 hidden lg:flex flex-col py-6 px-4 gap-2 z-40 relative">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/15">
+<img class="w-full h-full object-cover" data-alt="A striking minimalist avatar portrait of a digital chess grandmaster profile. The image features a sleek, abstract geometric representation of a human face combined with circuitry and chess piece motifs. Rendered in a high-tech dark mode aesthetic with deep obsidian blacks, charcoal greys, and luminous neon lime green (#84FF00) accents. Soft volumetric lighting creates a premium, computational feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsMMi56tbNXmbNC-a6qzQzRIYPCwp2RTX0jwz0lzUzSvp7BtsTSi3EjkfPiKuALREOp1tzUdLA6aer81J_GcrgucTr7DEi2Hc7dZ02-UWjeEjD1ym6m9r-T1T44fm-sfIXqDkK51wCOd7DknefEIASkxNSnD5USi4yIW2o-PhesPEdSRyM4oo5ZAHA22Iqx1hzaYBxWzQ15IAIlU7AWqP9kRAiLrs0h4SabRiSWMseqk_HQOZpJO68-_FDTKMM0y1Aymro24YoGw"/>
+</div>
+<div>
+<div class="font-headline font-bold text-sm text-on-surface tracking-tight">Grandmaster</div>
+<div class="font-label text-[10px] uppercase tracking-widest text-secondary mt-0.5">Elo: 2450</div>
+</div>
+</div>
+<button class="w-full bg-primary-fixed hover:bg-primary-container text-on-primary-fixed font-headline font-semibold text-sm py-2.5 px-4 rounded transition-all shadow-[0_0_15px_rgba(132,255,0,0.15)] hover:shadow-[0_0_20px_rgba(132,255,0,0.3)] mb-4 active:scale-95 flex items-center justify-center gap-2" onclick="document.getElementById('analyze-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-sm">add</span>
+                New Analysis
+            </button>
+<div class="flex flex-col gap-1 flex-1">
+<a class="bg-surface-container text-primary-fixed font-bold font-body text-sm py-2.5 px-3 rounded flex items-center gap-3 cursor-pointer active:scale-98 transition-all" href="#">
+<span class="material-symbols-outlined icon-fill text-primary-fixed text-lg">psychology</span>
+                    Coach
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-container-high transition-all font-body text-sm font-medium py-2.5 px-3 rounded flex items-center gap-3 cursor-pointer active:scale-98" href="#">
+<span class="material-symbols-outlined text-lg">query_stats</span>
+                    Analysis
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-container-high transition-all font-body text-sm font-medium py-2.5 px-3 rounded flex items-center gap-3 cursor-pointer active:scale-98" href="#">
+<span class="material-symbols-outlined text-lg">storage</span>
+                    Database
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-container-high transition-all font-body text-sm font-medium py-2.5 px-3 rounded flex items-center gap-3 cursor-pointer active:scale-98" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+                    Settings
+                </a>
+</div>
+<div class="mt-auto flex flex-col gap-1 border-t border-surface-variant pt-4">
+<a class="text-on-surface-variant hover:bg-surface-container-high transition-all font-body text-sm font-medium py-2 px-3 rounded flex items-center gap-3 cursor-pointer active:scale-98" href="#">
+<span class="material-symbols-outlined text-lg">help</span>
+                    Support
+                </a>
+<a class="text-on-surface-variant hover:bg-surface-container-high transition-all font-body text-sm font-medium py-2 px-3 rounded flex items-center gap-3 cursor-pointer active:scale-98" href="#">
+<span class="material-symbols-outlined text-lg">logout</span>
+                    Logout
+                </a>
+</div>
+</aside>
+<!-- Main Chat Canvas -->
+<main class="flex-1 flex flex-col h-full bg-surface relative">
+<!-- Background Layering Effect -->
+<div class="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-surface-container-low via-surface to-surface opacity-80"></div>
+<!-- Chat Scroll Area -->
+<div class="flex-1 overflow-y-auto px-4 md:px-8 lg:px-12 py-8 flex flex-col gap-6 items-center relative z-10 scroll-smooth pb-32">
+<div class="w-full max-w-4xl flex flex-col gap-8">
+<!-- Player Intelligence Profile Header -->
+<div class="w-full bg-surface-container-low border border-outline-variant/10 rounded-xl p-5 mb-2 flex flex-col sm:flex-row items-start sm:items-center justify-between shadow-[0_4px_24px_rgba(0,0,0,0.1)] gap-4">
+<div>
+<h2 class="font-headline font-bold text-on-surface text-base flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-fixed">monitoring</span>
+            Player Intelligence Profile
+        </h2>
+<p class="font-body text-sm text-on-surface-variant mt-1.5 leading-relaxed max-w-2xl">
+            Recent analysis indicates strong tactical vision in open positions, but slight inaccuracies in maneuvering during semi-closed structures. Focused training recommended on Sicilian defense middle-games.
+        </p>
+</div>
+<button class="shrink-0 bg-surface hover:bg-surface-bright text-primary-fixed border border-primary-fixed/30 font-headline font-semibold text-sm py-2 px-4 rounded transition-all flex items-center gap-2 shadow-[0_0_10px_rgba(132,255,0,0.05)] hover:shadow-[0_0_15px_rgba(132,255,0,0.15)]" onclick="document.getElementById('analyze-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-[18px]">query_stats</span> Analyze Games
+    </button>
+</div>
+<!-- Context Header / Timestamp -->
+<div class="flex justify-center">
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant bg-surface-container-low px-3 py-1 rounded">Session Started • 14:02 UTC</span>
+</div>
+<!-- AI Message (Initial) -->
+<div class="flex flex-col gap-2 max-w-[85%] self-start">
+<div class="flex items-center gap-2 mb-1 ml-1">
+<span class="material-symbols-outlined icon-fill text-primary-fixed text-sm">psychology</span>
+<span class="font-headline text-xs font-bold text-on-surface">Kinetic Engine</span>
+</div>
+<div class="bg-surface-container-low text-on-surface p-4 rounded-r-lg rounded-bl-lg border border-outline-variant/10 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+<p class="font-body text-sm leading-relaxed text-on-surface">
+                                I've been reviewing the Sicilian Najdorf variation from your last game. Tactically, you played well, but the engine evaluated your structural decision at position <span class="font-mono text-primary bg-surface-container px-1 rounded">14... Rc8</span> as sub-optimal.
+                            </p>
+</div>
+</div>
+<!-- User Message -->
+<div class="flex flex-col gap-2 max-w-[85%] self-end">
+<div class="bg-surface-bright text-on-surface p-4 rounded-l-lg rounded-br-lg shadow-[0_4px_16px_rgba(0,0,0,0.1)] border border-outline-variant/5">
+<p class="font-body text-sm leading-relaxed">
+                                I thought placing the rook on the semi-open file was standard theory. What did I miss tactically?
+                            </p>
+</div>
+</div>
+<!-- AI Message (Detailed Evaluation) -->
+<div class="flex flex-col gap-2 max-w-[90%] self-start">
+<div class="flex items-center gap-2 mb-1 ml-1">
+<span class="material-symbols-outlined icon-fill text-primary-fixed text-sm">psychology</span>
+<span class="font-headline text-xs font-bold text-on-surface">Kinetic Engine</span>
+<span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant ml-2">Depth: 28</span>
+</div>
+<div class="bg-surface-container-low text-on-surface p-5 rounded-r-lg rounded-bl-lg border border-outline-variant/10 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+<p class="font-body text-sm leading-relaxed mb-4">
+                                Excellent question. While conceptually sound in many Najdorf lines, in this specific variation, your king safety becomes critically compromised. White has a beautiful forcing sequence starting with <span class="text-secondary font-semibold">15. e5!</span> which directly exploits the newly created weakness on f6. Let's look at the engine continuation:
+                            </p>
+<!-- Embedded Engine Eval Card -->
+<div class="glass-neon p-4 rounded border border-primary-fixed/20 flex flex-col gap-3">
+<div class="flex justify-between items-center border-b border-primary/10 pb-2">
+<span class="font-label text-[10px] uppercase tracking-widest text-primary">Engine Line</span>
+<span class="font-display text-lg font-bold text-secondary">+1.85</span>
+</div>
+<div class="font-body text-sm text-on-secondary-container leading-relaxed">
+                                    15. e5 dxe5 16. fxe5 Nfd7 17. Ne4 Rxc2 18. Qxc2. White gains significant spatial advantage and control over the center.
+                                </div>
+<div class="flex gap-2 mt-2">
+<button class="bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-medium py-1.5 px-3 rounded transition-colors flex items-center gap-1 border border-outline-variant/20">
+<span class="material-symbols-outlined text-[14px]">visibility</span> Explore Line
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Composer (Sticky Bottom) -->
+<div class="absolute bottom-0 left-0 w-full bg-surface/90 backdrop-blur-md pt-4 pb-6 px-4 md:px-8 border-t border-surface-container z-20 flex justify-center">
+<div class="w-full max-w-4xl relative">
+<div class="bg-surface-container-highest rounded-lg p-2 pr-14 relative flex items-end shadow-[0_-4px_24px_rgba(0,0,0,0.2)] focus-within:shadow-[0_0_0_1px_rgba(132,255,0,0.3)] transition-shadow">
+<textarea class="w-full bg-transparent border-none text-on-surface font-body text-sm resize-none focus:ring-0 p-3 max-h-32 placeholder:text-on-surface-variant selection:bg-primary/20 overflow-y-auto caret-primary" placeholder="Ask about a position, strategy, or specific move..." rows="1" style="min-height: 44px;"></textarea>
+<div class="absolute right-2 bottom-2 flex gap-1">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded hover:bg-surface-container-low cursor-pointer">
+<span class="material-symbols-outlined text-xl">attach_file</span>
+</button>
+<button class="p-2 bg-primary-fixed text-on-primary-fixed hover:bg-primary-container hover:shadow-[0_0_15px_rgba(132,255,0,0.3)] transition-all rounded cursor-pointer flex items-center justify-center">
+<span class="material-symbols-outlined text-xl">send</span>
+</button>
+</div>
+</div>
+<div class="text-center mt-2">
+<span class="font-label text-[9px] uppercase tracking-widest text-on-surface-variant/50">Kinetic Precision Engine • Press Enter to send</span>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Analyze Games Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center bg-surface/80 backdrop-blur-sm hidden" id="analyze-modal">
+<div class="bg-surface-container-high border border-outline-variant/20 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl relative">
+<button class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors" onclick="document.getElementById('analyze-modal').classList.add('hidden')">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+<div class="flex items-center gap-3 mb-2 text-primary-fixed">
+<span class="material-symbols-outlined text-2xl icon-fill">analytics</span>
+<h3 class="font-headline text-xl font-bold text-on-surface">Analyze Games</h3>
+</div>
+<p class="font-body text-sm text-on-surface-variant mb-6 leading-relaxed">Select a recent game from your linked accounts or import a PGN to begin deep engine analysis and update your intelligence profile.</p>
+<div class="flex flex-col gap-3 mb-6">
+<button class="w-full bg-surface hover:bg-surface-bright text-on-surface border border-outline-variant/30 font-headline font-semibold text-sm py-3 px-4 rounded transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">cloud_sync</span> Connect Chess.com
+        </button>
+<button class="w-full bg-surface hover:bg-surface-bright text-on-surface border border-outline-variant/30 font-headline font-semibold text-sm py-3 px-4 rounded transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">cloud_sync</span> Connect Lichess
+        </button>
+<div class="relative flex py-2 items-center">
+<div class="flex-grow border-t border-outline-variant/20"></div>
+<span class="flex-shrink-0 mx-4 text-on-surface-variant font-label text-[10px] uppercase tracking-widest">or</span>
+<div class="flex-grow border-t border-outline-variant/20"></div>
+</div>
+<button class="w-full bg-primary-fixed hover:bg-primary-container text-on-primary-fixed font-headline font-bold text-sm py-3 px-4 rounded transition-all shadow-[0_0_15px_rgba(132,255,0,0.15)] flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">upload_file</span> Paste / Import PGN
+        </button>
+</div>
+</div>
+</div>
+<!-- Script to auto-resize textarea -->
+<script>
+        const textarea = document.querySelector('textarea');
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.scrollHeight > 120) {
+                this.style.overflowY = 'auto';
+            } else {
+                this.style.overflowY = 'hidden';
+            }
+        });
+    </script>
+</body></html>

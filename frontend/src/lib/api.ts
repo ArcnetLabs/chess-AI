@@ -13,7 +13,7 @@ import {
   GenerateInsightsResponse,
   Recommendation,
 } from '@/types';
-import { AnalyzeGamesResponse } from '@/types/analysis.types';
+import { AnalyzeGamesResponse, AnalysisJobStatus } from '@/types/analysis.types';
 import {
   ChatHistoryResponse,
   CreateSessionRequest,
@@ -269,7 +269,7 @@ export const analysisApi = {
   ): Promise<AnalyzeGamesResponse> => {
     const response = await apiClient.post<AnalyzeGamesResponse>(`/analysis/${userId}/analyze`, {
       game_ids: options?.gameIds,
-      days: options?.days || 7,
+      days: options?.days,
       time_classes: options?.timeClasses,
       force_reanalysis: options?.forceReanalysis || false,
     });
@@ -293,13 +293,13 @@ export const analysisApi = {
     return response.data;
   },
 
-  getActiveJobStatus: async (userId: number) => {
-    const response = await apiClient.get(`/analysis/${userId}/status`);
+  getActiveJobStatus: async (userId: number): Promise<AnalysisJobStatus> => {
+    const response = await apiClient.get<AnalysisJobStatus>(`/analysis/${userId}/status`);
     return response.data;
   },
 
-  getJobStatus: async (userId: number, jobId: string) => {
-    const response = await apiClient.get(`/analysis/${userId}/status/${jobId}`);
+  getJobStatus: async (userId: number, jobId: string): Promise<AnalysisJobStatus> => {
+    const response = await apiClient.get<AnalysisJobStatus>(`/analysis/${userId}/status/${jobId}`);
     return response.data;
   },
 
