@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Technical FRD — ChessIQ Docs</title>
+  <title>Technical FRD — ChessRun Docs</title>
   <link rel="stylesheet" href="shared.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
 </head>
 <body>
 
 <header class="topbar">
-  <a href="index.html" class="topbar-brand">ChessIQ</a>
+  <a href="index.html" class="topbar-brand">ChessRun</a>
   <div class="topbar-right">
     <span class="topbar-title">Technical FRD</span>
     <button class="hamburger" id="hamburger" aria-label="Toggle navigation">&#9776;</button>
@@ -43,7 +43,7 @@
 </nav>
 
 <div class="doc-header">
-  <h1 class="doc-title">FRD — ChessIQ (Technical / Engineering)</h1>
+  <h1 class="doc-title">FRD — ChessRun (Technical / Engineering)</h1>
   <div class="meta-pills">
     <span class="meta-pill"><span class="pill-label">Version</span>1.0</span>
     <span class="meta-pill"><span class="pill-label">Status</span>Active</span>
@@ -72,7 +72,7 @@
       <h2 class="section-title">Architecture Overview</h2>
     </div>
     <div class="section-divider"></div>
-    <p>ChessIQ uses a <strong>layered intelligence architecture</strong> that separates engine analysis (Stockfish) from pattern recognition and AI coaching. This enables reusability of Stockfish analysis for pattern detection, scalable pattern computation across large game histories, and context-aware AI coaching that synthesizes multiple data sources.</p>
+    <p>ChessRun uses a <strong>layered intelligence architecture</strong> that separates engine analysis (Stockfish) from pattern recognition and AI coaching. This enables reusability of Stockfish analysis for pattern detection, scalable pattern computation across large game histories, and context-aware AI coaching that synthesizes multiple data sources.</p>
 
     <h3 class="sub-heading">1.1 Stack</h3>
     <div class="table-wrapper">
@@ -93,7 +93,7 @@
 
     <h3 class="sub-heading">1.2 High-Level Architecture Diagram</h3>
     <div class="diagram-wrapper">
-      <span class="diagram-label">ChessIQ System Architecture</span>
+      <span class="diagram-label">ChessRun System Architecture</span>
       <pre class="mermaid">
 flowchart TB
     subgraph Frontend["Frontend (Next.js)"]
@@ -180,7 +180,7 @@ CREATE INDEX idx_users_username_lower
     <h3 class="sub-heading">2.2 <code class="inline">games</code></h3>
     <div class="callout secondary">
       <span class="callout-label">Storage Philosophy</span>
-      <p>The <code class="inline">games</code> table is a <strong>lightweight temporary cache</strong>. Chess.com is the external source of truth for raw game history. Game analyses and detected patterns — ChessIQ's core intelligence — are stored permanently and never purged.</p>
+      <p>The <code class="inline">games</code> table is a <strong>lightweight temporary cache</strong>. Chess.com is the external source of truth for raw game history. Game analyses and detected patterns — ChessRun's core intelligence — are stored permanently and never purged.</p>
     </div>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
@@ -372,7 +372,7 @@ CREATE INDEX idx_conversations_session ON coach_conversations (session_id, creat
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
       <pre><code class="language-python">class Settings(BaseSettings):
-    PROJECT_NAME: str = "IQChess"
+    PROJECT_NAME: str = "ChessRun"
     SECRET_KEY: str
     JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
@@ -771,7 +771,7 @@ flowchart TB
     <h3 class="sub-heading">9.3 Prompt Engineering</h3>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><code class="language-python">SYSTEM_PROMPT = """You are ChessIQ, an expert chess coach AI. Your role is to provide personalized, evidence-based coaching.
+      <pre><code class="language-python">SYSTEM_PROMPT = """You are ChessRun, an expert chess coach AI. Your role is to provide personalized, evidence-based coaching.
 
 Guidelines:
 - Always reference the player's actual data and patterns

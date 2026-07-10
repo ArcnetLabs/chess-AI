@@ -41,7 +41,7 @@ export default function AuthCallbackPage() {
         const next =
           typeof router.query.next === 'string'
             ? router.query.next
-            : '/dashboard'
+            : '/coach'
         router.replace(next)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps

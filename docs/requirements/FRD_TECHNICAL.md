@@ -1,8 +1,10 @@
-# FRD — ChessIQ (Technical / Engineering)
+# FRD - ChessRun (Technical / Engineering)
 
-This document describes the **deep technical design** for ChessIQ: data model, analysis pipelines, AI services, pattern recognition, caching, workers, APIs, frontend components, testing, and failure modes.
+This document describes the **deep technical design** for ChessRun: data model, analysis pipelines, AI services, pattern recognition, caching, workers, APIs, frontend components, testing, and failure modes.
 
-**Architecture Philosophy:** ChessIQ uses a layered intelligence architecture that separates engine analysis (Stockfish) from pattern recognition and AI coaching. This enables:
+> **MVP UX authority:** [`../product/CHESSRUN_MVP_UX.md`](../product/CHESSRUN_MVP_UX.md) defines the current launch UX. The backend may retain analysis, pattern, profile, and training-capable primitives, but MVP frontend contracts should serve a conversational AI coach, Analyze Games modal, persistent chat threads, and collapsible Playing Profile.
+
+**Architecture Philosophy:** ChessRun uses a layered intelligence architecture that separates engine analysis (Stockfish) from pattern recognition and AI coaching. This enables:
 - Reusability of Stockfish analysis for pattern detection
 - Scalable pattern computation across large game histories
 - Context-aware AI coaching that synthesizes multiple data sources
@@ -17,8 +19,10 @@ This document describes the **deep technical design** for ChessIQ: data model, a
 **Frontend:**
 - Next.js (React, TypeScript), React Query, Axios, TailwindCSS.
 - AI Coach chat interface with streaming responses.
-- Pattern visualization components.
-- Interactive chess board with training mode.
+- ChatGPT-like sidebar with New Chat, conversation history, and Analyze Games access.
+- Analyze Games modal with timeframe options.
+- Collapsible Playing Profile context panel.
+- Pattern visualization and training components are future-facing unless needed inside coaching conversation context.
 
 **Backend Services:**
 - **API Gateway**: FastAPI, SQLAlchemy, Pydantic v2.
@@ -33,7 +37,7 @@ This document describes the **deep technical design** for ChessIQ: data model, a
 - **Vector Store**: pgvector extension for pattern similarity search (future).
 
 **External Services:**
-- **Chess.com API — external source of truth** for raw game data (PGNs, move history, ratings, timestamps, metadata). ChessIQ fetches games on-demand or via periodic sync; it does not attempt to archive all historical games permanently.
+- **Chess.com API — external source of truth** for raw game data (PGNs, move history, ratings, timestamps, metadata). ChessRun fetches games on-demand or via periodic sync; it does not attempt to archive all historical games permanently.
 - OpenAI/Anthropic API (AI Coach LLM hosted fallback, Elite tier only).
 - Stockfish binary (engine analysis).
 
@@ -42,10 +46,10 @@ This document describes the **deep technical design** for ChessIQ: data model, a
 ```mermaid
 flowchart TB
     subgraph Frontend["Frontend (Next.js)"]
-        UI[Dashboard UI]
-        CHAT[AI Coach Chat]
-        PATTERN[Pattern Dashboard]
-        TRAIN[Training Mode]
+        CHAT[Coaching Workspace]
+        SIDEBAR[Chat Sidebar]
+        PROFILE_UI[Playing Profile]
+        ANALYZE_MODAL[Analyze Games Modal]
     end
 
     subgraph APILayer["API Layer (FastAPI)"]
@@ -78,10 +82,10 @@ flowchart TB
         CHESSCOM[Chess.com API]
     end
 
-    UI --> API
     CHAT --> COACH
-    PATTERN --> PATTERN_API
-    TRAIN --> API
+    SIDEBAR --> COACH
+    PROFILE_UI --> PATTERN_API
+    ANALYZE_MODAL --> API
 
     COACH --> API
     PATTERN_API --> API
@@ -132,7 +136,7 @@ CREATE INDEX idx_users_username_lower
 
 ### 2.2 `games`
 
-**Storage philosophy:** The `games` table is a **lightweight temporary cache**, not a permanent chess archive. Chess.com is the external source of truth for all raw game history. ChessIQ caches recently fetched games (configurable retention window, e.g., last 30–60 days) to avoid redundant API calls and support analysis, coaching context, and auto-analysis workflows. Game analyses and detected patterns — ChessIQ's core intelligence — are stored permanently and never purged.
+**Storage philosophy:** The `games` table is a **lightweight temporary cache**, not a permanent chess archive. Chess.com is the external source of truth for all raw game history. ChessRun caches recently fetched games (configurable retention window, e.g., last 30–60 days) to avoid redundant API calls and support analysis, coaching context, and auto-analysis workflows. Game analyses and detected patterns — ChessRun's core intelligence — are stored permanently and never purged.
 
 ```sql
 CREATE TABLE games (
@@ -342,7 +346,7 @@ CREATE INDEX idx_examples_pattern
 
 ```python
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "IQChess"
+    PROJECT_NAME: str = "ChessRun"
 
     # Security
     SECRET_KEY: str
@@ -570,7 +574,7 @@ from celery import Celery
 from app.core.config import settings
 
 celery_app = Celery(
-    "iqchess",
+    "chessrun",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
 )
@@ -646,7 +650,7 @@ flowchart LR
 
 - **After Analysis Completion**: When `analyze_game` task completes, trigger pattern detection for that user.
 - **Scheduled Re-scan**: Daily/weekly batch re-scan for pattern evolution tracking.
-- **On-Demand**: User can request pattern re-calculation from dashboard.
+- **On-Demand**: User can request pattern recalculation from the coaching workspace when analysis context needs refresh.
 
 #### 7.2.2 Detection Categories & Algorithms
 
@@ -999,7 +1003,7 @@ class CoachPromptBuilder:
         """
         Build structured prompt for LLM with all relevant context.
         """
-        system_prompt = """You are ChessIQ, an expert chess coach AI. Your role is to provide personalized, evidence-based coaching.
+        system_prompt = """You are ChessRun, an expert chess coach AI. Your role is to provide personalized, evidence-based coaching.
 
 Guidelines:
 - Always reference the player's actual data and patterns
@@ -1259,38 +1263,39 @@ def build_time_management_recommendations(
 #### 11.2.1 `pages/index.tsx`
 
 - Handles:
+  - Username entry for Chess.com or Lichess.
   - Login/create user.
-  - Filter selection.
-  - Game fetch and redirect to dashboard.
+  - Start Coaching CTA.
+  - Redirect directly into the coaching workspace.
 - Main states:
   - `loading` (boolean).
-  - `pollingStatus` (string; "Creating account…", "Fetching your games…").
+  - `pollingStatus` (string; "Creating account...", "Starting coach...").
 
-#### 11.2.2 `pages/dashboard.tsx`
+#### 11.2.2 Coaching workspace route
 
 - Uses React Query hooks for:
   - `user` data (`api.users.getByUsername`).
-  - `analysisSummary` (`api.analysis.getSummary`).
-  - `playerPatterns` (`api.patterns.getPlayerPatterns`).
   - `playerProfile` (`api.patterns.getPlayerProfile`).
-  - `recommendations` (`api.insights.getRecommendations`).
-  - `games` (`api.games.getForUser`).
-  - `timingAnalysis` (`api.timing.getTimeAnalysis`).
+  - `coach.sendMessage(userId, message, sessionId)`.
+  - `coach.getConversationHistory(userId, sessionId)`.
+  - `analysis.analyzeGames(userId, { days, forceReanalysis })`.
+  - `analysis.getSummary(userId, days)` for Playing Profile context only.
 
 - UI regions:
-  - **AI Coach Card**: Quick access to AI Coach with suggested questions.
-  - **Pattern Summary Card**: Top 3 detected patterns (strengths/weaknesses).
-  - **Player Archetype**: Visual display of chess persona.
-  - **Performance cards**: ACPL, accuracy, phase scores.
-  - **Phase & move-quality charts**.
-  - **Coaching insights** with pattern-based drill links.
-  - **Fetched Games section**:
-    - Collapsible (state `gamesCollapsed`).
-    - "Analyze All Games" button: calls `handleAnalyzeGames(false)`.
+  - **Conversation**: primary workspace for coach/user messages.
+  - **Sidebar**: New Chat, conversation history, Analyze Games.
+  - **Playing Profile**: collapsible context panel with games analyzed, patterns identified, strongest area, biggest bottleneck, and last analysis timestamp.
+  - **Analyze Games Modal**:
+    - Last 7 Days.
+    - Last 30 Days.
+    - This Month.
+    - Analyze All Games.
+    - Custom Range.
+    - Calls `handleAnalyzeGames(...)` without leaving the coaching workspace.
 
 #### 11.2.3 `pages/patterns.tsx` (NEW)
 
-- **Pattern Dashboard**: Comprehensive pattern visualization.
+- **Future / non-MVP Pattern Dashboard**: Comprehensive pattern visualization. Do not implement as a required MVP route unless product direction changes; expose pattern data inside coaching and Playing Profile first.
 - **Components:**
   - `PatternList`: Filterable list of all detected patterns.
   - `PatternCard`: Individual pattern display with:
@@ -1307,7 +1312,7 @@ def build_time_management_recommendations(
 
 #### 11.2.4 `pages/coach.tsx` (NEW)
 
-- **AI Coach Chat Interface**: Conversational chess coaching.
+- **AI Coach Chat Interface**: Conversational chess coaching. This is the MVP primary route, whether implemented as `/coach`, `/dashboard`, or another route name.
 - **Components:**
   - `ChatInterface`: Main chat container.
   - `MessageBubble`: User/Coach message display.
@@ -1322,7 +1327,7 @@ def build_time_management_recommendations(
 
 #### 11.2.5 `pages/timing.tsx` (NEW)
 
-- **Time Management Dashboard**: Behavioral analysis visualization.
+- **Future / non-MVP Time Management Dashboard**: Behavioral analysis visualization. MVP timing insights should appear as coach context or Playing Profile summaries, not as a standalone analytics page.
 - **Components:**
   - `TimeDistributionChart`: Think time by phase.
   - `TimePressureMap`: Heatmap of moves under time pressure.
@@ -1632,11 +1637,12 @@ Fetch time management analysis.
 ### 13.2 Frontend
 
 - **Unit/Component tests** (Jest + React Testing Library):
-  - Dashboard charts render with mocked data.
-  - Fetched Games list collapses/expands.
-  - Analyze button states (default/disabled/analyzing).
+  - Coaching workspace renders with mocked chat/profile data.
+  - Conversation sidebar creates and restores threads.
+  - Playing Profile collapses/expands.
+  - Analyze Games modal opens, closes, and submits timeframe selections.
 - **E2E tests** (Playwright/Cypress, optional):
-  - User flows: landing → fetch games → dashboard.
+  - User flow: landing -> Start Coaching -> coaching workspace -> Analyze Games modal -> background analysis -> Playing Profile update.
 
 ---
 
@@ -1675,7 +1681,7 @@ Fetch time management analysis.
 - **Detection:** HTTP 429/500 from LLM provider.
 - **Handling:**
   - Return cached fallback response if available.
-  - Show user-friendly message: "AI Coach is temporarily unavailable. Your pattern data is still accessible in the Patterns dashboard."
+  - Show user-friendly message: "AI Coach is temporarily unavailable. Your Playing Profile is still available."
   - Queue conversation for later processing if user wants to retry.
   - Implement exponential backoff for retries.
 
@@ -1757,7 +1763,7 @@ flowchart TB
 
 ## 15. Summary
 
-This technical FRD defines the complete architecture for ChessIQ as an AI-powered personalized chess coaching platform:
+This technical FRD defines the complete architecture for ChessRun as an AI-powered personalized chess coaching platform:
 
 ### Core Innovation: Layered Intelligence Architecture
 1. **Stockfish Analysis Layer** - Position-by-position engine evaluation
@@ -1789,10 +1795,11 @@ This technical FRD defines the complete architecture for ChessIQ as an AI-powere
 - Comprehensive API specifications with examples
 
 **Frontend Architecture:**
-- New pages: `/patterns`, `/coach`, `/timing`
-- Component library: `PatternCard`, `CoachChat`, `PlayerArchetypeBadge`
+- MVP route: coaching workspace (`/coach`, `/dashboard`, or final product route)
+- Future pages: `/patterns`, `/timing`
+- Component library: `CoachChat`, `ConversationSidebar`, `PlayingProfile`, `AnalyzeGamesModal`, future `PatternCard`
 - React Query hooks for all new data sources
-- Enhanced dashboard with AI Coach card and pattern summary
+- Coach-first workspace with persistent chat, Playing Profile context, and modal game analysis
 
 ### Scalability & Reliability
 - Redis caching for profiles (30 min TTL)
@@ -1801,4 +1808,4 @@ This technical FRD defines the complete architecture for ChessIQ as an AI-powere
 - Rate limiting on all external calls
 - Comprehensive testing strategy
 
-This architecture enables ChessIQ to provide sophisticated, personalized chess coaching at scale while maintaining technical feasibility and extensibility.
+This architecture enables ChessRun to provide sophisticated, personalized chess coaching at scale while maintaining technical feasibility and extensibility.

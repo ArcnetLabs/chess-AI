@@ -1,4 +1,4 @@
-# ChessIQ Feature Execution Roadmap
+# ChessRun Feature Execution Roadmap
 
 **Date:** 2026-05-26  
 **Mode:** Controlled feature execution (post-remediation)  
@@ -11,7 +11,7 @@
 
 > **Intelligence before interface. Retention before polish. Grounded AI last.**
 
-ChessIQ wins when players return because the system **remembers their chess identity**. That requires persisted patterns and profiles before new dashboards or chat tricks.
+ChessRun wins when players return because the system **remembers their chess identity**. That requires persisted patterns and profiles before new dashboards or chat tricks.
 
 ---
 
@@ -194,7 +194,7 @@ Phases are **sequential gates**. Phase 2 starts when Phase 1 exit criteria pass 
 
 ```mermaid
 gantt
-    title ChessIQ Feature Execution (sequential gates)
+    title ChessRun Feature Execution (sequential gates)
     dateFormat YYYY-MM-DD
     section Phase 1
     Schema migrations           :p1db, 2026-06-01, 7d

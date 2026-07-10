@@ -36,7 +36,7 @@ export function useCurrentUser() {
         toast.error('Could not load your profile from the API.');
       } else {
         toast.error(
-          'Could not reach the ChessIQ API (network or CORS). Check the browser console.',
+          'Could not reach the ChessRun API (network or CORS). Check the browser console.',
         );
       }
       setUser(null);

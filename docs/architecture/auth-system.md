@@ -2,7 +2,7 @@
 
 **Status:** canonical · **Owner:** platform · **Last updated:** 2026-05-30
 
-ChessIQ's authentication architecture is built around a single principle:
+ChessRun's authentication architecture is built around a single principle:
 
 > **Supabase Auth is the canonical identity layer.**
 > Chess.com usernames are linked profile data, not identity.

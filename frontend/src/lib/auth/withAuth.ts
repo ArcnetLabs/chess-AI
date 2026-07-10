@@ -31,7 +31,7 @@ interface WithAuthOptions {
  * need to repeat the auth check themselves.
  *
  * @example
- * // pages/dashboard.tsx
+ * // pages/coach/index.tsx
  * export const getServerSideProps = withAuth(async (context, user) => {
  *   return {
  *     props: {

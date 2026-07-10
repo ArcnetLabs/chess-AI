@@ -1,4 +1,4 @@
-# ChessIQ — Pricing Strategy, Monetization Model, and AI Cost Architecture
+# ChessRun - Pricing Strategy, Monetization Model, and AI Cost Architecture
 
 **Version:** 1.0  
 **Status:** Strategic Framework / Business Model Definition  
@@ -8,11 +8,13 @@
 
 ## Executive Summary
 
-ChessIQ employs a **progressive monetization strategy** that prioritizes **user adoption and product validation** before aggressive revenue extraction. The platform launches with an **Open Beta** (free) phase to build a data foundation, followed by a **Freemium** model that hooks users with genuine value, and scales through **tiered AI coaching plans** that align pricing with user improvement and coaching depth.
+ChessRun employs a **progressive monetization strategy** that prioritizes **user adoption and product validation** before aggressive revenue extraction. The platform launches with an **Open Beta** (free) phase to build a data foundation, followed by a **Freemium** model that hooks users with genuine value, and scales through **tiered AI coaching plans** that align pricing with user improvement and coaching depth.
 
-**Core Economic Thesis:** ChessIQ's hybrid AI architecture (local-first LLM with hosted fallback) enables sustainable unit economics impossible with hosted-only competitors. This cost advantage translates to competitive pricing, higher margins, and scalable growth.
+**Core Economic Thesis:** ChessRun's hybrid AI architecture (local-first LLM with hosted fallback) enables sustainable unit economics impossible with hosted-only competitors. This cost advantage translates to competitive pricing, higher margins, and scalable growth.
 
-**Strategic Positioning:** ChessIQ is priced as **personalized chess coaching software** (like Chessable, Duolingo, or a human coach) — not as "AI chatbot access" or "token usage." The value proposition centers on **improvement, training effectiveness, and personalized intelligence** — not AI technology itself.
+**Strategic Positioning:** ChessRun is priced as **personalized chess coaching software** (like Chessable, Duolingo, or a human coach) — not as "AI chatbot access" or "token usage." The MVP value proposition centers on persistent coaching conversations, game-analysis-informed personalization, and the Playing Profile. Training products, exports, and scheduled reports are future packaging options.
+
+> **MVP UX authority:** [`../product/CHESSRUN_MVP_UX.md`](../product/CHESSRUN_MVP_UX.md) defines the current launch experience. Pricing should package the coaching conversation as the product; analysis and Playing Profile exist to improve coaching quality.
 
 ---
 
@@ -20,7 +22,7 @@ ChessIQ employs a **progressive monetization strategy** that prioritizes **user 
 
 ### 1.1 Why Free Beta First?
 
-ChessIQ should **NOT** aggressively monetize immediately. The early priority is:
+ChessRun should **NOT** aggressively monetize immediately. The early priority is:
 
 - **User adoption:** Build a critical mass of engaged players
 - **Feedback collection:** Real users expose coaching gaps and AI limitations
@@ -71,9 +73,15 @@ Each phase builds on the previous, ensuring pricing reflects **actual user value
 - Stockfish position analysis (depth 20)
 - Basic pattern recognition (top 3 patterns)
 - Conversational AI coaching (limited monthly volume)
+- Analyze Games modal with MVP timeframe options
+- Playing Profile (games analyzed, patterns identified, strongest area, biggest bottleneck, last analysis timestamp)
+- Persistent coaching conversations
+
+**Future, not MVP launch promises:**
+
 - Training mode with critical moment replay
-- Weekly recommendation summary
-- Basic player profile (archetype + strengths/weaknesses)
+- Weekly recommendation summaries
+- Export reports
 
 ### 2.3 Beta Usage Limitations
 
@@ -151,9 +159,9 @@ The FREE tier must:
 | AI Coaching | 15 chats/month | Local model only |
 | Context Memory | Last 3 messages | Limited conversation depth |
 | Historical Lookback | 90 days | Can't see long-term trends |
-| Recommendations | Weekly summary | No drill customization |
-| Training Mode | Basic mode | No spaced repetition |
-| Player Profile | Basic archetype | No style evolution tracking |
+| Analyze Games | Modal timeframe selection | Monthly analysis cap applies |
+| Playing Profile | Basic scouting report | Limited history depth |
+| Recommendations | In-chat coaching themes | No future drill customization |
 | Community | Access | Read-only |
 
 ### 3.3 Free Tier Limitations (Strategic Rationale)
@@ -241,15 +249,15 @@ Weekly refresh frustrating → "Daily insights" → Pro Plan
 | **Unlimited AI Coaching** | Local model, unlimited chats | "Coach available 24/7" |
 | **Deep Context Memory** | Full conversation threading | "Coach remembers everything" |
 | **Unlimited History** | Lifetime game/pattern storage | "Track your improvement journey" |
-| **Personalized Training Plans** | AI-generated weekly plans | "Know exactly what to study" |
+| **Advanced Playing Profile** | Deeper scouting report + evolution | "See what your coach is tracking" |
 | **Opening Analysis** | Repertoire tracking, success rates | "Fix your opening problems" |
 | **Timing/Behavioral Analysis** | Time management insights | "Stop blundering on the clock" |
 | **Priority Queue** | High-priority analysis | "Get results in minutes, not hours" |
-| **Export Reports** | PDF/CSV analysis export | "Share progress with coach" |
-| **Spaced Repetition Training** | Pattern-specific drills | "Actually fix your weaknesses" |
 | **Style Evolution Tracking** | Archetype changes over time | "Watch yourself become a tactician" |
 | **Auto-Analysis** | Background game fetching + automatic Stockfish analysis | "Stay coached even when you\'re not logged in" |
-| **Scheduled Reports** | Daily/weekly AI coaching summary delivered automatically | "Your coach checks in, not the other way around" |
+| **Coach Check-Ins** | Conversation-based summaries when new analysis completes | "Your coach checks in, not the other way around" |
+
+Future expansion products include personalized training plans, spaced repetition drills, export reports, and scheduled email reports.
 
 ### 4.4 Why Pro Plan Uses Local Models Exclusively
 
@@ -265,7 +273,7 @@ Weekly refresh frustrating → "Daily insights" → Pro Plan
 
 **Strategic Differentiation:**
 - Competitors using hosted models must charge $20-30/month for sustainable economics
-- ChessIQ Pro at $9.99 is 50% cheaper with comparable quality
+- ChessRun Pro at $9.99 is 50% cheaper with comparable quality
 - Price advantage drives adoption and market share
 
 ---
@@ -348,7 +356,7 @@ Weekly refresh frustrating → "Daily insights" → Pro Plan
 
 ## 6. Pricing Philosophy: Value-Based, Not Technology-Based
 
-### 6.1 What ChessIQ Is NOT Priced As
+### 6.1 What ChessRun Is NOT Priced As
 
 | Don't Price As | Why It Fails |
 |----------------|--------------|
@@ -357,7 +365,7 @@ Weekly refresh frustrating → "Daily insights" → Pro Plan
 | "Chatbot subscription" | Positions as novelty, not serious improvement tool |
 | "Analysis engine" | Competes with free Stockfish UIs on price alone |
 
-### 6.2 What ChessIQ IS Priced As
+### 6.2 What ChessRun IS Priced As
 
 **Psychological Category:** Personal coaching and training software
 
@@ -413,7 +421,7 @@ Weekly refresh frustrating → "Daily insights" → Pro Plan
 - Forced into confusing "token credit" systems
 - Users feel nickel-and-dimed
 
-### 7.2 ChessIQ's Economic Advantage
+### 7.2 ChessRun's Economic Advantage
 
 **Local Inference Default:**
 - 95%+ of coaching conversations handled by local Llama 3 8B
@@ -647,19 +655,19 @@ flowchart TD
 
 ---
 
-## 10. Product Positioning: What ChessIQ Is
+## 10. Product Positioning: What ChessRun Is
 
-### 10.1 ChessIQ Is NOT
+### 10.1 ChessRun Is NOT
 
 | Misconception | Reality |
 |---------------|---------|
 | **A Stockfish wrapper** | Stockfish is just one layer. Pattern recognition, behavioral analysis, and personalized coaching are the value. |
 | **A generic chess analyzer** | Analysis is commoditized. Pattern-aware, longitudinal coaching is differentiated. |
 | **An AI chatbot** | Not open-ended conversation. Structured chess intelligence delivered conversationally. |
-| **A generic chatbot (like ChatGPT without memory)** | This framing is acceptable when clarified correctly. ChessIQ maintains long-term player memory, behavioral history, and coaching continuity across months of play. The differentiator is not "chess chatbot" but **"persistent conversational chess intelligence"** — a system that knows your patterns, remembers your prior coaching, and tracks your improvement over time. |
+| **A generic chatbot (like ChatGPT without memory)** | This framing is acceptable when clarified correctly. ChessRun maintains long-term player memory, behavioral history, and coaching continuity across months of play. The differentiator is not "chess chatbot" but **"persistent conversational chess intelligence"** — a system that knows your patterns, remembers your prior coaching, and tracks your improvement over time. |
 | **A free analysis tool** | Free tier exists, but sustainable business model enables continued development. |
 
-### 10.2 ChessIQ IS
+### 10.2 ChessRun IS
 
 **A Personalized AI Chess Intelligence and Coaching Platform**
 
@@ -807,7 +815,7 @@ Year 2:      EXPANSION
 
 ## 13. Summary
 
-ChessIQ's pricing and monetization strategy reflects a **sophisticated understanding of both user psychology and AI economics**:
+ChessRun's pricing and monetization strategy reflects a **sophisticated understanding of both user psychology and AI economics**:
 
 ### Strategic Pillars
 
@@ -826,11 +834,11 @@ ChessIQ's pricing and monetization strategy reflects a **sophisticated understan
 
 ### Positioning Clarity
 
-ChessIQ is **personalized AI chess intelligence** — not a Stockfish wrapper, not a generic analyzer, not a chatbot. The pricing reflects this: users pay for **improvement, coaching, and self-awareness** — not for AI technology.
+ChessRun is **personalized AI chess intelligence** — not a Stockfish wrapper, not a generic analyzer, not a chatbot. The pricing reflects this: users pay for **improvement, coaching, and self-awareness** — not for AI technology.
 
 ### Investor Narrative
 
-ChessIQ combines **product-led growth** (free tier driving adoption) with **best-in-class unit economics** (local AI infrastructure). The hybrid AI architecture creates a **sustainable moat**: competitors using hosted models cannot match the price point or margins. This enables aggressive growth while maintaining profitability — the ideal SaaS profile.
+ChessRun combines **product-led growth** (free tier driving adoption) with **best-in-class unit economics** (local AI infrastructure). The hybrid AI architecture creates a **sustainable moat**: competitors using hosted models cannot match the price point or margins. This enables aggressive growth while maintaining profitability — the ideal SaaS profile.
 
 ---
 

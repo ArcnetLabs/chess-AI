@@ -1,4 +1,4 @@
-# ChessIQ Feature Execution
+# ChessRun Feature Execution
 
 **Status:** Active — post-remediation controlled feature development  
 **Start here after remediation:** [`feature-priority-map.md`](./feature-priority-map.md)
