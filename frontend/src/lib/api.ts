@@ -303,6 +303,13 @@ export const analysisApi = {
     return response.data;
   },
 
+  cancelJob: async (userId: number, jobId: string): Promise<AnalysisJobStatus> => {
+    const response = await apiClient.post<AnalysisJobStatus>(
+      `/analysis/${userId}/status/${jobId}/cancel`,
+    );
+    return response.data;
+  },
+
   deleteForGame: async (gameId: number): Promise<ApiResponse<string>> => {
     const response = await apiClient.delete<ApiResponse<string>>(`/analysis/game/${gameId}`);
     return response.data;
