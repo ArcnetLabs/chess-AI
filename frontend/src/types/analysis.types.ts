@@ -16,7 +16,9 @@ export interface AnalysisJobStatus {
   completed_games: number;
   failed_games: number;
   pending_game_ids: number[];
+  failed_game_ids: number[];
   current_game_id: number | null;
+  last_error?: string | null;
   created_at: string;
   updated_at: string;
   progress_percent: number;

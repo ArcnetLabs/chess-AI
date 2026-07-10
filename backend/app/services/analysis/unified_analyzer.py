@@ -216,7 +216,7 @@ class UnifiedChessAnalyzer:
             
         except StockfishEngineError as e:
             logger.error(f"Engine error during analysis: {e}")
-            return None
+            raise
         except Exception as e:
             logger.error(f"Unexpected error during analysis: {e}", exc_info=True)
             return None
