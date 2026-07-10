@@ -369,6 +369,10 @@ class ChessCoach:
         cited_pattern_ids: List[int] = []
         used_llm = False
         llm_provider: Optional[str] = None
+        llm_model: Optional[str] = None
+        fallback_used = False
+        fallback_reason: Optional[str] = None
+        llm_latency_ms: Optional[int] = None
 
         if db is not None and context.user_id is not None:
             content_types = self.intent_classifier.retrieval_content_types(
@@ -424,9 +428,15 @@ class ChessCoach:
                     raise ValueError("Empty LLM response")
                 used_llm = True
                 llm_provider = result.get("provider")
+                llm_model = result.get("model")
+                fallback_used = bool(result.get("fallback_used"))
+                fallback_reason = result.get("fallback_reason")
+                llm_latency_ms = result.get("latency_ms")
             except Exception as e:
                 logger.warning(f"LLM general question failed, using template: {e}")
                 response_text = self._general_question_template(coach_context)
+                fallback_used = True
+                fallback_reason = "LLM provider unavailable"
         else:
             response_text = self._general_question_template(coach_context)
 
@@ -440,7 +450,12 @@ class ChessCoach:
             ],
             cited_pattern_ids=cited_pattern_ids,
             llm_provider=llm_provider,
+            llm_model=llm_model,
             used_llm=used_llm,
+            retrieval_used=bool(coach_context),
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            llm_latency_ms=llm_latency_ms,
         )
 
     def _general_question_template(self, coach_context: str) -> str:

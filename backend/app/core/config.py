@@ -136,6 +136,16 @@ class Settings(BaseSettings):
 
     # LLM provider routing (coach chat)
     MODEL_PROVIDER: str = os.getenv("MODEL_PROVIDER", "")
+    LLM_PRIMARY_PROVIDER: str = os.getenv(
+        "LLM_PRIMARY_PROVIDER", os.getenv("MODEL_PROVIDER", "")
+    )
+    LLM_LOCAL_BASE_URL: str = os.getenv(
+        "LLM_LOCAL_BASE_URL", "http://localhost:8000/v1"
+    )
+    LLM_LOCAL_MODEL: str = os.getenv("LLM_LOCAL_MODEL", "llama3:8b-instruct")
+    LLM_LOCAL_API_KEY: str = os.getenv("LLM_LOCAL_API_KEY", "")
+    LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
+    LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "2"))
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3:8b-instruct")
     LLM_FALLBACK_CHAIN: str = os.getenv(

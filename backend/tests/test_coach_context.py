@@ -141,8 +141,9 @@ async def test_general_question_injects_context_without_llm(db, coach_user):
     )
 
     assert response.intent == ChatIntent.GENERAL_QUESTION
-    assert "profile_version: 3" in response.message
-    assert "Personalized context from your games" in response.message
+    assert "15 games" in response.message
+    assert "endgame" in response.message.lower()
+    assert "profile_version" not in response.message
 
 
 @pytest.mark.asyncio
@@ -341,6 +342,8 @@ async def test_general_question_llm_response_includes_citation_metadata(db, coac
 
     assert response.used_llm is True
     assert response.llm_provider == "mock"
+    assert response.llm_model is None
+    assert response.retrieval_used is True
     assert response.cited_pattern_ids
 
 

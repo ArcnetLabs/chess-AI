@@ -103,7 +103,12 @@ class ChatResponse:
     session_id: Optional[str] = None
     cited_pattern_ids: Optional[List[int]] = None
     llm_provider: Optional[str] = None
+    llm_model: Optional[str] = None
     used_llm: bool = False
+    retrieval_used: bool = False
+    fallback_used: bool = False
+    fallback_reason: Optional[str] = None
+    llm_latency_ms: Optional[int] = None
     
     def __post_init__(self):
         if self.suggestions is None:
@@ -122,5 +127,10 @@ class ChatResponse:
             "session_id": self.session_id,
             "cited_pattern_ids": self.cited_pattern_ids or [],
             "llm_provider": self.llm_provider,
+            "llm_model": self.llm_model,
             "used_llm": self.used_llm,
+            "retrieval_used": self.retrieval_used,
+            "fallback_used": self.fallback_used,
+            "fallback_reason": self.fallback_reason,
+            "llm_latency_ms": self.llm_latency_ms,
         }

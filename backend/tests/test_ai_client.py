@@ -59,6 +59,47 @@ async def test_ollama_success(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_local_openai_compatible_success_includes_routing_telemetry(monkeypatch):
+    monkeypatch.setattr("app.services.integration.ai_client.settings.LLM_PRIMARY_PROVIDER", "local")
+    monkeypatch.setattr("app.services.integration.ai_client.settings.LLM_FALLBACK_CHAIN", "local")
+
+    health_response = MagicMock(status_code=200)
+    chat_response = MagicMock()
+    chat_response.raise_for_status = MagicMock()
+    chat_response.json.return_value = {
+        "model": "chessrun-local",
+        "choices": [{"message": {"content": "Focus on your opening choices."}}],
+        "usage": {"total_tokens": 42},
+    }
+
+    with patch(
+        "app.services.integration.ai_client.httpx.AsyncClient",
+        side_effect=[
+            _make_async_client_mock(get_response=health_response),
+            _make_async_client_mock(post_response=chat_response),
+        ],
+    ):
+        result = await AIClient().chat_completion(
+            messages=[{"role": "user", "content": "What should I improve?"}]
+        )
+
+    assert result["provider"] == "local"
+    assert result["model"] == "chessrun-local"
+    assert result["fallback_used"] is False
+    assert isinstance(result["latency_ms"], int)
+
+
+@pytest.mark.asyncio
+async def test_mock_provider_is_forbidden_in_production(monkeypatch):
+    monkeypatch.setattr("app.services.integration.ai_client.settings.ENVIRONMENT", "production")
+
+    with pytest.raises(RuntimeError, match="mock: disabled in production"):
+        await AIClient(provider=ModelProvider.MOCK).chat_completion(
+            messages=[{"role": "user", "content": "Hello"}]
+        )
+
+
+@pytest.mark.asyncio
 async def test_fallback_ollama_fails_openrouter_succeeds(monkeypatch):
     monkeypatch.setattr("app.services.integration.ai_client.settings.MODEL_PROVIDER", "")
     monkeypatch.setattr(

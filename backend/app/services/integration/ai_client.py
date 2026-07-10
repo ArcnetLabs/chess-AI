@@ -6,7 +6,9 @@ All LLM access for the coach routes through this module.
 """
 from __future__ import annotations
 
+import asyncio
 import os
+from time import perf_counter
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -35,6 +37,7 @@ class ModelProvider(str, Enum):
     """Supported AI model providers."""
 
     OLLAMA = "ollama"
+    LOCAL = "local"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
     MOCK = "mock"
@@ -51,18 +54,19 @@ class AIClient:
         self._forced_provider = provider
         self._api_key_override = api_key
         self._openrouter_client: Optional[httpx.AsyncClient] = None
+        self.last_routing: Dict[str, Any] = {}
         logger.info("AI Client initialized (fallback chain enabled)")
 
     def _fallback_chain(self) -> List[str]:
         if self._forced_provider:
             return [self._forced_provider.value]
-        if settings.MODEL_PROVIDER:
-            return [settings.MODEL_PROVIDER.strip().lower()]
-        return [
+        primary = (settings.LLM_PRIMARY_PROVIDER or settings.MODEL_PROVIDER).strip().lower()
+        configured = [
             part.strip().lower()
             for part in settings.LLM_FALLBACK_CHAIN.split(",")
             if part.strip()
         ]
+        return list(dict.fromkeys(([primary] if primary else []) + configured))
 
     def _get_openrouter_client(self) -> httpx.AsyncClient:
         if self._openrouter_client is None:
@@ -75,7 +79,7 @@ class AIClient:
                     "HTTP-Referer": "https://chess-insight-ai.com",
                     "X-Title": "Chess Insight AI",
                 },
-                timeout=30.0,
+                timeout=settings.LLM_TIMEOUT_SECONDS,
             )
         return self._openrouter_client
 
@@ -90,6 +94,47 @@ class AIClient:
         except Exception as exc:
             logger.debug(f"Ollama health check failed: {exc}")
             return False
+
+    async def _local_health_check(self) -> bool:
+        """Check a vLLM or other OpenAI-compatible local runtime."""
+        if not HTTPX_AVAILABLE:
+            return False
+        base = settings.LLM_LOCAL_BASE_URL.rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                response = await client.get(f"{base}/models")
+                return response.status_code == 200
+        except Exception as exc:
+            logger.debug(f"Local OpenAI-compatible health check failed: {exc}")
+            return False
+
+    async def _with_retries(self, provider_name: str, operation):
+        attempts = max(1, settings.LLM_MAX_RETRIES)
+        last_error: Optional[Exception] = None
+        for attempt in range(attempts):
+            try:
+                return await operation()
+            except Exception as exc:
+                last_error = exc
+                if attempt < attempts - 1:
+                    await asyncio.sleep(0.25 * (attempt + 1))
+        raise RuntimeError(f"{provider_name} failed after {attempts} attempts: {last_error}")
+
+    def _record_routing(
+        self,
+        result: Dict[str, Any],
+        errors: List[str],
+        started_at: float,
+    ) -> Dict[str, Any]:
+        telemetry = {
+            "provider": result.get("provider"),
+            "model": result.get("model"),
+            "fallback_used": bool(errors),
+            "fallback_reason": "; ".join(errors) if errors else None,
+            "latency_ms": round((perf_counter() - started_at) * 1000),
+        }
+        self.last_routing = telemetry
+        return {**result, **telemetry}
 
     async def chat_completion(
         self,
@@ -117,21 +162,46 @@ class AIClient:
         **kwargs: Any,
     ) -> Dict[str, Any]:
         errors: List[str] = []
+        started_at = perf_counter()
 
         for provider_name in self._fallback_chain():
             if provider_name == ModelProvider.MOCK.value:
-                return self._mock_chat(messages, model, temperature, max_tokens, **kwargs)
+                if settings.ENVIRONMENT.lower() == "production":
+                    errors.append("mock: disabled in production")
+                    continue
+                result = self._mock_chat(messages, model, temperature, max_tokens, **kwargs)
+                return self._record_routing(result, errors, started_at)
+
+            if provider_name == ModelProvider.LOCAL.value:
+                if not await self._local_health_check():
+                    errors.append("local: unavailable")
+                    continue
+                try:
+                    result = await self._with_retries(
+                        "local",
+                        lambda: self._local_openai_chat(
+                            messages, model, temperature, max_tokens, **kwargs
+                        ),
+                    )
+                    logger.info("LLM response via local OpenAI-compatible runtime")
+                    return self._record_routing(result, errors, started_at)
+                except Exception as exc:
+                    errors.append(f"local: {exc}")
+                    continue
 
             if provider_name == ModelProvider.OLLAMA.value:
                 if not await self._ollama_health_check():
                     errors.append("ollama: unavailable")
                     continue
                 try:
-                    result = await self._ollama_chat(
-                        messages, model, temperature, max_tokens, **kwargs
+                    result = await self._with_retries(
+                        "ollama",
+                        lambda: self._ollama_chat(
+                            messages, model, temperature, max_tokens, **kwargs
+                        ),
                     )
                     logger.info("LLM response via ollama")
-                    return result
+                    return self._record_routing(result, errors, started_at)
                 except Exception as exc:
                     errors.append(f"ollama: {exc}")
                     continue
@@ -141,11 +211,14 @@ class AIClient:
                     errors.append("openrouter: missing API key")
                     continue
                 try:
-                    result = await self._openrouter_chat(
-                        messages, model, temperature, max_tokens, **kwargs
+                    result = await self._with_retries(
+                        "openrouter",
+                        lambda: self._openrouter_chat(
+                            messages, model, temperature, max_tokens, **kwargs
+                        ),
                     )
                     logger.info("LLM response via openrouter")
-                    return result
+                    return self._record_routing(result, errors, started_at)
                 except Exception as exc:
                     errors.append(f"openrouter: {exc}")
                     continue
@@ -155,11 +228,14 @@ class AIClient:
                     errors.append("openai: missing API key")
                     continue
                 try:
-                    result = await self._openai_chat(
-                        messages, model, temperature, max_tokens, **kwargs
+                    result = await self._with_retries(
+                        "openai",
+                        lambda: self._openai_chat(
+                            messages, model, temperature, max_tokens, **kwargs
+                        ),
                     )
                     logger.info("LLM response via openai")
-                    return result
+                    return self._record_routing(result, errors, started_at)
                 except Exception as exc:
                     errors.append(f"openai: {exc}")
                     continue
@@ -167,6 +243,47 @@ class AIClient:
             errors.append(f"{provider_name}: unsupported provider")
 
         raise RuntimeError(f"All LLM providers failed: {'; '.join(errors)}")
+
+    async def _local_openai_chat(
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str],
+        temperature: float,
+        max_tokens: Optional[int],
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Call a local OpenAI-compatible runtime such as vLLM."""
+        if not HTTPX_AVAILABLE:
+            raise ImportError("httpx required for local OpenAI-compatible runtime")
+
+        model_name = model or settings.LLM_LOCAL_MODEL
+        payload: Dict[str, Any] = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        payload.update(kwargs)
+
+        headers = {}
+        if settings.LLM_LOCAL_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.LLM_LOCAL_API_KEY}"
+
+        base = settings.LLM_LOCAL_BASE_URL.rstrip("/")
+        async with httpx.AsyncClient(
+            timeout=settings.LLM_TIMEOUT_SECONDS, headers=headers
+        ) as client:
+            response = await client.post(f"{base}/chat/completions", json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        return {
+            "content": data["choices"][0]["message"]["content"],
+            "usage": data.get("usage", {}),
+            "model": data.get("model", model_name),
+            "provider": "local",
+        }
 
     async def _ollama_chat(
         self,
@@ -190,7 +307,7 @@ class AIClient:
             payload["options"]["num_predict"] = max_tokens
         payload.update(kwargs)
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
             response = await client.post(f"{base}/api/chat", json=payload)
             response.raise_for_status()
             data = response.json()
@@ -295,15 +412,7 @@ def get_ai_client() -> AIClient:
     """Get or create AI client singleton."""
     global _ai_client
     if _ai_client is None:
-        forced: Optional[ModelProvider] = None
-        if settings.MODEL_PROVIDER:
-            try:
-                forced = ModelProvider(settings.MODEL_PROVIDER.strip().lower())
-            except ValueError:
-                logger.warning(
-                    f"Unknown MODEL_PROVIDER={settings.MODEL_PROVIDER!r}; using fallback chain"
-                )
-        _ai_client = AIClient(provider=forced)
+        _ai_client = AIClient()
     return _ai_client
 
 
