@@ -422,6 +422,7 @@ class ChessCoach:
                 result = await self.ai_client.chat_completion(
                     messages=llm_messages,
                     temperature=0.7,
+                    max_tokens=350,
                 )
                 response_text = result.get("content") or ""
                 if not response_text.strip():

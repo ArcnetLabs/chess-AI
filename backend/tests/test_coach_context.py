@@ -167,6 +167,7 @@ async def test_general_question_uses_llm_system_prompt_when_available(db, coach_
     assert messages[0]["role"] == "system"
     assert "profile_version: 3" in messages[0]["content"]
     assert messages[1]["role"] == "user"
+    assert mock_client.chat_completion.await_args.kwargs["max_tokens"] == 350
 
 
 @pytest.mark.asyncio

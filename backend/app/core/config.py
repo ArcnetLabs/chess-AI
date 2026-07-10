@@ -147,9 +147,9 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
     LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "2"))
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3:8b-instruct")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "phi3:mini")
     LLM_FALLBACK_CHAIN: str = os.getenv(
-        "LLM_FALLBACK_CHAIN", "ollama,openrouter,openai"
+        "LLM_FALLBACK_CHAIN", "ollama,local,openrouter,openai"
     )
     OPENROUTER_MODEL: str = os.getenv(
         "OPENROUTER_MODEL", "google/gemma-2-9b-it:free"

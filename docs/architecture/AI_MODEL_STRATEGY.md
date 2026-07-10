@@ -436,6 +436,8 @@ TRT_LLM_CONFIG = {
 
 **Recommended Default:** Llama 3 8B Instruct (Q5_K_M) — optimal quality/performance ratio for chess coaching.
 
+**Current Development Runtime:** Phi-3 Mini through Ollama is the CPU-friendly local validation model. It is an MIT-licensed 3.8B instruction model and keeps development coaching grounded without requiring a GPU. Production should move to the recommended 8B-class model behind a GPU-hosted, OpenAI-compatible vLLM endpoint.
+
 **Cost-Optimized Tier:** Phi-3 Mini for high-volume, simple queries.
 
 **Premium Tier:** Llama 3.1 70B for complex multi-step reasoning (routed via hosted or dedicated GPU).
