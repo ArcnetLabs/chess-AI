@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -139,6 +139,7 @@ async def analyze_game_for_user(
     user: User,
     *,
     log_prefix: str = "",
+    should_cancel: Optional[Callable[[], bool]] = None,
 ) -> Optional[GameAnalysisResult]:
     """
     Run ``UnifiedChessAnalyzer`` for a stored game.
@@ -161,4 +162,5 @@ async def analyze_game_for_user(
             pgn_string=game.pgn,
             user_color=user_color,
             game_id=str(game.id),
+            should_cancel=should_cancel,
         )

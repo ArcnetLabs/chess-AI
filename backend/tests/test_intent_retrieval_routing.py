@@ -77,6 +77,32 @@ def test_retrieval_content_types_pattern_only_without_keywords(classifier):
     assert result == [CONTENT_TYPE_PATTERN]
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "What can you tell me about my playing based on the available analyzed games?",
+        "What patterns do you see in my games?",
+        "Describe my playing style",
+    ],
+)
+def test_profile_questions_route_to_general_coaching(classifier, message):
+    intent, confidence = classifier.classify(message)
+    assert intent == ChatIntent.GENERAL_QUESTION
+    assert confidence >= 0.5
+
+
+def test_profile_question_fallback_uses_coach_language():
+    coach = ChessCoach()
+    response = coach._general_question_template(
+        "games_analyzed_count: 10\n"
+        "primary_weaknesses: Opening-phase ACPL is elevated\n"
+    )
+
+    assert "10 games" in response
+    assert "openings" in response
+    assert "ACPL" not in response
+
+
 @patch("app.services.chat.context_assembler.retrieve_semantic_memories")
 def test_assemble_coach_context_skips_retrieval_when_content_types_empty(
     mock_retrieve, db, routing_user

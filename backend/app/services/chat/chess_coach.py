@@ -1,5 +1,6 @@
 """Chess coaching chatbot with Stockfish + LLM hybrid intelligence."""
 
+import re
 import uuid
 from typing import Optional, Any, List
 from datetime import datetime
@@ -434,6 +435,32 @@ class ChessCoach:
 
     def _general_question_template(self, coach_context: str) -> str:
         """Fallback template when LLM is unavailable."""
+        if coach_context:
+            games_match = re.search(r"games_analyzed_count:\s*(\d+)", coach_context)
+            weakness_match = re.search(r"primary_weaknesses:\s*([^\n;]+)", coach_context)
+            games = games_match.group(1) if games_match else None
+            weakness = weakness_match.group(1).strip() if weakness_match else ""
+
+            if "opening" in weakness.lower():
+                focus = "your openings are creating avoidable problems before the middlegame begins"
+                next_step = "review the first position where the game starts to drift and turn it into one simple opening rule"
+            elif "middlegame" in weakness.lower():
+                focus = "your biggest gains are likely to come from clearer middlegame plans"
+                next_step = "compare candidate moves in one recurring position and build a repeatable thinking process"
+            elif "endgame" in weakness.lower():
+                focus = "your endgame technique is the clearest improvement opportunity"
+                next_step = "practice the winning or drawing method in one simplified position from your games"
+            else:
+                focus = "consistency is the main theme I want to investigate with you"
+                next_step = "work through your decision-making in one recent critical position"
+
+            sample = f" across the {games} games I've reviewed" if games else " from the games I've reviewed"
+            return (
+                f"One useful theme stands out{sample}: {focus}. "
+                f"I would start small: {next_step}. "
+                "Would you like to look at an example from your games?"
+            )
+
         personalized = ""
         if coach_context:
             personalized = (

@@ -1,7 +1,7 @@
 """Unified chess game analyzer using the new StockfishEngine wrapper."""
 
 import io
-from typing import Dict, List, Optional, Any
+from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
 
@@ -11,6 +11,10 @@ from loguru import logger
 
 from ..engine.engine_pool import get_pooled_engine
 from ..engine.stockfish_engine import StockfishEngine, StockfishEngineError
+
+
+class AnalysisCancelledError(Exception):
+    """Raised when a user cancels an in-progress game analysis."""
 
 
 @dataclass
@@ -127,7 +131,8 @@ class UnifiedChessAnalyzer:
         self,
         pgn_string: str,
         user_color: str,
-        game_id: Optional[str] = None
+        game_id: Optional[str] = None,
+        should_cancel: Optional[Callable[[], bool]] = None,
     ) -> Optional[GameAnalysisResult]:
         """
         Analyze a complete chess game.
@@ -143,6 +148,9 @@ class UnifiedChessAnalyzer:
         start_time = datetime.now()
         
         try:
+            if should_cancel and should_cancel():
+                raise AnalysisCancelledError("Analysis cancelled by user")
+
             # Get engine from pool if needed
             if self.engine is None:
                 self.engine = await get_pooled_engine()
@@ -160,7 +168,11 @@ class UnifiedChessAnalyzer:
             opening_eco = game.headers.get("ECO")
             
             # Analyze all moves
-            all_moves = await self._analyze_all_moves(game, user_color)
+            all_moves = await self._analyze_all_moves(
+                game,
+                user_color,
+                should_cancel=should_cancel,
+            )
             
             if not all_moves:
                 logger.error("No moves to analyze")
@@ -214,6 +226,8 @@ class UnifiedChessAnalyzer:
             
             return result
             
+        except AnalysisCancelledError:
+            raise
         except StockfishEngineError as e:
             logger.error(f"Engine error during analysis: {e}")
             raise
@@ -234,7 +248,8 @@ class UnifiedChessAnalyzer:
     async def _analyze_all_moves(
         self,
         game: chess.pgn.Game,
-        user_color: str
+        user_color: str,
+        should_cancel: Optional[Callable[[], bool]] = None,
     ) -> List[MoveAnalysis]:
         """Analyze all moves in the game."""
         moves_analysis = []
@@ -247,6 +262,9 @@ class UnifiedChessAnalyzer:
         move_number = 0
         
         for node in game.mainline():
+            if should_cancel and should_cancel():
+                raise AnalysisCancelledError("Analysis cancelled by user")
+
             move_number += 1
             move = node.move
             fen_before = board.fen()

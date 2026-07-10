@@ -385,6 +385,29 @@ async def get_analysis_job_status(
     return _job_status_response(job)
 
 
+@router.post("/{user_id}/status/{job_id}/cancel", response_model=AnalysisJobStatusResponse)
+async def cancel_analysis_job(
+    user_id: int,
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cancel queued work and cooperatively stop the active Stockfish analysis."""
+    require_ownership(current_user, user_id)
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    job_store = get_analysis_job_store()
+    job = job_store.get_job(job_id)
+    if not job or job.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Analysis job not found")
+
+    cancelled = job_store.cancel_job(job_id)
+    return _job_status_response(cancelled)
+
+
 @router.get("/{user_id}/analyses", response_model=List[AnalysisResponse])
 async def get_user_analyses(
     user_id: int,
