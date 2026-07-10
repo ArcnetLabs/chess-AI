@@ -77,6 +77,19 @@ def test_mark_game_failed_all_failed(store):
     assert store.get_active_job(3) is None
 
 
+def test_duplicate_task_delivery_does_not_double_count(store):
+    store.create_job(job_id="job-duplicate", user_id=4, game_ids=[31, 32], source="manual")
+
+    store.mark_game_completed("job-duplicate", 31)
+    store.mark_game_completed("job-duplicate", 31)
+    store.mark_game_failed("job-duplicate", 31, error="late duplicate")
+
+    job = store.get_job("job-duplicate")
+    assert job["completed_games"] == 1
+    assert job["failed_games"] == 0
+    assert job["pending_game_ids"] == [32]
+
+
 def test_get_job_missing_returns_none(store):
     assert store.get_job("missing") is None
     assert store.get_active_job(999) is None
