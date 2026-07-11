@@ -146,8 +146,12 @@ class Settings(BaseSettings):
     LLM_LOCAL_API_KEY: str = os.getenv("LLM_LOCAL_API_KEY", "")
     LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
     LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "2"))
+    LLM_RUNTIME_MODE: str = os.getenv("LLM_RUNTIME_MODE", "production")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "phi3:mini")
+    OLLAMA_REQUEST_HEADERS_JSON: str = os.getenv(
+        "OLLAMA_REQUEST_HEADERS_JSON", ""
+    )
     LLM_FALLBACK_CHAIN: str = os.getenv(
         "LLM_FALLBACK_CHAIN", "ollama,local,openrouter,openai"
     )

@@ -27,6 +27,41 @@ def _make_async_client_mock(*, get_response=None, post_response=None, side_effec
     return mock_client
 
 
+def test_development_tunnel_mode_only_routes_to_ollama(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_RUNTIME_MODE",
+        "development_tunnel",
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_FALLBACK_CHAIN",
+        "ollama,openrouter,openai",
+    )
+
+    assert AIClient()._fallback_chain() == [ModelProvider.OLLAMA.value]
+
+
+def test_ollama_request_headers_accepts_cloudflare_access_headers(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.OLLAMA_REQUEST_HEADERS_JSON",
+        '{"CF-Access-Client-Id":"client-id","CF-Access-Client-Secret":"secret"}',
+    )
+
+    assert AIClient()._ollama_request_headers() == {
+        "CF-Access-Client-Id": "client-id",
+        "CF-Access-Client-Secret": "secret",
+    }
+
+
+def test_ollama_request_headers_rejects_invalid_json(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.OLLAMA_REQUEST_HEADERS_JSON",
+        "not-json",
+    )
+
+    with pytest.raises(ValueError, match="valid JSON"):
+        AIClient()._ollama_request_headers()
+
+
 @pytest.mark.asyncio
 async def test_ollama_success(monkeypatch):
     monkeypatch.setattr("app.services.integration.ai_client.settings.MODEL_PROVIDER", "ollama")

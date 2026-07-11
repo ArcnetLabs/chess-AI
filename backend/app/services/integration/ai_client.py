@@ -7,6 +7,7 @@ All LLM access for the coach routes through this module.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from time import perf_counter
 from enum import Enum
@@ -60,6 +61,13 @@ class AIClient:
     def _fallback_chain(self) -> List[str]:
         if self._forced_provider:
             return [self._forced_provider.value]
+        runtime_mode = settings.LLM_RUNTIME_MODE.strip().lower()
+        if runtime_mode == "development_tunnel":
+            return [ModelProvider.OLLAMA.value]
+        if runtime_mode != "production":
+            raise ValueError(
+                "LLM_RUNTIME_MODE must be 'development_tunnel' or 'production'"
+            )
         primary = (settings.LLM_PRIMARY_PROVIDER or settings.MODEL_PROVIDER).strip().lower()
         configured = [
             part.strip().lower()
@@ -83,12 +91,32 @@ class AIClient:
             )
         return self._openrouter_client
 
+    def _ollama_request_headers(self) -> Dict[str, str]:
+        """Load optional tunnel/auth headers without logging their values."""
+        raw_headers = settings.OLLAMA_REQUEST_HEADERS_JSON.strip()
+        if not raw_headers:
+            return {}
+        try:
+            headers = json.loads(raw_headers)
+        except json.JSONDecodeError as exc:
+            raise ValueError("OLLAMA_REQUEST_HEADERS_JSON must be valid JSON") from exc
+        if not isinstance(headers, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in headers.items()
+        ):
+            raise ValueError(
+                "OLLAMA_REQUEST_HEADERS_JSON must be a JSON object of string headers"
+            )
+        return headers
+
     async def _ollama_health_check(self) -> bool:
         if not HTTPX_AVAILABLE:
             return False
         base = settings.OLLAMA_BASE_URL.rstrip("/")
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
+            async with httpx.AsyncClient(
+                timeout=2.0, headers=self._ollama_request_headers()
+            ) as client:
                 response = await client.get(f"{base}/api/tags")
                 return response.status_code == 200
         except Exception as exc:
@@ -307,7 +335,10 @@ class AIClient:
             payload["options"]["num_predict"] = max_tokens
         payload.update(kwargs)
 
-        async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.LLM_TIMEOUT_SECONDS,
+            headers=self._ollama_request_headers(),
+        ) as client:
             response = await client.post(f"{base}/api/chat", json=payload)
             response.raise_for_status()
             data = response.json()
