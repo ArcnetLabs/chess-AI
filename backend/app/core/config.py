@@ -152,6 +152,7 @@ class Settings(BaseSettings):
     LLM_RUNTIME_MODE: str = os.getenv("LLM_RUNTIME_MODE", "production")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "phi3:mini")
+    OLLAMA_KEEP_ALIVE: str = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
     OLLAMA_REQUEST_HEADERS_JSON: str = os.getenv(
         "OLLAMA_REQUEST_HEADERS_JSON", ""
     )

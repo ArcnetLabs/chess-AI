@@ -56,9 +56,9 @@ const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
   // Local development tunnel responses can take longer than a hosted API.
-  // The backend has its own shorter provider timeout, so this only prevents
+  // The backend has its own provider timeout, so this only prevents
   // the browser from abandoning a valid in-flight coaching response.
-  timeout: 90_000,
+  timeout: 180_000,
 });
 
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {

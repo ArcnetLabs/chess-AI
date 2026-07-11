@@ -40,6 +40,19 @@ def test_development_tunnel_mode_only_routes_to_ollama(monkeypatch):
     assert AIClient()._fallback_chain() == [ModelProvider.OLLAMA.value]
 
 
+def test_development_tunnel_has_cold_start_timeout_headroom(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_RUNTIME_MODE",
+        "development_tunnel",
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_TIMEOUT_SECONDS",
+        30.0,
+    )
+
+    assert AIClient()._provider_timeout_seconds() == 150.0
+
+
 def test_ollama_request_headers_accepts_cloudflare_access_headers(monkeypatch):
     monkeypatch.setattr(
         "app.services.integration.ai_client.settings.OLLAMA_REQUEST_HEADERS_JSON",
@@ -91,6 +104,8 @@ async def test_ollama_success(monkeypatch):
 
     assert result["provider"] == "ollama"
     assert result["content"] == "Hello from Ollama"
+    chat_payload = clients[1].post.await_args.kwargs["json"]
+    assert chat_payload["keep_alive"] == "30m"
 
 
 @pytest.mark.asyncio

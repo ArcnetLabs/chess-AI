@@ -79,7 +79,7 @@ class AIClient:
     def _provider_timeout_seconds(self) -> float:
         """Give the development tunnel enough time for a local CPU model."""
         if settings.LLM_RUNTIME_MODE.strip().lower() == "development_tunnel":
-            return max(settings.LLM_TIMEOUT_SECONDS, 75.0)
+            return max(settings.LLM_TIMEOUT_SECONDS, 150.0)
         return settings.LLM_TIMEOUT_SECONDS
 
     def _get_openrouter_client(self) -> httpx.AsyncClient:
@@ -361,6 +361,7 @@ class AIClient:
             "model": model or settings.OLLAMA_MODEL,
             "messages": messages,
             "stream": False,
+            "keep_alive": settings.OLLAMA_KEEP_ALIVE,
             "options": {"temperature": temperature},
         }
         if max_tokens is not None:
