@@ -8,7 +8,7 @@ Do not port-forward `11434` from the router and do not use an unauthenticated qu
 
 ## Cloudflare Setup
 
-1. In Cloudflare Zero Trust, create a named tunnel and add a public hostname such as `ollama-dev.example.com` that routes to `http://localhost:11434`.
+1. In Cloudflare Zero Trust, create a named tunnel and add a public hostname such as `ollama-dev.example.com` that routes to `http://localhost:11434`. In the hostname's **Origin request and connection settings**, set **HTTP Host Header** to `localhost:11434`. Ollama rejects requests carrying the public hostname as the upstream `Host` header.
 2. Create a self-hosted Access application for that hostname with a service-auth policy only.
 3. Create a service token and save its client ID and client secret. Cloudflare only displays the secret once.
 4. On the Windows machine running Ollama, set `CLOUDFLARE_TUNNEL_TOKEN` and run:
@@ -32,6 +32,20 @@ OLLAMA_REQUEST_HEADERS_JSON={"CF-Access-Client-Id":"<client-id>","CF-Access-Clie
 ```
 
 `development_tunnel` deliberately uses only Ollama. If the laptop or tunnel is unavailable, the API exposes that failure through the existing coach fallback instead of silently using a hosted provider.
+
+## Verify The Route
+
+From the Windows machine, authenticate through Cloudflare Access and check the Ollama tags endpoint. A successful setup returns `HTTP 200`.
+
+```powershell
+$headers = @{
+  "CF-Access-Client-Id" = "<client-id>"
+  "CF-Access-Client-Secret" = "<client-secret>"
+}
+Invoke-WebRequest "https://ollama-dev.example.com/api/tags" -Headers $headers
+```
+
+If the request returns `403` while `http://localhost:11434/api/tags` returns `200`, confirm the tunnel route's HTTP Host Header override is set to `localhost:11434`.
 
 ## Production Switch
 
