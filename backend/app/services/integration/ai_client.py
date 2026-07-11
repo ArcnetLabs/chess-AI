@@ -111,6 +111,7 @@ class AIClient:
 
     async def _ollama_health_check(self) -> bool:
         if not HTTPX_AVAILABLE:
+            logger.warning("Ollama health check skipped because httpx is unavailable")
             return False
         base = settings.OLLAMA_BASE_URL.rstrip("/")
         try:
@@ -118,9 +119,25 @@ class AIClient:
                 timeout=2.0, headers=self._ollama_request_headers()
             ) as client:
                 response = await client.get(f"{base}/api/tags")
-                return response.status_code == 200
+                if response.status_code != 200:
+                    logger.warning(
+                        "Ollama health check returned status {} for {} "
+                        "(Cloudflare Access headers configured: {})",
+                        response.status_code,
+                        base,
+                        bool(settings.OLLAMA_REQUEST_HEADERS_JSON.strip()),
+                    )
+                    return False
+                return True
         except Exception as exc:
-            logger.debug(f"Ollama health check failed: {exc}")
+            logger.warning(
+                "Ollama health check failed for {} (Cloudflare Access headers "
+                "configured: {}): {}: {}",
+                base,
+                bool(settings.OLLAMA_REQUEST_HEADERS_JSON.strip()),
+                type(exc).__name__,
+                exc,
+            )
             return False
 
     async def _local_health_check(self) -> bool:
