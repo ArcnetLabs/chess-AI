@@ -40,6 +40,8 @@ export function CoachWorkspace() {
   const { watchJob, cancelJob, status, isTracking, error: analysisError } = useAnalysisStatus(user?.id);
   const initializeSession = useChatStore((state) => state.initializeSession);
   const clearChat = useChatStore((state) => state.clearChat);
+  const openSession = useChatStore((state) => state.openSession);
+  const recentSessions = useChatStore((state) => state.recentSessions);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const messages = useChatStore((state) => state.messages);
   const isTyping = useChatStore((state) => state.isTyping);
@@ -134,7 +136,7 @@ export function CoachWorkspace() {
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-80 flex-col bg-[#201f1f] p-7 lg:flex">
       <Brand />
       <button type="button" onClick={() => void handleNewChat()} className="mt-12 flex items-center justify-center gap-3 rounded-lg border border-[#3c4a42] bg-[#2a2a2a] px-4 py-3 font-mono text-sm text-[#e5e2e1] transition-colors hover:border-brand-primary hover:text-brand-primary"><MessageSquarePlus className="h-5 w-5" /> New Chat</button>
-      <div className="mt-7"><p className="mb-4 px-2 font-mono text-xs uppercase tracking-wider text-[#bbcabf]">Recent</p><p className="px-2 text-sm leading-6 text-[#bbcabf]">Your coaching conversations will appear here as you continue working with your coach.</p></div>
+      <div className="mt-7"><p className="mb-4 px-2 font-mono text-xs uppercase tracking-wider text-[#bbcabf]">Recent</p>{recentSessions.length ? <div className="space-y-1">{recentSessions.map((session) => <button key={session.session_id} type="button" onClick={() => void openSession(session.session_id)} className="w-full rounded-md px-2 py-2 text-left text-sm text-[#bbcabf] transition-colors hover:bg-[#2a2a2a] hover:text-[#e5e2e1]">{session.preview}</button>)}</div> : <p className="px-2 text-sm leading-6 text-[#bbcabf]">Your coaching conversations will appear here as you continue working with your coach.</p>}</div>
       <div className="mt-auto border-t border-[#3c4a42] pt-5"><button type="button" onClick={() => setAnalysisOpen(true)} disabled={isTracking} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#10b981] px-4 py-3 font-mono text-sm font-semibold text-[#00422b] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">{isTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}{isTracking ? 'Analysis Running' : 'Analyze Games'}</button><div className="mt-7 space-y-4 px-2 text-sm text-[#bbcabf]"><span className="flex items-center gap-3"><HelpCircle className="h-4 w-4" /> Help</span><span className="flex items-center gap-3"><Sparkles className="h-4 w-4" /> ChessRun Coach</span></div></div>
     </aside>
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#3c4a42] bg-[#131313]/95 px-5 backdrop-blur lg:hidden"><Brand compact /><div className="flex items-center gap-2"><button type="button" aria-label="Analyze games" onClick={() => setAnalysisOpen(true)} disabled={isTracking} className="rounded-md p-2 text-brand-primary hover:bg-[#201f1f] disabled:opacity-60"><BarChart3 className="h-5 w-5" /></button><button type="button" aria-label="Open menu" onClick={() => setMobileMenuOpen((open) => !open)} className="rounded-md p-2 text-[#bbcabf] hover:bg-[#201f1f]"><Menu className="h-5 w-5" /></button></div></header>

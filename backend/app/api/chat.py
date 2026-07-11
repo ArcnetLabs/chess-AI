@@ -48,6 +48,31 @@ class ChatMessageResponse(BaseModel):
     context: Optional[dict] = None
 
 
+def _require_owned_session(coach: ChessCoach, session_id: str, user_id: int):
+    """Load a session and enforce the owner captured in its chat context."""
+    session = coach.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    if session.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You do not have access to this session")
+    return session
+
+
+def _session_summary(session) -> dict:
+    history = session.conversation_history
+    latest = history[-1] if history else None
+    preview = next(
+        (message.content for message in reversed(history) if message.role.value == "user"),
+        latest.content if latest else "New coaching conversation",
+    )
+    return {
+        "session_id": session.session_id,
+        "message_count": len(history),
+        "preview": preview[:100],
+        "updated_at": latest.timestamp.isoformat() if latest and latest.timestamp else None,
+    }
+
+
 # Dependency for chess coach
 _coach_instance: Optional[ChessCoach] = None
 
@@ -104,6 +129,8 @@ async def send_message(
         logger.info(f"Processing message: {request.message[:50]}...")
         # Trust the authenticated identity, not the request body.
         effective_user_id = current_user.id
+        if request.session_id:
+            _require_owned_session(coach, request.session_id, effective_user_id)
 
         response = await coach.process_message(
             message=request.message,
@@ -159,6 +186,7 @@ async def create_session(
 💡 **General Advice** - "How do I improve my tactics?"
 
 What would you like to work on today?"""
+        welcome_message = session.conversation_history[-1].content
         
         return {
             "success": True,
@@ -189,13 +217,7 @@ async def get_session(
     - Conversation history
     - Current position
     """
-    session = coach.get_session(session_id)
-    
-    if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session {session_id} not found"
-        )
+    session = _require_owned_session(coach, session_id, current_user.id)
     
     return {
         "success": True,
@@ -215,9 +237,8 @@ async def delete_session(
     Returns:
     - Success status
     """
-    deleted = coach.delete_session(session_id)
-    
-    if not deleted:
+    _require_owned_session(coach, session_id, current_user.id)
+    if not coach.delete_session(session_id):
         raise HTTPException(
             status_code=404,
             detail=f"Session {session_id} not found"
@@ -246,13 +267,7 @@ async def get_history(
     Returns:
     - List of messages
     """
-    session = coach.get_session(session_id)
-    
-    if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session {session_id} not found"
-        )
+    session = _require_owned_session(coach, session_id, current_user.id)
     
     recent_messages = session.get_recent_messages(limit)
     
@@ -262,6 +277,18 @@ async def get_history(
         "messages": [msg.to_dict() for msg in recent_messages],
         "total_messages": len(session.conversation_history)
     }
+
+
+@router.get("/sessions", summary="List the current user's coaching conversations")
+async def list_sessions(
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
+):
+    sessions = coach.session_store.list_for_user(
+        current_user.id, max(1, min(limit, 50))
+    )
+    return {"success": True, "sessions": [_session_summary(session) for session in sessions]}
 
 
 @router.get("/health", summary="Check chatbot service health")
@@ -300,7 +327,8 @@ async def quick_analysis(
     try:
         response = await coach.process_message(
             message="Analyze this position",
-            position_fen=position_fen
+            position_fen=position_fen,
+            user_id=current_user.id,
         )
         
         return {

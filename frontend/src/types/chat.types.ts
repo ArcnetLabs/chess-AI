@@ -105,3 +105,15 @@ export interface ChatHistoryResponse {
   messages: Message[];
   total_messages: number;
 }
+
+export interface ChatSessionSummary {
+  session_id: string;
+  message_count: number;
+  preview: string;
+  updated_at: string | null;
+}
+
+export interface ChatSessionListResponse {
+  success: boolean;
+  sessions: ChatSessionSummary[];
+}

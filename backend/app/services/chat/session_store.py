@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -133,6 +133,33 @@ class ChatSessionStore:
             existed = True
 
         return existed
+
+    def list_for_user(self, user_id: int, limit: int = 20) -> List[ChatContext]:
+        """Return a user's active sessions, newest activity first."""
+        sessions: Dict[str, ChatContext] = {}
+
+        if self._redis is not None:
+            try:
+                for raw_key in self._redis.scan_iter(
+                    match=f"{CHAT_SESSION_KEY_PREFIX}:*", count=100
+                ):
+                    key = raw_key.decode() if isinstance(raw_key, bytes) else raw_key
+                    session_id = str(key).removeprefix(f"{CHAT_SESSION_KEY_PREFIX}:")
+                    context = self.get(session_id)
+                    if context is not None and context.user_id == user_id:
+                        sessions[context.session_id] = context
+            except Exception as exc:
+                logger.warning(f"Redis scan failed while listing chat sessions: {exc}")
+
+        for context in self._memory.values():
+            if context.user_id == user_id:
+                sessions[context.session_id] = context
+
+        def updated_at(context: ChatContext) -> datetime:
+            timestamps = [message.timestamp for message in context.conversation_history if message.timestamp]
+            return max(timestamps) if timestamps else datetime.min
+
+        return sorted(sessions.values(), key=updated_at, reverse=True)[:limit]
 
     def active_session_count(self) -> int:
         """Count active sessions (Redis scan or in-memory dict size)."""

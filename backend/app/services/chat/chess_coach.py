@@ -117,7 +117,15 @@ class ChessCoach:
         elif intent == ChatIntent.SMALL_TALK:
             response = await self._handle_small_talk(message, context)
         else:
-            response = await self._handle_unknown(message, context)
+            # Short confirmations are legitimate replies to the coach's last
+            # question. Let the LLM continue that thread instead of discarding
+            # the context with the generic unknown-intent template.
+            if self._is_conversational_follow_up(message, context):
+                response = await self._handle_general_question(
+                    message, context, db=db, intent=ChatIntent.GENERAL_QUESTION
+                )
+            else:
+                response = await self._handle_unknown(message, context)
         
         # Add assistant response to context
         assistant_message = ChatMessage(
@@ -588,6 +596,15 @@ Would you like me to analyze one of your recent games to give more specific advi
         """Get a chat session by ID."""
         return self.session_store.get(session_id)
 
+    @staticmethod
+    def _is_conversational_follow_up(message: str, context: ChatContext) -> bool:
+        normalized = message.strip().lower().rstrip(".!?")
+        confirmations = {"yes", "yes please", "sure", "okay", "ok", "go ahead", "please do"}
+        if normalized not in confirmations or len(context.conversation_history) < 2:
+            return False
+        previous = context.conversation_history[-2]
+        return previous.role == MessageRole.ASSISTANT and "?" in previous.content
+
     def create_session(
         self,
         user_id: Optional[int] = None,
@@ -599,6 +616,17 @@ Would you like me to analyze one of your recent games to give more specific advi
             session_id=session_id,
             user_id=user_id,
             current_position=position_fen,
+        )
+        context.add_message(
+            ChatMessage(
+                role=MessageRole.ASSISTANT,
+                content=(
+                    "Welcome. I can review your recent games, identify recurring "
+                    "patterns, and build a coaching profile tailored to your play. "
+                    "What would you like to work on today?"
+                ),
+                timestamp=datetime.now(),
+            )
         )
         self.session_store.save(context)
         return context

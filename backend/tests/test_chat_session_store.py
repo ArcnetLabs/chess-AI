@@ -89,6 +89,20 @@ class TestChatSessionStoreMemoryFallback:
 
         assert store.active_session_count() == 2
 
+    def test_list_for_user_returns_only_owned_sessions_newest_first(self):
+        store = ChatSessionStore(redis=None)
+        older = _sample_context("older", user_id=42)
+        newer = _sample_context("newer", user_id=42)
+        newer.conversation_history[0].timestamp = datetime(2026, 5, 27, 12, 0, 0)
+        other = _sample_context("other", user_id=7)
+        store.save(older)
+        store.save(newer)
+        store.save(other)
+
+        sessions = store.list_for_user(42)
+
+        assert [session.session_id for session in sessions] == ["newer", "older"]
+
 
 class TestChatSessionStoreRedis:
     def test_save_uses_setex_with_ttl(self):
@@ -206,5 +220,7 @@ class TestChessCoachSessionIntegration:
 
         session = coach.create_session(user_id=99)
         assert coach.get_session(session.session_id) is not None
+        assert len(session.conversation_history) == 1
+        assert session.conversation_history[0].role == MessageRole.ASSISTANT
         assert coach.delete_session(session.session_id) is True
         assert coach.get_session(session.session_id) is None

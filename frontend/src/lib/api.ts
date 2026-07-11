@@ -18,6 +18,7 @@ import {
   ChatHistoryResponse,
   CreateSessionRequest,
   CreateSessionResponse,
+  ChatSessionListResponse,
   Message,
   SendMessageRequest,
   SendMessageResponse,
@@ -432,10 +433,18 @@ export const chatApi = {
       `/chat/session/${sessionId}/history`,
       { params: { limit } },
     );
-    return response.data.messages.map((msg) => ({
+    return response.data.messages.map((msg, index) => ({
       ...msg,
+      id: msg.id || `${msg.timestamp || 'message'}-${index}`,
       timestamp: new Date(msg.timestamp),
     }));
+  },
+
+  listSessions: async (limit = 20): Promise<ChatSessionListResponse> => {
+    const response = await apiClient.get<ChatSessionListResponse>('/chat/sessions', {
+      params: { limit },
+    });
+    return response.data;
   },
 
   deleteSession: async (sessionId: string): Promise<void> => {

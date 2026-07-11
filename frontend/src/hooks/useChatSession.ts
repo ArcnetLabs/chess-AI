@@ -6,7 +6,7 @@ import { useChatStore } from '@/store/chatStore';
  * Ensures the floating chatbot session is tied to the authenticated ChessIQ user.
  */
 export function useChatSession(userId: number | undefined) {
-  const initializeSession = useChatStore((state) => state.initializeSession);
+  const restoreSession = useChatStore((state) => state.restoreSession);
   const sessionId = useChatStore((state) => state.sessionId);
 
   useEffect(() => {
@@ -15,6 +15,6 @@ export function useChatSession(userId: number | undefined) {
 
   useEffect(() => {
     if (!userId || sessionId) return;
-    initializeSession(userId);
-  }, [userId, sessionId, initializeSession]);
+    restoreSession(userId);
+  }, [userId, sessionId, restoreSession]);
 }
