@@ -12,6 +12,7 @@ from .context_assembler import assemble_coach_context_async, extract_pattern_ids
 from .intent_classifier import IntentClassifier
 from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
+from ...core.config import settings
 
 
 class ChessCoach:
@@ -430,7 +431,7 @@ class ChessCoach:
                 result = await self.ai_client.chat_completion(
                     messages=llm_messages,
                     temperature=0.7,
-                    max_tokens=350,
+                    max_tokens=settings.LLM_COACH_MAX_TOKENS,
                 )
                 response_text = result.get("content") or ""
                 if not response_text.strip():

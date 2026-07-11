@@ -76,6 +76,12 @@ class AIClient:
         ]
         return list(dict.fromkeys(([primary] if primary else []) + configured))
 
+    def _provider_timeout_seconds(self) -> float:
+        """Give the development tunnel enough time for a local CPU model."""
+        if settings.LLM_RUNTIME_MODE.strip().lower() == "development_tunnel":
+            return max(settings.LLM_TIMEOUT_SECONDS, 75.0)
+        return settings.LLM_TIMEOUT_SECONDS
+
     def _get_openrouter_client(self) -> httpx.AsyncClient:
         if self._openrouter_client is None:
             if not HTTPX_AVAILABLE:
@@ -87,7 +93,7 @@ class AIClient:
                     "HTTP-Referer": "https://chess-insight-ai.com",
                     "X-Title": "Chess Insight AI",
                 },
-                timeout=settings.LLM_TIMEOUT_SECONDS,
+                timeout=self._provider_timeout_seconds(),
             )
         return self._openrouter_client
 
@@ -161,9 +167,18 @@ class AIClient:
                 return await operation()
             except Exception as exc:
                 last_error = exc
+                logger.warning(
+                    "{} request attempt {}/{} failed: {}: {}",
+                    provider_name,
+                    attempt + 1,
+                    attempts,
+                    type(exc).__name__,
+                    str(exc) or repr(exc),
+                )
                 if attempt < attempts - 1:
                     await asyncio.sleep(0.25 * (attempt + 1))
-        raise RuntimeError(f"{provider_name} failed after {attempts} attempts: {last_error}")
+        error_detail = str(last_error) or repr(last_error)
+        raise RuntimeError(f"{provider_name} failed after {attempts} attempts: {error_detail}")
 
     def _record_routing(
         self,
@@ -317,7 +332,7 @@ class AIClient:
 
         base = settings.LLM_LOCAL_BASE_URL.rstrip("/")
         async with httpx.AsyncClient(
-            timeout=settings.LLM_TIMEOUT_SECONDS, headers=headers
+            timeout=self._provider_timeout_seconds(), headers=headers
         ) as client:
             response = await client.post(f"{base}/chat/completions", json=payload)
             response.raise_for_status()
@@ -353,7 +368,7 @@ class AIClient:
         payload.update(kwargs)
 
         async with httpx.AsyncClient(
-            timeout=settings.LLM_TIMEOUT_SECONDS,
+            timeout=self._provider_timeout_seconds(),
             headers=self._ollama_request_headers(),
         ) as client:
             response = await client.post(f"{base}/api/chat", json=payload)

@@ -55,7 +55,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30_000,
+  // Local development tunnel responses can take longer than a hosted API.
+  // The backend has its own shorter provider timeout, so this only prevents
+  // the browser from abandoning a valid in-flight coaching response.
+  timeout: 90_000,
 });
 
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
