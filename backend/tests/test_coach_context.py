@@ -8,6 +8,7 @@ import pytest
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
 from app.models.user import User
+from app.core.config import settings
 from app.services.chat.chess_coach import ChessCoach
 from app.services.chat.context_assembler import assemble_coach_context
 from app.services.chat import ChatIntent
@@ -167,7 +168,28 @@ async def test_general_question_uses_llm_system_prompt_when_available(db, coach_
     assert messages[0]["role"] == "system"
     assert "profile_version: 3" in messages[0]["content"]
     assert messages[1]["role"] == "user"
-    assert mock_client.chat_completion.await_args.kwargs["max_tokens"] == 350
+    assert mock_client.chat_completion.await_args.kwargs["max_tokens"] == settings.LLM_COACH_MAX_TOKENS
+
+
+@pytest.mark.asyncio
+async def test_unknown_follow_up_uses_grounded_llm_conversation(db, coach_user):
+    _create_profile(db, coach_user)
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Let's look at the first opening position where the game drifted."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    response = await coach.process_message(
+        message="You can go ahead and give an example from my games?",
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    assert response.intent == ChatIntent.GENERAL_QUESTION
+    assert response.used_llm is True
+    assert "opening position" in response.message.lower()
+    mock_client.chat_completion.assert_awaited_once()
 
 
 @pytest.mark.asyncio

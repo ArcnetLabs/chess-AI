@@ -118,15 +118,13 @@ class ChessCoach:
         elif intent == ChatIntent.SMALL_TALK:
             response = await self._handle_small_talk(message, context)
         else:
-            # Short confirmations are legitimate replies to the coach's last
-            # question. Let the LLM continue that thread instead of discarding
-            # the context with the generic unknown-intent template.
-            if self._is_conversational_follow_up(message, context):
-                response = await self._handle_general_question(
-                    message, context, db=db, intent=ChatIntent.GENERAL_QUESTION
-                )
-            else:
-                response = await self._handle_unknown(message, context)
+            # The coach is a conversation-first experience. Intent detection is
+            # deliberately conservative, so route any otherwise-unclassified
+            # message through the grounded coach response instead of dropping a
+            # natural follow-up into the generic unknown-intent template.
+            response = await self._handle_general_question(
+                message, context, db=db, intent=ChatIntent.GENERAL_QUESTION
+            )
         
         # Add assistant response to context
         assistant_message = ChatMessage(
