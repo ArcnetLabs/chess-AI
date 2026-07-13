@@ -69,10 +69,6 @@ class ChatContext:
     def add_message(self, message: ChatMessage):
         """Add a message to conversation history."""
         self.conversation_history.append(message)
-        
-        # Keep only last 20 messages for context
-        if len(self.conversation_history) > 20:
-            self.conversation_history = self.conversation_history[-20:]
     
     def get_recent_messages(self, n: int = 5) -> List[ChatMessage]:
         """Get the N most recent messages."""

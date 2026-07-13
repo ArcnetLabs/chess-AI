@@ -6,6 +6,7 @@ from .profile import PlayerProfile
 from .semantic_memory import SemanticMemory
 from .training import TrainingPlan, DrillAttempt
 from .notification import UserNotification
+from .chat import ChatSessionRecord
 
 __all__ = [
     "User",
@@ -19,4 +20,5 @@ __all__ = [
     "TrainingPlan",
     "DrillAttempt",
     "UserNotification",
+    "ChatSessionRecord",
 ]

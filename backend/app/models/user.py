@@ -88,6 +88,9 @@ class User(Base):
     notifications = relationship(
         "UserNotification", back_populates="user", cascade="all, delete-orphan"
     )
+    chat_sessions = relationship(
+        "ChatSessionRecord", back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def is_authenticated(self) -> bool:

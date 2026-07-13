@@ -66,7 +66,7 @@ class ChessCoach:
             ChatResponse with message and analysis
         """
         # Get or create session
-        context = self.session_store.get(session_id) if session_id else None
+        context = self.session_store.get(session_id, db=db) if session_id else None
         if context is None:
             session_id = session_id or str(uuid.uuid4())
             context = ChatContext(
@@ -103,6 +103,9 @@ class ChessCoach:
             timestamp=datetime.now()
         )
         context.add_message(user_message)
+        # Persist the user's turn before invoking external services so a timeout
+        # cannot make an acknowledged message disappear after refresh.
+        self.session_store.save(context, db=db)
         
         # Route to appropriate handler
         if intent == ChatIntent.ANALYZE_POSITION:
@@ -137,7 +140,7 @@ class ChessCoach:
         )
         context.add_message(assistant_message)
 
-        self.session_store.save(context)
+        self.session_store.save(context, db=db)
 
         response.session_id = session_id
         return response
@@ -591,9 +594,11 @@ Would you like me to analyze one of your recent games to give more specific advi
         else:
             return f"Losing ({evaluation:+.2f})"
     
-    def get_session(self, session_id: str) -> Optional[ChatContext]:
+    def get_session(
+        self, session_id: str, db: Optional[Session] = None
+    ) -> Optional[ChatContext]:
         """Get a chat session by ID."""
-        return self.session_store.get(session_id)
+        return self.session_store.get(session_id, db=db)
 
     @staticmethod
     def _is_conversational_follow_up(message: str, context: ChatContext) -> bool:
@@ -608,6 +613,7 @@ Would you like me to analyze one of your recent games to give more specific advi
         self,
         user_id: Optional[int] = None,
         position_fen: Optional[str] = None,
+        db: Optional[Session] = None,
     ) -> ChatContext:
         """Create a new chat session, optionally primed with a board position."""
         session_id = str(uuid.uuid4())
@@ -627,9 +633,9 @@ Would you like me to analyze one of your recent games to give more specific advi
                 timestamp=datetime.now(),
             )
         )
-        self.session_store.save(context)
+        self.session_store.save(context, db=db)
         return context
 
-    def delete_session(self, session_id: str) -> bool:
+    def delete_session(self, session_id: str, db: Optional[Session] = None) -> bool:
         """Delete a chat session."""
-        return self.session_store.delete(session_id)
+        return self.session_store.delete(session_id, db=db)

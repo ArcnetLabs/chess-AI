@@ -42,14 +42,14 @@ class ChatService {
     return data;
   }
 
-  async getHistory(limit = 20): Promise<Message[]> {
+  async getHistory(limit = 200): Promise<Message[]> {
     if (!this.sessionId) {
       return [];
     }
     return api.chat.getHistory(this.sessionId, limit);
   }
 
-  async listSessions(limit = 20): Promise<ChatSessionSummary[]> {
+  async listSessions(limit = 50): Promise<ChatSessionSummary[]> {
     const response = await api.chat.listSessions(limit);
     return response.sessions;
   }

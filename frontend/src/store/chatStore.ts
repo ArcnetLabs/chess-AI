@@ -6,6 +6,19 @@ import { create } from 'zustand';
 import { ChatSessionSummary, Message } from '@/types/chat.types';
 import chatService from '@/services/chatService';
 
+const activeSessionKey = (userId: number) => `chessrun:active-chat:${userId}`;
+
+function readActiveSession(userId: number): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(activeSessionKey(userId));
+}
+
+function writeActiveSession(userId: number | undefined, sessionId: string | null) {
+  if (typeof window === 'undefined' || !userId) return;
+  if (sessionId) window.localStorage.setItem(activeSessionKey(userId), sessionId);
+  else window.localStorage.removeItem(activeSessionKey(userId));
+}
+
 interface ChatState {
   // UI State
   isOpen: boolean;
@@ -19,6 +32,7 @@ interface ChatState {
   unreadCount: number;
   recentSessions: ChatSessionSummary[];
   isLoadingSessions: boolean;
+  isRestoringSession: boolean;
   
   // Context
   currentPosition: string | null;
@@ -57,6 +71,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   unreadCount: 0,
   recentSessions: [],
   isLoadingSessions: false,
+  isRestoringSession: false,
   currentPosition: null,
   error: null,
 
@@ -95,9 +110,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Session Actions
   initializeSession: async (userId?: number) => {
     try {
-      set({ error: null, userId });
-      chatService.setUserId(userId);
-      const response = await chatService.createSession(userId);
+      const resolvedUserId = userId ?? get().userId;
+      set({ error: null, userId: resolvedUserId });
+      chatService.setUserId(resolvedUserId);
+      const response = await chatService.createSession(resolvedUserId);
 
       set({
         sessionId: response.session_id,
@@ -108,6 +124,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           timestamp: new Date(),
         }]
       });
+      writeActiveSession(resolvedUserId, response.session_id);
       await get().refreshSessions();
     } catch (error) {
       console.error('Failed to initialize session:', error);
@@ -130,25 +147,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
   openSession: async (sessionId: string) => {
     try {
       chatService.setSessionId(sessionId);
-      const history = await chatService.getHistory(20);
+      const history = await chatService.getHistory(200);
       set({ sessionId, messages: history, error: null });
+      writeActiveSession(get().userId, sessionId);
     } catch (error) {
       console.error('Failed to restore chat history:', error);
       set({ error: 'Could not restore this conversation.' });
+      throw error;
     }
   },
 
   restoreSession: async (userId: number) => {
     const state = get();
-    if (state.sessionId || state.isLoadingSessions) return;
+    if (state.sessionId || state.isRestoringSession) return;
 
-    set({ userId, error: null, isLoadingSessions: true });
+    set({ userId, error: null, isRestoringSession: true });
     chatService.setUserId(userId);
     try {
       const recentSessions = await chatService.listSessions();
       set({ recentSessions });
-      if (recentSessions[0]) {
-        await get().openSession(recentSessions[0].session_id);
+      const rememberedId = readActiveSession(userId);
+      const rememberedSession = recentSessions.find(
+        (session) => session.session_id === rememberedId,
+      );
+      const sessionToRestore = rememberedSession ?? recentSessions[0];
+      if (sessionToRestore) {
+        try {
+          await get().openSession(sessionToRestore.session_id);
+        } catch {
+          writeActiveSession(userId, null);
+          const fallback = recentSessions.find(
+            (session) => session.session_id !== sessionToRestore.session_id,
+          );
+          if (fallback) await get().openSession(fallback.session_id);
+          else await get().initializeSession(userId);
+        }
       } else {
         await get().initializeSession(userId);
       }
@@ -156,13 +189,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Failed to restore chat session:', error);
       set({ error: 'Could not restore your coaching conversation.' });
     } finally {
-      set({ isLoadingSessions: false });
+      set({ isRestoringSession: false });
     }
   },
 
   clearChat: async () => {
     // Starting a new chat must not delete the existing coaching thread.
     chatService.setSessionId('');
+    writeActiveSession(get().userId, null);
     set({ sessionId: null, messages: [], currentPosition: null, error: null });
   },
 
@@ -217,6 +251,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Increment unread if chat is closed
         unreadCount: state.isOpen ? 0 : state.unreadCount + 1,
       }));
+      writeActiveSession(get().userId, response.session_id);
       await get().refreshSessions();
 
     } catch (error) {

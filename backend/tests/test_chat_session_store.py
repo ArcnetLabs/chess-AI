@@ -5,7 +5,12 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.core.database import Base
+from app.models import ChatSessionRecord, User
 from app.services.chat import ChatContext, ChatIntent, ChatMessage, MessageRole
 from app.services.chat.session_store import (
     CHAT_SESSION_KEY_PREFIX,
@@ -35,6 +40,27 @@ def _sample_context(session_id: str = "sess-1", user_id: int = 42) -> ChatContex
         )
     )
     return context
+
+
+@pytest.fixture
+def chat_db():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(
+        engine,
+        tables=[User.__table__, ChatSessionRecord.__table__],
+    )
+    session = sessionmaker(bind=engine)()
+    session.add(User(id=42, email="coach@example.com"))
+    session.commit()
+    try:
+        yield session
+    finally:
+        session.close()
+        engine.dispose()
 
 
 class TestSerialization:
@@ -102,6 +128,69 @@ class TestChatSessionStoreMemoryFallback:
         sessions = store.list_for_user(42)
 
         assert [session.session_id for session in sessions] == ["newer", "older"]
+
+
+class TestChatSessionStoreDatabase:
+    def test_fresh_store_restores_complete_conversation(self, chat_db):
+        context = _sample_context("durable-1")
+        for index in range(25):
+            context.add_message(
+                ChatMessage(
+                    role=MessageRole.ASSISTANT,
+                    content=f"Coaching reply {index}",
+                    timestamp=datetime(2026, 5, 26, 12, index + 1, 0),
+                )
+            )
+
+        writer = ChatSessionStore(redis=None)
+        writer._redis = None
+        writer.save(context, db=chat_db)
+
+        reader = ChatSessionStore(redis=None)
+        reader._redis = None
+        restored = reader.get("durable-1", db=chat_db)
+
+        assert restored is not None
+        assert len(restored.conversation_history) == 26
+        assert restored.conversation_history[-1].content == "Coaching reply 24"
+
+    def test_database_listing_and_delete_survive_store_restart(self, chat_db):
+        writer = ChatSessionStore(redis=None)
+        writer._redis = None
+        writer.save(_sample_context("durable-2"), db=chat_db)
+
+        reader = ChatSessionStore(redis=None)
+        reader._redis = None
+        assert [item.session_id for item in reader.list_for_user(42, db=chat_db)] == [
+            "durable-2"
+        ]
+        assert reader.delete("durable-2", db=chat_db) is True
+
+        verifier = ChatSessionStore(redis=None)
+        verifier._redis = None
+        assert verifier.get("durable-2", db=chat_db) is None
+
+    def test_database_record_wins_over_stale_redis_cache(self, chat_db):
+        current = _sample_context("durable-3")
+        current.add_message(
+            ChatMessage(
+                role=MessageRole.ASSISTANT,
+                content="Current durable reply",
+                timestamp=datetime(2026, 5, 26, 12, 2, 0),
+            )
+        )
+        ChatSessionStore(redis=None).save(current, db=chat_db)
+
+        stale = _sample_context("durable-3")
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = serialize_context(stale)
+        reader = ChatSessionStore(redis=mock_redis)
+
+        restored = reader.get("durable-3", db=chat_db)
+
+        assert restored is not None
+        assert restored.conversation_history[-1].content == "Current durable reply"
+        mock_redis.get.assert_not_called()
 
 
 class TestChatSessionStoreRedis:
@@ -211,6 +300,25 @@ class TestChessCoachSessionIntegration:
         assert second.session_id == first.session_id
         session = coach.get_session(first.session_id)
         assert len(session.conversation_history) == 4
+
+    @pytest.mark.asyncio
+    async def test_process_message_persists_both_turns_to_database(self, chat_db):
+        from app.services.chat.chess_coach import ChessCoach
+
+        coach = ChessCoach(session_store=ChatSessionStore(redis=None))
+
+        response = await coach.process_message(
+            message="Hi there!",
+            user_id=42,
+            db=chat_db,
+        )
+
+        restored = ChatSessionStore(redis=None).get(response.session_id, db=chat_db)
+        assert restored is not None
+        assert [message.role for message in restored.conversation_history] == [
+            MessageRole.USER,
+            MessageRole.ASSISTANT,
+        ]
 
     def test_create_and_delete_session(self):
         from app.services.chat.chess_coach import ChessCoach
