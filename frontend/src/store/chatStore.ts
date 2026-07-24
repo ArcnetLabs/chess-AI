@@ -78,12 +78,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // UI Actions
   openChat: () => {
     set({ isOpen: true, isMinimized: false, unreadCount: 0 });
-    
-    // Initialize session if not exists
-    const state = get();
-    if (!state.sessionId) {
-      state.initializeSession();
-    }
   },
 
   closeChat: () => {
