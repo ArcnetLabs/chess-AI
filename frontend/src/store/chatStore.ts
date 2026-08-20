@@ -20,86 +20,37 @@ function writeActiveSession(userId: number | undefined, sessionId: string | null
 }
 
 interface ChatState {
-  // UI State
-  isOpen: boolean;
-  isMinimized: boolean;
-  
   // Session State
   sessionId: string | null;
   userId: number | undefined;
   messages: Message[];
   isTyping: boolean;
-  unreadCount: number;
   recentSessions: ChatSessionSummary[];
   isLoadingSessions: boolean;
   isRestoringSession: boolean;
-  
-  // Context
-  currentPosition: string | null;
-  
+
   // Error State
   error: string | null;
-  
+
   // Actions
-  openChat: () => void;
-  closeChat: () => void;
-  toggleChat: () => void;
-  minimizeChat: () => void;
-  maximizeChat: () => void;
-  
-  sendMessage: (content: string, positionFen?: string) => Promise<void>;
+  sendMessage: (content: string) => Promise<void>;
   initializeSession: (userId?: number) => Promise<void>;
   restoreSession: (userId: number) => Promise<void>;
   openSession: (sessionId: string) => Promise<void>;
   refreshSessions: () => Promise<void>;
-  clearChat: () => Promise<void>;
-  
-  setCurrentPosition: (fen: string | null) => void;
-  markAsRead: () => void;
-  addMessage: (message: Message) => void;
   setError: (error: string | null) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   // Initial State
-  isOpen: false,
-  isMinimized: false,
   sessionId: null,
   userId: undefined,
   messages: [],
   isTyping: false,
-  unreadCount: 0,
   recentSessions: [],
   isLoadingSessions: false,
   isRestoringSession: false,
-  currentPosition: null,
   error: null,
-
-  // UI Actions
-  openChat: () => {
-    set({ isOpen: true, isMinimized: false, unreadCount: 0 });
-  },
-
-  closeChat: () => {
-    set({ isOpen: false, isMinimized: false });
-  },
-
-  toggleChat: () => {
-    const state = get();
-    if (state.isOpen) {
-      state.closeChat();
-    } else {
-      state.openChat();
-    }
-  },
-
-  minimizeChat: () => {
-    set({ isMinimized: true });
-  },
-
-  maximizeChat: () => {
-    set({ isMinimized: false });
-  },
 
   // Session Actions
   initializeSession: async (userId?: number) => {
@@ -187,27 +138,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  clearChat: async () => {
-    // Starting a new chat must not delete the existing coaching thread.
-    chatService.setSessionId('');
-    writeActiveSession(get().userId, null);
-    set({ sessionId: null, messages: [], currentPosition: null, error: null });
-  },
-
   // Message Actions
-  sendMessage: async (content: string, positionFen?: string) => {
+  sendMessage: async (content: string) => {
     const state = get();
-    
+
     // Add user message immediately
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
       content,
       timestamp: new Date(),
-      position_fen: positionFen || state.currentPosition || undefined,
     };
-    
-    set({ 
+
+    set({
       messages: [...state.messages, userMessage],
       isTyping: true,
       error: null,
@@ -215,11 +158,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     try {
       // Send to backend
-      const response = await chatService.sendMessage(
-        content,
-        positionFen || state.currentPosition || undefined,
-        state.userId,
-      );
+      const response = await chatService.sendMessage(content, undefined, state.userId);
 
       // Add assistant response
       const assistantMessage: Message = {
@@ -238,39 +177,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       };
 
-      set(state => ({ 
+      set(state => ({
         messages: [...state.messages, assistantMessage],
         isTyping: false,
         sessionId: response.session_id,
-        // Increment unread if chat is closed
-        unreadCount: state.isOpen ? 0 : state.unreadCount + 1,
       }));
       writeActiveSession(get().userId, response.session_id);
       await get().refreshSessions();
 
     } catch (error) {
       console.error('Failed to send message:', error);
-      set({ 
+      set({
         isTyping: false,
         error: 'Failed to send message. Please try again.',
       });
     }
-  },
-
-  addMessage: (message: Message) => {
-    set(state => ({ 
-      messages: [...state.messages, message],
-      unreadCount: state.isOpen ? 0 : state.unreadCount + 1,
-    }));
-  },
-
-  // Context Actions
-  setCurrentPosition: (fen: string | null) => {
-    set({ currentPosition: fen });
-  },
-
-  markAsRead: () => {
-    set({ unreadCount: 0 });
   },
 
   setError: (error: string | null) => {
