@@ -75,19 +75,27 @@ export default function LinkChesscomPage(_props: Props) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+    <main className="chessrun-page-bg relative flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Link your Chess.com account</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-content">
+            Link your Chess.com account
+          </h1>
+          <p className="text-sm text-content-muted">
             We use your Chess.com username to fetch public games for analysis.
             You can change this later from settings.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="chesscom_username" className="text-sm font-medium">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-chess-md bg-surface-container/80 p-6 backdrop-blur-xl"
+        >
+          <div className="space-y-2">
+            <label
+              htmlFor="chesscom_username"
+              className="chessrun-label ml-1 flex items-center gap-2"
+            >
               Chess.com username
             </label>
             <input
@@ -98,23 +106,27 @@ export default function LinkChesscomPage(_props: Props) {
               minLength={3}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="chessrun-input"
               placeholder="e.g. hikaru"
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p className="text-sm text-brand-error" role="alert">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-50"
+            className="chessrun-btn-primary w-full"
           >
             {loading ? 'Linking…' : 'Continue'}
           </button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-content-muted/70">
           ChessRun only uses public game data via the Chess.com API.
           We never request your Chess.com password.
         </p>

@@ -27,6 +27,17 @@ PATTERN_TYPE_PHASE = "phase_weakness"
 PATTERN_TYPE_OPENING = "opening_weakness"
 PATTERN_TYPE_BLUNDER = "blunder_cluster"
 
+# Severity ordering for consistent top-N pattern selection across services
+# (profile_builder, drill_generator, context_assembler).
+SEVERITY_RANK = {
+    "critical": 4,
+    "high": 3,
+    "significant": 3,
+    "medium": 2,
+    "developing": 1,
+    "low": 1,
+}
+
 # Blunder cluster detection (move-level and legacy aggregate).
 MIN_BLUNDER_CLUSTER_GAMES = 3
 MIN_BLUNDER_CLUSTER_OCCURRENCES = 3

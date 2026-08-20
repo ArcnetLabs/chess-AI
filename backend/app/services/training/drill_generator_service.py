@@ -10,17 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.models.pattern import PatternOccurrence, PlayerPattern
 from app.models.training import DrillAttempt, TrainingPlan
+from app.services.patterns.constants import SEVERITY_RANK
 from app.services.patterns.pattern_service import list_user_patterns
-
-# Mirrors context_assembler / profile_builder severity ordering.
-_SEVERITY_RANK = {
-    "critical": 4,
-    "high": 3,
-    "significant": 3,
-    "medium": 2,
-    "developing": 1,
-    "low": 1,
-}
 
 _SUBTYPE_DRILL_FALLBACK: Dict[str, str] = {
     "high_opening_acpl": "opening_repertoire",
@@ -35,7 +26,7 @@ _DEFAULT_DRILL_TYPE = "puzzle"
 
 
 def _pattern_sort_key(pattern: PlayerPattern) -> Tuple[int, float]:
-    rank = _SEVERITY_RANK.get(str(pattern.severity).lower(), 0)
+    rank = SEVERITY_RANK.get(str(pattern.severity).lower(), 0)
     return (rank, float(pattern.confidence_score))
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
+from app.services.analysis.phase_boundaries import phase_for_move
 from .constants import (
     LEGACY_BLUNDER_RATE_THRESHOLD,
     MIN_BLUNDER_CLUSTER_GAMES,
@@ -20,14 +21,8 @@ from .types import DetectedPattern, PatternAggregationInput, PatternOccurrenceIn
 
 
 def infer_game_phase(move_number: int, total_moves: int) -> str:
-    """Mirror ``UnifiedChessAnalyzer._analyze_phases`` boundaries."""
-    opening_end = min(20, total_moves // 3)
-    endgame_start = max(opening_end + 10, total_moves * 2 // 3)
-    if move_number < opening_end:
-        return "opening"
-    if move_number >= endgame_start:
-        return "endgame"
-    return "middlegame"
+    """Return the phase name for ``move_number`` (canonical boundaries)."""
+    return phase_for_move(move_number, total_moves)
 
 
 def _swing_band(classification: str, eval_delta: float) -> Optional[str]:

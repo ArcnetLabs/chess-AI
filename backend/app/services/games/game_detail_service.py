@@ -11,38 +11,14 @@ from app.models.game import Game, GameAnalysis
 from app.models.user import User
 from app.services.analysis.analysis_service import resolve_user_color
 from app.services.analysis.pgn_parser import PGNParser
-
-OPENING_END_DIVISOR = 3
-OPENING_MAX_MOVES = 20
-ENDGAME_MIN_GAP = 10
-
-
-def _phase_boundaries(total_moves: int) -> Dict[str, tuple[int, int]]:
-    raw_opening = total_moves // OPENING_END_DIVISOR if total_moves else 0
-    opening_end = min(OPENING_MAX_MOVES, max(2, raw_opening or 2))
-    endgame_start = max(opening_end + ENDGAME_MIN_GAP, (total_moves * 2) // 3)
-    if endgame_start <= opening_end:
-        endgame_start = opening_end + 1
-
-    return {
-        "opening": (1, opening_end),
-        "middlegame": (opening_end, endgame_start),
-        "endgame": (endgame_start, total_moves + 1),
-    }
-
-
-def _phase_for_move(move_number: int, boundaries: Dict[str, tuple[int, int]]) -> str:
-    for phase, (start, end) in boundaries.items():
-        if start <= move_number < end:
-            return phase
-    return "endgame"
+from app.services.analysis.phase_boundaries import phase_boundaries, phase_for_move
 
 
 def _build_phase_markers(
     analysis: Optional[GameAnalysis],
     total_moves: int,
 ) -> List[Dict[str, Any]]:
-    boundaries = _phase_boundaries(total_moves)
+    boundaries = phase_boundaries(total_moves)
     acpl_by_phase = {
         "opening": getattr(analysis, "opening_acpl", None) if analysis else None,
         "middlegame": getattr(analysis, "middlegame_acpl", None) if analysis else None,
@@ -64,13 +40,13 @@ def _build_phase_markers(
 
 def _annotate_moves_with_phase(
     moves: List[Dict[str, Any]],
-    boundaries: Dict[str, tuple[int, int]],
+    total_moves: int,
 ) -> List[Dict[str, Any]]:
     annotated: List[Dict[str, Any]] = []
     for move in moves:
         payload = dict(move)
         move_number = int(payload.get("move_number") or 0)
-        payload["phase"] = _phase_for_move(move_number, boundaries)
+        payload["phase"] = phase_for_move(move_number, total_moves)
         annotated.append(payload)
     return annotated
 
@@ -182,8 +158,7 @@ def get_game_detail(db: Session, game: Game, user: User) -> Dict[str, Any]:
         moves = _pgn_moves_fallback(game, user)
 
     total_moves = max((int(m.get("move_number") or 0) for m in moves), default=0)
-    boundaries = _phase_boundaries(total_moves or 1)
-    moves = _annotate_moves_with_phase(moves, boundaries)
+    moves = _annotate_moves_with_phase(moves, total_moves or 1)
 
     return {
         "game": _game_payload(game),
