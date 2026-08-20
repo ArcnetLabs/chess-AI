@@ -1,8 +1,8 @@
 # ChessRun Feature Progress Tracker
 
-**Last updated:** 2026-05-28  
-**Integration branch:** `staging` (synced with `main` after release **#119**)  
-**Production branch:** `main` @ PR **#119** (LLM coach intelligence release)  
+**Last updated:** 2026-08-20  
+**Integration branch:** `staging` (ahead of `main` by PRs **#150–#154** — pre-development cleanup batch)  
+**Production branch:** `main` @ PR **#148** (cancellable, memory-safe game analysis)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -30,9 +30,10 @@
 |-------|-------|----------|-----------|
 | **1** | Backend intelligence core | **Complete** | ✅ Passed — promoted #67, enrichment #71 |
 | **2** | Retention & visualization | **In progress** (~5/17 units) | Game viewer + SSE + pattern UI |
-| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; 3 UI deferred) | Exit gate: grounding ✅, grep A ✅ |
+| **3** | Advanced AI & training | **Backend complete** (9/9 backend units; UI: `/coach` shipped, `/training` + chips deferred) | Exit gate: grounding ✅, grep A ✅ |
+| **4** | ChessRun coach product (post-roadmap) | **Shipped** | Passwordless auth, design system, coach UX, analysis pipeline hardening — see below |
 
-**Current focus:** Phase 3 backend complete; awaiting user JWT for live E2E OR Phase 2 UI when requested
+**Current focus:** Pre-development cleanup complete (#150–#154). Promote `staging` → `main`; then planned development work begins (email delivery deferred per product decision).
 
 ---
 
@@ -177,7 +178,7 @@
 | P3-CM-05 | Grounding eval set | Done (main) | #94, #95 | 50-case JSON + `grounding_eval_service.py` |
 | P3-CC-01 | Intent → retrieval routing | Done (main) | #97, #98 | `retrieval_content_types()` in intent classifier |
 | P3-CC-02 | Suggestion chips from patterns | **Deferred** | UI |
-| P3-CC-03 | `/coach` dedicated page | **Deferred** | UI |
+| P3-CC-03 | `/coach` dedicated page | Done (main) | #143 | Coach workspace shipped with ChessRun coach UX |
 | P3-TR-01 | Training plan schema | Done (main) | #100, #103 | Alembic `0010`; `training_plans`, `drill_attempts` |
 | P3-TR-02 | Drill generator | Done (main) | #102, #103 | `drill_generator_service.py` |
 | P3-TR-03 | `/training` feature | **Deferred** | UI |
@@ -188,11 +189,33 @@
 
 ---
 
+## Phase 4 — ChessRun coach product (post-roadmap)
+
+Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessRun coach product pivot. Unit definitions for these are not part of `feature-execution-roadmap.md`; track them by PR batch.
+
+| Workstream | Status | PRs | Notes |
+|------------|--------|-----|-------|
+| Passwordless auth (FR-AUTH-1) | Done (main) | #124, #125 | Email magic link + Chess.com username; #126/#127 fixed production redirect |
+| Dashboard stability | Done (main) | #128, #129, #131, #132 | Loading loop, production API URL, 401 redirect loop |
+| Auth hardening | Done (main) | #133, #134 | Supabase ES256 tokens via JWKS |
+| ChessRun design system + editorial dashboard | Done (main) | #130, #135, #136 | `chessrun-*` classes; editorial layout |
+| Coach UX alignment | Done (main) | #143 | Frontend aligned with ChessRun coach workspace (`/coach`) |
+| Analysis pipeline hardening | Done (main) | #137–#142, #144–#148 | Diagnostics, self-diagnosis, worker memory limits, job cancel, progress restore |
+| Staging sync | Done (staging) | #149 | `staging` brought in line with `main` after README/product pivot |
+| Pre-development cleanup | Done (staging) | #150–#154 | Onboarding styling, dead-code cleanup, phase-boundary dedupe, frontend vitest suite, dramatiq removal |
+
+---
+
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** none (synced after release **#119**).
+**`staging` ahead of `main`:** PRs **#150–#154** — pre-development cleanup batch:
+- #150 onboarding link-chesscom styling (design system)
+- #151 coach-workspace migration leftovers cleanup (dead files, unused deps, chatStore rewrite)
+- #152 phase boundaries + severity rank single source of truth (backend)
+- #153 frontend vitest suite (10 tests: chat store + coach workspace)
+- #154 unused dramatiq dependency removal
 
-**Next release promotion:** n/a — await live E2E (user JWT) or Phase 2 UI when requested.
+**Next release promotion:** promote `staging` → `main` after #150–#154, pending maintainer confirmation that `staging` is a coherent shippable state.
 
 ---
 
@@ -200,6 +223,41 @@
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-08-20 | #154 | chore: remove unused dramatiq dependency | → staging |
+| 2026-08-20 | #153 | test: frontend vitest suite (chat store + coach workspace) | → staging |
+| 2026-08-20 | #152 | refactor: dedupe phase boundaries + severity ranks | → staging |
+| 2026-08-20 | #151 | chore: coach-workspace migration leftovers cleanup | → staging |
+| 2026-08-20 | #150 | fix: onboarding link-chesscom styling | → staging |
+| 2026-08-20 | #149 | chore: sync staging with main | → staging |
+| 2026-07-10 | #148 | release: cancellable, memory-safe game analysis | staging → **main** |
+| 2026-07-10 | #147 | fix: stabilize and cancel game analysis | → staging |
+| 2026-07-10 | #146 | fix: keep analysis worker within memory limits | → main |
+| 2026-07-10 | #145 | release: restore ChessRun game analysis | staging → **main** |
+| 2026-07-10 | #144 | fix: restore game analysis progress and worker startup | → staging |
+| 2026-07-10 | #143 | feat: align frontend with ChessRun coach UX | → main |
+| 2026-06-05 | #142 | release: analysis pipeline self-diagnosis (#141) | staging → **main** |
+| 2026-06-05 | #141 | fix: make analysis pipeline self-diagnosing | → staging |
+| 2026-05-30 | #140 | release: analysis pipeline diagnostics | staging → **main** |
+| 2026-05-30 | #139 | fix: analysis pipeline diagnostics endpoint | → staging |
+| 2026-05-30 | #138 | release: analysis progress and dashboard metrics fix | staging → **main** |
+| 2026-05-30 | #137 | fix: analysis modal aesthetics and real job progress | → staging |
+| 2026-05-30 | #136 | release: Chessrun editorial dashboard | staging → **main** |
+| 2026-05-30 | #135 | feat: Chessrun editorial dashboard layout | → staging |
+| 2026-05-30 | #134 | release: Supabase JWKS JWT verification | staging → **main** |
+| 2026-05-30 | #133 | fix: verify Supabase ES256 tokens via JWKS | → staging |
+| 2026-05-30 | #132 | release: fix dashboard 401 redirect loop | staging → **main** |
+| 2026-05-30 | #131 | fix: dashboard infinite load — stop 401 redirect loop | → staging |
+| 2026-05-30 | #130 | feat: Chessrun design system and deferred UI pages | → staging |
+| 2026-05-30 | #129 | release: dashboard API URL and loading fix | staging → **main** |
+| 2026-05-30 | #128 | fix: dashboard loading loop and production API URL | → staging |
+| 2026-05-30 | #127 | release: fix magic link production redirect | staging → **main** |
+| 2026-05-30 | #126 | fix: magic link redirects to production, not localhost | → staging |
+| 2026-05-30 | #125 | release: passwordless auth (FR-AUTH-1) | staging → **main** |
+| 2026-05-30 | #124 | feat: passwordless auth (email + Chess.com username, magic link) | → staging |
+| 2026-05-28 | #123 | release: chat LLM metadata types + ACPL tracker (#122) | staging → **main** |
+| 2026-05-28 | #122 | chore: sync chat LLM metadata types and mark ACPL done | → staging |
+| 2026-05-28 | #121 | release: sync tracker for LLM coach release (#120) | staging → **main** |
+| 2026-05-28 | #120 | docs: sync tracker for LLM coach release (#118, #119) | → staging |
 | 2026-05-28 | #119 | LLM coach intelligence release | staging → **main** |
 | 2026-05-28 | #118 | P3-CM-06 (LLM provider wiring) | → staging |
 | 2026-05-28 | #112 | P3-PC-01 + PC-02 release | staging → **main** |
