@@ -18,21 +18,13 @@ from app.services.patterns.constants import (
     MIN_OPENING_SAMPLE_GAMES,
     OPENING_ACPL_THRESHOLD,
     OPENING_SPECIFIC_ACPL_THRESHOLD,
+    SEVERITY_RANK,
 )
 from app.services.patterns.pattern_data import load_pattern_aggregation_input
 from app.services.patterns.pattern_service import list_user_patterns
 
 MIN_GAMES_FOR_PROFILE = 10
 TOP_PATTERN_REF_LIMIT = 10
-
-_SEVERITY_RANK = {
-    "critical": 4,
-    "high": 3,
-    "significant": 3,
-    "medium": 2,
-    "developing": 1,
-    "low": 1,
-}
 
 _PHASE_LABELS = {
     "opening": "Opening",
@@ -216,7 +208,7 @@ def _build_opening_repertoire(opening_by_game: List[Dict[str, Any]]) -> Dict[str
 
 
 def _pattern_sort_key(pattern) -> Tuple[int, float]:
-    rank = _SEVERITY_RANK.get(str(pattern.severity).lower(), 0)
+    rank = SEVERITY_RANK.get(str(pattern.severity).lower(), 0)
     return (rank, pattern.confidence_score)
 
 

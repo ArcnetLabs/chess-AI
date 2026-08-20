@@ -11,6 +11,7 @@ from loguru import logger
 
 from ..engine.engine_pool import get_pooled_engine
 from ..engine.stockfish_engine import StockfishEngine, StockfishEngineError
+from .phase_boundaries import phase_boundaries
 
 
 class AnalysisCancelledError(Exception):
@@ -375,9 +376,7 @@ class UnifiedChessAnalyzer:
         total_moves: int
     ) -> tuple:
         """Analyze game phases."""
-        # Define phase boundaries
-        opening_end = min(20, total_moves // 3)
-        endgame_start = max(opening_end + 10, total_moves * 2 // 3)
+        boundaries = phase_boundaries(total_moves)
         
         def create_phase(name: str, start: int, end: int) -> PhaseAnalysis:
             phase_moves = [m for m in user_moves if start <= m.move_number < end]
@@ -399,9 +398,9 @@ class UnifiedChessAnalyzer:
                 best_moves=classifications['best_moves']
             )
         
-        opening = create_phase("opening", 1, opening_end)
-        middlegame = create_phase("middlegame", opening_end, endgame_start)
-        endgame = create_phase("endgame", endgame_start, total_moves + 1)
+        opening = create_phase("opening", *boundaries["opening"])
+        middlegame = create_phase("middlegame", *boundaries["middlegame"])
+        endgame = create_phase("endgame", *boundaries["endgame"])
         
         return opening, middlegame, endgame
     
