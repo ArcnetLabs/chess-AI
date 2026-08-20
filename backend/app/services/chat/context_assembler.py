@@ -15,18 +15,9 @@ from app.services.coaching.retrieval_service import (
     retrieve_semantic_memories,
     retrieve_semantic_memories_async,
 )
+from app.services.patterns.constants import SEVERITY_RANK
 from app.services.patterns.pattern_service import list_user_patterns
 from app.services.profiles.profile_service import get_latest_profile
-
-# Mirrors profile_builder severity ordering for consistent top-N selection.
-_SEVERITY_RANK = {
-    "critical": 4,
-    "high": 3,
-    "significant": 3,
-    "medium": 2,
-    "developing": 1,
-    "low": 1,
-}
 
 
 def extract_pattern_ids_from_context(context: str) -> List[int]:
@@ -44,7 +35,7 @@ def extract_pattern_ids_from_context(context: str) -> List[int]:
 
 
 def _pattern_sort_key(pattern: PlayerPattern) -> Tuple[int, float]:
-    rank = _SEVERITY_RANK.get(str(pattern.severity).lower(), 0)
+    rank = SEVERITY_RANK.get(str(pattern.severity).lower(), 0)
     return (rank, float(pattern.confidence_score))
 
 
