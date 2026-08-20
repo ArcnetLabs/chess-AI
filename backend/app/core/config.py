@@ -136,10 +136,28 @@ class Settings(BaseSettings):
 
     # LLM provider routing (coach chat)
     MODEL_PROVIDER: str = os.getenv("MODEL_PROVIDER", "")
+    LLM_PRIMARY_PROVIDER: str = os.getenv(
+        "LLM_PRIMARY_PROVIDER", os.getenv("MODEL_PROVIDER", "")
+    )
+    LLM_LOCAL_BASE_URL: str = os.getenv(
+        "LLM_LOCAL_BASE_URL", "http://localhost:8000/v1"
+    )
+    LLM_LOCAL_MODEL: str = os.getenv("LLM_LOCAL_MODEL", "llama3:8b-instruct")
+    LLM_LOCAL_API_KEY: str = os.getenv("LLM_LOCAL_API_KEY", "")
+    # A local development model may need longer than a hosted provider for a
+    # first response. Keep its output intentionally concise for coach chat.
+    LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "75"))
+    LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "1"))
+    LLM_COACH_MAX_TOKENS: int = int(os.getenv("LLM_COACH_MAX_TOKENS", "1024"))
+    LLM_RUNTIME_MODE: str = os.getenv("LLM_RUNTIME_MODE", "production")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3:8b-instruct")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "phi3:mini")
+    OLLAMA_KEEP_ALIVE: str = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
+    OLLAMA_REQUEST_HEADERS_JSON: str = os.getenv(
+        "OLLAMA_REQUEST_HEADERS_JSON", ""
+    )
     LLM_FALLBACK_CHAIN: str = os.getenv(
-        "LLM_FALLBACK_CHAIN", "ollama,openrouter,openai"
+        "LLM_FALLBACK_CHAIN", "ollama,local,openrouter,openai"
     )
     OPENROUTER_MODEL: str = os.getenv(
         "OPENROUTER_MODEL", "google/gemma-2-9b-it:free"

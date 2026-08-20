@@ -19,9 +19,11 @@ export default function AuthCallbackPage() {
       .then(async ({ data, error }) => {
         if (error) {
           console.error('[auth/callback] exchange error:', error.message)
-          router.replace(
-            `/auth/login?error=${encodeURIComponent(error.message)}`,
-          )
+          const isCrossBrowserPkce = /code verifier not found/i.test(error.message)
+          const message = isCrossBrowserPkce
+            ? 'Open this sign-in link in the same browser where you requested it, or request a new link here.'
+            : error.message
+          router.replace(`/auth/login?error=${encodeURIComponent(message)}`)
           return
         }
 

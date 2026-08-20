@@ -3,8 +3,21 @@
  */
 
 import { create } from 'zustand';
-import { Message, ChatResponse } from '@/types/chat.types';
+import { ChatSessionSummary, Message } from '@/types/chat.types';
 import chatService from '@/services/chatService';
+
+const activeSessionKey = (userId: number) => `chessrun:active-chat:${userId}`;
+
+function readActiveSession(userId: number): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(activeSessionKey(userId));
+}
+
+function writeActiveSession(userId: number | undefined, sessionId: string | null) {
+  if (typeof window === 'undefined' || !userId) return;
+  if (sessionId) window.localStorage.setItem(activeSessionKey(userId), sessionId);
+  else window.localStorage.removeItem(activeSessionKey(userId));
+}
 
 interface ChatState {
   // UI State
@@ -17,6 +30,9 @@ interface ChatState {
   messages: Message[];
   isTyping: boolean;
   unreadCount: number;
+  recentSessions: ChatSessionSummary[];
+  isLoadingSessions: boolean;
+  isRestoringSession: boolean;
   
   // Context
   currentPosition: string | null;
@@ -33,7 +49,9 @@ interface ChatState {
   
   sendMessage: (content: string, positionFen?: string) => Promise<void>;
   initializeSession: (userId?: number) => Promise<void>;
-  loadHistory: () => Promise<void>;
+  restoreSession: (userId: number) => Promise<void>;
+  openSession: (sessionId: string) => Promise<void>;
+  refreshSessions: () => Promise<void>;
   clearChat: () => Promise<void>;
   
   setCurrentPosition: (fen: string | null) => void;
@@ -51,18 +69,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isTyping: false,
   unreadCount: 0,
+  recentSessions: [],
+  isLoadingSessions: false,
+  isRestoringSession: false,
   currentPosition: null,
   error: null,
 
   // UI Actions
   openChat: () => {
     set({ isOpen: true, isMinimized: false, unreadCount: 0 });
-    
-    // Initialize session if not exists
-    const state = get();
-    if (!state.sessionId) {
-      state.initializeSession();
-    }
   },
 
   closeChat: () => {
@@ -89,9 +104,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Session Actions
   initializeSession: async (userId?: number) => {
     try {
-      set({ error: null, userId });
-      chatService.setUserId(userId);
-      const response = await chatService.createSession(userId);
+      const resolvedUserId = userId ?? get().userId;
+      set({ error: null, userId: resolvedUserId });
+      chatService.setUserId(resolvedUserId);
+      const response = await chatService.createSession(resolvedUserId);
 
       set({
         sessionId: response.session_id,
@@ -102,33 +118,80 @@ export const useChatStore = create<ChatState>((set, get) => ({
           timestamp: new Date(),
         }]
       });
+      writeActiveSession(resolvedUserId, response.session_id);
+      await get().refreshSessions();
     } catch (error) {
       console.error('Failed to initialize session:', error);
       set({ error: 'Failed to start chat session. Please try again.' });
     }
   },
 
-  loadHistory: async () => {
+  refreshSessions: async () => {
     try {
-      const history = await chatService.getHistory(20);
-      set({ messages: history });
+      set({ isLoadingSessions: true });
+      const recentSessions = await chatService.listSessions();
+      set({ recentSessions });
     } catch (error) {
-      console.error('Failed to load history:', error);
+      console.error('Failed to load chat sessions:', error);
+    } finally {
+      set({ isLoadingSessions: false });
+    }
+  },
+
+  openSession: async (sessionId: string) => {
+    try {
+      chatService.setSessionId(sessionId);
+      const history = await chatService.getHistory(200);
+      set({ sessionId, messages: history, error: null });
+      writeActiveSession(get().userId, sessionId);
+    } catch (error) {
+      console.error('Failed to restore chat history:', error);
+      set({ error: 'Could not restore this conversation.' });
+      throw error;
+    }
+  },
+
+  restoreSession: async (userId: number) => {
+    const state = get();
+    if (state.sessionId || state.isRestoringSession) return;
+
+    set({ userId, error: null, isRestoringSession: true });
+    chatService.setUserId(userId);
+    try {
+      const recentSessions = await chatService.listSessions();
+      set({ recentSessions });
+      const rememberedId = readActiveSession(userId);
+      const rememberedSession = recentSessions.find(
+        (session) => session.session_id === rememberedId,
+      );
+      const sessionToRestore = rememberedSession ?? recentSessions[0];
+      if (sessionToRestore) {
+        try {
+          await get().openSession(sessionToRestore.session_id);
+        } catch {
+          writeActiveSession(userId, null);
+          const fallback = recentSessions.find(
+            (session) => session.session_id !== sessionToRestore.session_id,
+          );
+          if (fallback) await get().openSession(fallback.session_id);
+          else await get().initializeSession(userId);
+        }
+      } else {
+        await get().initializeSession(userId);
+      }
+    } catch (error) {
+      console.error('Failed to restore chat session:', error);
+      set({ error: 'Could not restore your coaching conversation.' });
+    } finally {
+      set({ isRestoringSession: false });
     }
   },
 
   clearChat: async () => {
-    try {
-      await chatService.deleteSession();
-      set({ 
-        sessionId: null,
-        messages: [],
-        currentPosition: null,
-        error: null,
-      });
-    } catch (error) {
-      console.error('Failed to clear chat:', error);
-    }
+    // Starting a new chat must not delete the existing coaching thread.
+    chatService.setSessionId('');
+    writeActiveSession(get().userId, null);
+    set({ sessionId: null, messages: [], currentPosition: null, error: null });
   },
 
   // Message Actions
@@ -182,6 +245,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Increment unread if chat is closed
         unreadCount: state.isOpen ? 0 : state.unreadCount + 1,
       }));
+      writeActiveSession(get().userId, response.session_id);
+      await get().refreshSessions();
 
     } catch (error) {
       console.error('Failed to send message:', error);

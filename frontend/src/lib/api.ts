@@ -18,6 +18,7 @@ import {
   ChatHistoryResponse,
   CreateSessionRequest,
   CreateSessionResponse,
+  ChatSessionListResponse,
   Message,
   SendMessageRequest,
   SendMessageResponse,
@@ -54,7 +55,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30_000,
+  // Local development tunnel responses can take longer than a hosted API.
+  // The backend has its own provider timeout, so this only prevents
+  // the browser from abandoning a valid in-flight coaching response.
+  timeout: 180_000,
 });
 
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
@@ -432,10 +436,18 @@ export const chatApi = {
       `/chat/session/${sessionId}/history`,
       { params: { limit } },
     );
-    return response.data.messages.map((msg) => ({
+    return response.data.messages.map((msg, index) => ({
       ...msg,
+      id: msg.id || `${msg.timestamp || 'message'}-${index}`,
       timestamp: new Date(msg.timestamp),
     }));
+  },
+
+  listSessions: async (limit = 20): Promise<ChatSessionListResponse> => {
+    const response = await apiClient.get<ChatSessionListResponse>('/chat/sessions', {
+      params: { limit },
+    });
+    return response.data;
   },
 
   deleteSession: async (sessionId: string): Promise<void> => {

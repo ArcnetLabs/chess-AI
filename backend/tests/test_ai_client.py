@@ -27,6 +27,54 @@ def _make_async_client_mock(*, get_response=None, post_response=None, side_effec
     return mock_client
 
 
+def test_development_tunnel_mode_only_routes_to_ollama(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_RUNTIME_MODE",
+        "development_tunnel",
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_FALLBACK_CHAIN",
+        "ollama,openrouter,openai",
+    )
+
+    assert AIClient()._fallback_chain() == [ModelProvider.OLLAMA.value]
+
+
+def test_development_tunnel_has_cold_start_timeout_headroom(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_RUNTIME_MODE",
+        "development_tunnel",
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_TIMEOUT_SECONDS",
+        30.0,
+    )
+
+    assert AIClient()._provider_timeout_seconds() == 150.0
+
+
+def test_ollama_request_headers_accepts_cloudflare_access_headers(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.OLLAMA_REQUEST_HEADERS_JSON",
+        '{"CF-Access-Client-Id":"client-id","CF-Access-Client-Secret":"secret"}',
+    )
+
+    assert AIClient()._ollama_request_headers() == {
+        "CF-Access-Client-Id": "client-id",
+        "CF-Access-Client-Secret": "secret",
+    }
+
+
+def test_ollama_request_headers_rejects_invalid_json(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.OLLAMA_REQUEST_HEADERS_JSON",
+        "not-json",
+    )
+
+    with pytest.raises(ValueError, match="valid JSON"):
+        AIClient()._ollama_request_headers()
+
+
 @pytest.mark.asyncio
 async def test_ollama_success(monkeypatch):
     monkeypatch.setattr("app.services.integration.ai_client.settings.MODEL_PROVIDER", "ollama")
@@ -56,6 +104,49 @@ async def test_ollama_success(monkeypatch):
 
     assert result["provider"] == "ollama"
     assert result["content"] == "Hello from Ollama"
+    chat_payload = clients[1].post.await_args.kwargs["json"]
+    assert chat_payload["keep_alive"] == "30m"
+
+
+@pytest.mark.asyncio
+async def test_local_openai_compatible_success_includes_routing_telemetry(monkeypatch):
+    monkeypatch.setattr("app.services.integration.ai_client.settings.LLM_PRIMARY_PROVIDER", "local")
+    monkeypatch.setattr("app.services.integration.ai_client.settings.LLM_FALLBACK_CHAIN", "local")
+
+    health_response = MagicMock(status_code=200)
+    chat_response = MagicMock()
+    chat_response.raise_for_status = MagicMock()
+    chat_response.json.return_value = {
+        "model": "chessrun-local",
+        "choices": [{"message": {"content": "Focus on your opening choices."}}],
+        "usage": {"total_tokens": 42},
+    }
+
+    with patch(
+        "app.services.integration.ai_client.httpx.AsyncClient",
+        side_effect=[
+            _make_async_client_mock(get_response=health_response),
+            _make_async_client_mock(post_response=chat_response),
+        ],
+    ):
+        result = await AIClient().chat_completion(
+            messages=[{"role": "user", "content": "What should I improve?"}]
+        )
+
+    assert result["provider"] == "local"
+    assert result["model"] == "chessrun-local"
+    assert result["fallback_used"] is False
+    assert isinstance(result["latency_ms"], int)
+
+
+@pytest.mark.asyncio
+async def test_mock_provider_is_forbidden_in_production(monkeypatch):
+    monkeypatch.setattr("app.services.integration.ai_client.settings.ENVIRONMENT", "production")
+
+    with pytest.raises(RuntimeError, match="mock: disabled in production"):
+        await AIClient(provider=ModelProvider.MOCK).chat_completion(
+            messages=[{"role": "user", "content": "Hello"}]
+        )
 
 
 @pytest.mark.asyncio

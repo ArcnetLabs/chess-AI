@@ -58,6 +58,8 @@ services:
         generateValue: true
       - key: LOG_LEVEL
         value: INFO
+      - key: LLM_COACH_MAX_TOKENS
+        value: 1024
       - key: CHESSCOM_API_BASE_URL
         value: https://api.chess.com/pub
       - key: CHESSCOM_API_RATE_LIMIT

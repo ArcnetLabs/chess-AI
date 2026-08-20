@@ -12,6 +12,7 @@ from .context_assembler import assemble_coach_context_async, extract_pattern_ids
 from .intent_classifier import IntentClassifier
 from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
+from ...core.config import settings
 
 
 class ChessCoach:
@@ -65,7 +66,7 @@ class ChessCoach:
             ChatResponse with message and analysis
         """
         # Get or create session
-        context = self.session_store.get(session_id) if session_id else None
+        context = self.session_store.get(session_id, db=db) if session_id else None
         if context is None:
             session_id = session_id or str(uuid.uuid4())
             context = ChatContext(
@@ -102,6 +103,9 @@ class ChessCoach:
             timestamp=datetime.now()
         )
         context.add_message(user_message)
+        # Persist the user's turn before invoking external services so a timeout
+        # cannot make an acknowledged message disappear after refresh.
+        self.session_store.save(context, db=db)
         
         # Route to appropriate handler
         if intent == ChatIntent.ANALYZE_POSITION:
@@ -117,7 +121,13 @@ class ChessCoach:
         elif intent == ChatIntent.SMALL_TALK:
             response = await self._handle_small_talk(message, context)
         else:
-            response = await self._handle_unknown(message, context)
+            # The coach is a conversation-first experience. Intent detection is
+            # deliberately conservative, so route any otherwise-unclassified
+            # message through the grounded coach response instead of dropping a
+            # natural follow-up into the generic unknown-intent template.
+            response = await self._handle_general_question(
+                message, context, db=db, intent=ChatIntent.GENERAL_QUESTION
+            )
         
         # Add assistant response to context
         assistant_message = ChatMessage(
@@ -130,7 +140,7 @@ class ChessCoach:
         )
         context.add_message(assistant_message)
 
-        self.session_store.save(context)
+        self.session_store.save(context, db=db)
 
         response.session_id = session_id
         return response
@@ -369,6 +379,10 @@ class ChessCoach:
         cited_pattern_ids: List[int] = []
         used_llm = False
         llm_provider: Optional[str] = None
+        llm_model: Optional[str] = None
+        fallback_used = False
+        fallback_reason: Optional[str] = None
+        llm_latency_ms: Optional[int] = None
 
         if db is not None and context.user_id is not None:
             content_types = self.intent_classifier.retrieval_content_types(
@@ -399,24 +413,41 @@ class ChessCoach:
                         "content": (
                             f"{coach_context}\n\n"
                             "You are a chess improvement coach. Answer using only the "
-                            "facts above for personalization. Do not compute or invent "
+                            "facts above for personalization. Start with one high-impact "
+                            "theme, explain it in plain language, and give one practical "
+                            "next step or question. Do not dump a report, compute or invent "
                             f"chess engine evaluations.{memory_instruction}"
                         ),
                     },
-                    {"role": "user", "content": message},
                 ]
+                llm_messages.extend(
+                    {
+                        "role": history_message.role.value,
+                        "content": history_message.content,
+                    }
+                    for history_message in context.get_recent_messages(7)[:-1]
+                    if history_message.role in {MessageRole.USER, MessageRole.ASSISTANT}
+                )
+                llm_messages.append({"role": "user", "content": message})
                 result = await self.ai_client.chat_completion(
                     messages=llm_messages,
                     temperature=0.7,
+                    max_tokens=settings.LLM_COACH_MAX_TOKENS,
                 )
                 response_text = result.get("content") or ""
                 if not response_text.strip():
                     raise ValueError("Empty LLM response")
                 used_llm = True
                 llm_provider = result.get("provider")
+                llm_model = result.get("model")
+                fallback_used = bool(result.get("fallback_used"))
+                fallback_reason = result.get("fallback_reason")
+                llm_latency_ms = result.get("latency_ms")
             except Exception as e:
                 logger.warning(f"LLM general question failed, using template: {e}")
                 response_text = self._general_question_template(coach_context)
+                fallback_used = True
+                fallback_reason = "LLM provider unavailable"
         else:
             response_text = self._general_question_template(coach_context)
 
@@ -430,7 +461,12 @@ class ChessCoach:
             ],
             cited_pattern_ids=cited_pattern_ids,
             llm_provider=llm_provider,
+            llm_model=llm_model,
             used_llm=used_llm,
+            retrieval_used=bool(coach_context),
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            llm_latency_ms=llm_latency_ms,
         )
 
     def _general_question_template(self, coach_context: str) -> str:
@@ -558,14 +594,26 @@ Would you like me to analyze one of your recent games to give more specific advi
         else:
             return f"Losing ({evaluation:+.2f})"
     
-    def get_session(self, session_id: str) -> Optional[ChatContext]:
+    def get_session(
+        self, session_id: str, db: Optional[Session] = None
+    ) -> Optional[ChatContext]:
         """Get a chat session by ID."""
-        return self.session_store.get(session_id)
+        return self.session_store.get(session_id, db=db)
+
+    @staticmethod
+    def _is_conversational_follow_up(message: str, context: ChatContext) -> bool:
+        normalized = message.strip().lower().rstrip(".!?")
+        confirmations = {"yes", "yes please", "sure", "okay", "ok", "go ahead", "please do"}
+        if normalized not in confirmations or len(context.conversation_history) < 2:
+            return False
+        previous = context.conversation_history[-2]
+        return previous.role == MessageRole.ASSISTANT and "?" in previous.content
 
     def create_session(
         self,
         user_id: Optional[int] = None,
         position_fen: Optional[str] = None,
+        db: Optional[Session] = None,
     ) -> ChatContext:
         """Create a new chat session, optionally primed with a board position."""
         session_id = str(uuid.uuid4())
@@ -574,9 +622,20 @@ Would you like me to analyze one of your recent games to give more specific advi
             user_id=user_id,
             current_position=position_fen,
         )
-        self.session_store.save(context)
+        context.add_message(
+            ChatMessage(
+                role=MessageRole.ASSISTANT,
+                content=(
+                    "Welcome. I can review your recent games, identify recurring "
+                    "patterns, and build a coaching profile tailored to your play. "
+                    "What would you like to work on today?"
+                ),
+                timestamp=datetime.now(),
+            )
+        )
+        self.session_store.save(context, db=db)
         return context
 
-    def delete_session(self, session_id: str) -> bool:
+    def delete_session(self, session_id: str, db: Optional[Session] = None) -> bool:
         """Delete a chat session."""
-        return self.session_store.delete(session_id)
+        return self.session_store.delete(session_id, db=db)

@@ -8,6 +8,7 @@ import pytest
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
 from app.models.user import User
+from app.core.config import settings
 from app.services.chat.chess_coach import ChessCoach
 from app.services.chat.context_assembler import assemble_coach_context
 from app.services.chat import ChatIntent
@@ -141,8 +142,9 @@ async def test_general_question_injects_context_without_llm(db, coach_user):
     )
 
     assert response.intent == ChatIntent.GENERAL_QUESTION
-    assert "profile_version: 3" in response.message
-    assert "Personalized context from your games" in response.message
+    assert "15 games" in response.message
+    assert "endgame" in response.message.lower()
+    assert "profile_version" not in response.message
 
 
 @pytest.mark.asyncio
@@ -166,6 +168,80 @@ async def test_general_question_uses_llm_system_prompt_when_available(db, coach_
     assert messages[0]["role"] == "system"
     assert "profile_version: 3" in messages[0]["content"]
     assert messages[1]["role"] == "user"
+    assert mock_client.chat_completion.await_args.kwargs["max_tokens"] == settings.LLM_COACH_MAX_TOKENS
+
+
+@pytest.mark.asyncio
+async def test_unknown_follow_up_uses_grounded_llm_conversation(db, coach_user):
+    _create_profile(db, coach_user)
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Let's look at the first opening position where the game drifted."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    response = await coach.process_message(
+        message="You can go ahead and give an example from my games?",
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    assert response.intent == ChatIntent.GENERAL_QUESTION
+    assert response.used_llm is True
+    assert "opening position" in response.message.lower()
+    mock_client.chat_completion.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_rating_goal_uses_grounded_llm_path(db, coach_user):
+    _create_profile(db, coach_user)
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Your opening phase is the first area to improve."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    response = await coach.process_message(
+        message="What's holding me back from 1800?",
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    assert response.intent == ChatIntent.GENERAL_QUESTION
+    assert response.used_llm is True
+    mock_client.chat_completion.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_general_question_includes_recent_thread_history(db, coach_user):
+    _create_profile(db, coach_user)
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        side_effect=[
+            {"content": "Let's focus on your opening choices."},
+            {"content": "That opening pattern is still the priority."},
+        ]
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    first = await coach.process_message(
+        message="How can I improve my openings?",
+        user_id=coach_user.id,
+        db=db,
+    )
+    await coach.process_message(
+        message="What should I work on first?",
+        session_id=first.session_id,
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    messages = mock_client.chat_completion.await_args_list[1].kwargs["messages"]
+    assert messages[1:] == [
+        {"role": "user", "content": "How can I improve my openings?"},
+        {"role": "assistant", "content": "Let's focus on your opening choices."},
+        {"role": "user", "content": "What should I work on first?"},
+    ]
 
 
 def _sample_retrieved_memory() -> RetrievedMemory:
@@ -289,6 +365,8 @@ async def test_general_question_llm_response_includes_citation_metadata(db, coac
 
     assert response.used_llm is True
     assert response.llm_provider == "mock"
+    assert response.llm_model is None
+    assert response.retrieval_used is True
     assert response.cited_pattern_ids
 
 

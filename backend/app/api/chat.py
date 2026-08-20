@@ -1,11 +1,7 @@
-"""API endpoints for chess coaching chatbot.
+"""Authenticated API endpoints for persistent chess coaching sessions.
 
-All mutating endpoints require a Supabase session. Session-level
-ownership is currently scoped to "any authenticated user can touch any
-chat session" because sessions are Redis-backed (or in-memory fallback in
-dev) and identified by UUID — a follow-up pass (tracked under the
-analysis-pipeline remediation) will persist sessions per
-``current_user.id`` and add per-session ownership checks.
+Chat sessions are stored in PostgreSQL, cached in Redis when available, and
+scoped to the authenticated user on every session-level operation.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -46,6 +42,33 @@ class ChatMessageResponse(BaseModel):
     session_id: str
     response: dict
     context: Optional[dict] = None
+
+
+def _require_owned_session(
+    coach: ChessCoach, session_id: str, user_id: int, db: Session
+):
+    """Load a session and enforce the owner captured in its chat context."""
+    session = coach.get_session(session_id, db=db)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+    if session.user_id != user_id:
+        raise HTTPException(status_code=403, detail="You do not have access to this session")
+    return session
+
+
+def _session_summary(session) -> dict:
+    history = session.conversation_history
+    latest = history[-1] if history else None
+    preview = next(
+        (message.content for message in reversed(history) if message.role.value == "user"),
+        latest.content if latest else "New coaching conversation",
+    )
+    return {
+        "session_id": session.session_id,
+        "message_count": len(history),
+        "preview": preview[:100],
+        "updated_at": latest.timestamp.isoformat() if latest and latest.timestamp else None,
+    }
 
 
 # Dependency for chess coach
@@ -104,6 +127,10 @@ async def send_message(
         logger.info(f"Processing message: {request.message[:50]}...")
         # Trust the authenticated identity, not the request body.
         effective_user_id = current_user.id
+        if request.session_id:
+            _require_owned_session(
+                coach, request.session_id, effective_user_id, db
+            )
 
         response = await coach.process_message(
             message=request.message,
@@ -116,7 +143,9 @@ async def send_message(
         # Get session context
         effective_session_id = response.session_id or request.session_id
         session = (
-            coach.get_session(effective_session_id) if effective_session_id else None
+            coach.get_session(effective_session_id, db=db)
+            if effective_session_id
+            else None
         )
 
         return ChatMessageResponse(
@@ -126,6 +155,8 @@ async def send_message(
             context=session.to_dict() if session else None
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Chat message processing failed: {e}")
         raise HTTPException(
@@ -139,6 +170,7 @@ async def create_session(
     request: CreateSessionRequest,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ):
     """
     Create a new chat session.
@@ -149,16 +181,9 @@ async def create_session(
     """
     try:
         # Always create sessions under the authenticated user identity.
-        session = coach.create_session(user_id=current_user.id)
+        session = coach.create_session(user_id=current_user.id, db=db)
         
-        welcome_message = """Hi! I'm your AI chess coach. I can help you with:
-
-🔍 **Position Analysis** - "Analyze this position" or "What's the best move?"
-📚 **Move Explanations** - "Why is Nf3 good?" or "Explain e4"
-⚖️ **Move Comparisons** - "Compare e4 and d4"
-💡 **General Advice** - "How do I improve my tactics?"
-
-What would you like to work on today?"""
+        welcome_message = session.conversation_history[-1].content
         
         return {
             "success": True,
@@ -180,6 +205,7 @@ async def get_session(
     session_id: str,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ):
     """
     Get details of a chat session.
@@ -189,13 +215,7 @@ async def get_session(
     - Conversation history
     - Current position
     """
-    session = coach.get_session(session_id)
-    
-    if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session {session_id} not found"
-        )
+    session = _require_owned_session(coach, session_id, current_user.id, db)
     
     return {
         "success": True,
@@ -208,6 +228,7 @@ async def delete_session(
     session_id: str,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ):
     """
     Delete a chat session and its history.
@@ -215,9 +236,8 @@ async def delete_session(
     Returns:
     - Success status
     """
-    deleted = coach.delete_session(session_id)
-    
-    if not deleted:
+    _require_owned_session(coach, session_id, current_user.id, db)
+    if not coach.delete_session(session_id, db=db):
         raise HTTPException(
             status_code=404,
             detail=f"Session {session_id} not found"
@@ -232,9 +252,10 @@ async def delete_session(
 @router.get("/session/{session_id}/history", summary="Get conversation history")
 async def get_history(
     session_id: str,
-    limit: int = 20,
+    limit: int = 200,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ):
     """
     Get conversation history for a session.
@@ -246,15 +267,9 @@ async def get_history(
     Returns:
     - List of messages
     """
-    session = coach.get_session(session_id)
+    session = _require_owned_session(coach, session_id, current_user.id, db)
     
-    if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session {session_id} not found"
-        )
-    
-    recent_messages = session.get_recent_messages(limit)
+    recent_messages = session.get_recent_messages(max(1, min(limit, 500)))
     
     return {
         "success": True,
@@ -262,6 +277,19 @@ async def get_history(
         "messages": [msg.to_dict() for msg in recent_messages],
         "total_messages": len(session.conversation_history)
     }
+
+
+@router.get("/sessions", summary="List the current user's coaching conversations")
+async def list_sessions(
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
+):
+    sessions = coach.session_store.list_for_user(
+        current_user.id, max(1, min(limit, 100)), db=db
+    )
+    return {"success": True, "sessions": [_session_summary(session) for session in sessions]}
 
 
 @router.get("/health", summary="Check chatbot service health")
@@ -300,7 +328,8 @@ async def quick_analysis(
     try:
         response = await coach.process_message(
             message="Analyze this position",
-            position_fen=position_fen
+            position_fen=position_fen,
+            user_id=current_user.id,
         )
         
         return {

@@ -4,7 +4,7 @@
  */
 
 import api from '@/lib/api';
-import { Message } from '@/types/chat.types';
+import { ChatSessionSummary, Message } from '@/types/chat.types';
 
 class ChatService {
   private sessionId: string | null = null;
@@ -42,11 +42,16 @@ class ChatService {
     return data;
   }
 
-  async getHistory(limit = 20): Promise<Message[]> {
+  async getHistory(limit = 200): Promise<Message[]> {
     if (!this.sessionId) {
       return [];
     }
     return api.chat.getHistory(this.sessionId, limit);
+  }
+
+  async listSessions(limit = 50): Promise<ChatSessionSummary[]> {
+    const response = await api.chat.listSessions(limit);
+    return response.sessions;
   }
 
   async deleteSession(): Promise<void> {
