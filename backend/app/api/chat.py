@@ -159,9 +159,11 @@ async def send_message(
         raise
     except Exception as e:
         logger.error(f"Chat message processing failed: {e}")
+        # Never leak raw engine/LLM error strings to clients; details live in
+        # the service logs.
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to process message: {str(e)}"
+            detail="The coach could not process that message. Please try again."
         )
 
 
