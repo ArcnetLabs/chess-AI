@@ -2,7 +2,7 @@
 
 import re
 import uuid
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Dict
 from datetime import datetime
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -161,6 +161,8 @@ class ChessCoach:
         # Route to appropriate handler
         if intent == ChatIntent.ANALYZE_POSITION:
             response = await self._handle_analyze_position(message, context)
+        elif intent == ChatIntent.ANALYZE_GAME:
+            response = await self._handle_analyze_game(message, context, db=db)
         elif intent == ChatIntent.EXPLAIN_MOVE:
             response = await self._handle_explain_move(message, context)
         elif intent == ChatIntent.COMPARE_MOVES:
@@ -477,59 +479,13 @@ class ChessCoach:
 
         if self.ai_client is not None:
             try:
-                memory_instruction = ""
-                if "## Relevant Semantic Memories" in coach_context:
-                    memory_instruction = (
-                        " When a Relevant Semantic Memories section is present, treat "
-                        "those entries as supplemental facts from past coaching and "
-                        "analysis — use them for personalization but do not invent "
-                        "evaluations or claims beyond what they state.\n"
-                    )
                 grounding_block = coach_context or (
                     "## Player Context\n"
                     "No stored player analysis is available for this user yet. "
                     "Answer from general chess principles and say when you would "
                     "need their game data to be more specific."
                 )
-                position_line = (
-                    f"Current board position (FEN): {context.current_position}\n"
-                    if context.current_position
-                    else ""
-                )
-                llm_messages = [
-                    {
-                        "role": "system",
-                        "content": (
-                            f"{grounding_block}\n\n"
-                            f"{position_line}"
-                            "You are the user's personal chess improvement coach.\n"
-                            f"The user's current question is: \"{message}\"\n"
-                            "Answer THAT question directly and specifically first. "
-                            "Do not fall back to a generic improvement plan unless "
-                            "the question is actually asking for one. Use the facts "
-                            "above only where they are relevant to the question. "
-                            "Never compute or invent chess engine evaluations. If "
-                            "the facts above do not cover the question, answer from "
-                            "general chess principles and name what data would make "
-                            "your answer more specific."
-                            f"{memory_instruction}"
-                        ),
-                    },
-                ]
-                llm_messages.extend(
-                    {
-                        "role": history_message.role.value,
-                        "content": history_message.content,
-                    }
-                    for history_message in context.get_recent_messages(7)[:-1]
-                    if history_message.role in {MessageRole.USER, MessageRole.ASSISTANT}
-                )
-                llm_messages.append({"role": "user", "content": message})
-                result = await self.ai_client.chat_completion(
-                    messages=llm_messages,
-                    temperature=0.7,
-                    max_tokens=settings.LLM_COACH_MAX_TOKENS,
-                )
+                result = await self._llm_coach_reply(message, context, grounding_block)
                 response_text = result.get("content") or ""
                 if not response_text.strip():
                     raise ValueError("Empty LLM response")
@@ -564,6 +520,287 @@ class ChessCoach:
             fallback_reason=fallback_reason,
             llm_latency_ms=llm_latency_ms,
         )
+
+    async def _llm_coach_reply(
+        self, message: str, context: ChatContext, grounding_block: str
+    ) -> Dict[str, Any]:
+        """Build the question-aware LLM request and return the provider result.
+
+        Raises on empty responses so each caller applies its own fallback and
+        metadata handling.
+        """
+        memory_instruction = ""
+        if "## Relevant Semantic Memories" in grounding_block:
+            memory_instruction = (
+                " When a Relevant Semantic Memories section is present, treat "
+                "those entries as supplemental facts from past coaching and "
+                "analysis — use them for personalization but do not invent "
+                "evaluations or claims beyond what they state.\n"
+            )
+        position_line = (
+            f"Current board position (FEN): {context.current_position}\n"
+            if context.current_position
+            else ""
+        )
+        llm_messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"{grounding_block}\n\n"
+                    f"{position_line}"
+                    "You are the user's personal chess improvement coach.\n"
+                    f"The user's current question is: \"{message}\"\n"
+                    "Answer THAT question directly and specifically first. "
+                    "Do not fall back to a generic improvement plan unless "
+                    "the question is actually asking for one. Use the facts "
+                    "above only where they are relevant to the question. "
+                    "Never compute or invent chess engine evaluations. If "
+                    "the facts above do not cover the question, answer from "
+                    "general chess principles and name what data would make "
+                    "your answer more specific."
+                    f"{memory_instruction}"
+                ),
+            },
+        ]
+        llm_messages.extend(
+            {
+                "role": history_message.role.value,
+                "content": history_message.content,
+            }
+            for history_message in context.get_recent_messages(7)[:-1]
+            if history_message.role in {MessageRole.USER, MessageRole.ASSISTANT}
+        )
+        llm_messages.append({"role": "user", "content": message})
+        return await self.ai_client.chat_completion(
+            messages=llm_messages,
+            temperature=0.7,
+            max_tokens=settings.LLM_COACH_MAX_TOKENS,
+        )
+
+    async def _handle_analyze_game(
+        self,
+        message: str,
+        context: ChatContext,
+        *,
+        db: Optional[Session] = None,
+    ) -> ChatResponse:
+        """Handle 'analyze my game' requests from stored game analysis.
+
+        Flow per the product spec: use the persisted Stockfish analysis of the
+        user's latest game when available; queue analysis when it is missing;
+        fall back to the no-games boundary message only when there is nothing
+        to work with.
+        """
+        if db is None or context.user_id is None:
+            return self._no_games_response()
+
+        from ...models import User
+        from ..game_query import GameQueryBuilder
+
+        user = db.query(User).filter(User.id == context.user_id).one_or_none()
+        if user is None:
+            return self._no_games_response()
+
+        game = GameQueryBuilder.build_filter_query(
+            db, context.user_id, limit=1
+        ).first()
+        if game is None:
+            return self._no_games_response()
+
+        analysis = game.analysis
+        if analysis is None:
+            return await self._queue_latest_game_analysis(db, user, game)
+
+        grounding_block = self._format_game_analysis_block(game, analysis)
+        cited_pattern_ids: List[int] = []
+        coach_context = ""
+        content_types = self.intent_classifier.retrieval_content_types(
+            ChatIntent.ANALYZE_GAME, message
+        )
+        if content_types:
+            coach_context = await assemble_coach_context_async(
+                db,
+                context.user_id,
+                query_text=message,
+                content_types=content_types,
+            )
+            cited_pattern_ids = extract_pattern_ids_from_context(coach_context)
+            if coach_context:
+                grounding_block = f"{grounding_block}\n\n{coach_context}"
+
+        used_llm = False
+        llm_provider: Optional[str] = None
+        llm_model: Optional[str] = None
+        fallback_used = False
+        fallback_reason: Optional[str] = None
+        llm_latency_ms: Optional[int] = None
+
+        if self.ai_client is not None:
+            try:
+                result = await self._llm_coach_reply(
+                    message, context, grounding_block
+                )
+                response_text = result.get("content") or ""
+                if not response_text.strip():
+                    raise ValueError("Empty LLM response")
+                used_llm = True
+                llm_provider = result.get("provider")
+                llm_model = result.get("model")
+                fallback_used = bool(result.get("fallback_used"))
+                fallback_reason = result.get("fallback_reason")
+                llm_latency_ms = result.get("latency_ms")
+            except Exception as e:
+                logger.warning(f"LLM analyze-game failed, using summary: {e}")
+                response_text = self._game_summary_template(game, analysis)
+                fallback_used = True
+                fallback_reason = "LLM provider unavailable"
+        else:
+            response_text = self._game_summary_template(game, analysis)
+
+        return ChatResponse(
+            message=response_text,
+            intent=ChatIntent.ANALYZE_GAME,
+            analysis={
+                "game_id": game.id,
+                "opening": analysis.opening_name,
+                "accuracy": analysis.accuracy_percentage,
+            },
+            suggestions=[
+                "Why did I blunder there?",
+                "What should I have played instead?",
+                "What should I study based on this game?",
+            ],
+            cited_pattern_ids=cited_pattern_ids,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            used_llm=used_llm,
+            retrieval_used=bool(coach_context),
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            llm_latency_ms=llm_latency_ms,
+        )
+
+    def _no_games_response(self) -> ChatResponse:
+        """Boundary reply when there is no game data to analyze."""
+        return ChatResponse(
+            message=(
+                "I don't have access to your recent games; please upload a PGN "
+                "or enter a position."
+            ),
+            intent=ChatIntent.ANALYZE_GAME,
+            suggestions=[
+                "Sync my Chess.com games",
+                "Upload a game PGN",
+            ],
+        )
+
+    async def _queue_latest_game_analysis(self, db: Session, user, game) -> ChatResponse:
+        """Queue Stockfish analysis for the latest game and tell the player."""
+        from ..analysis.auto_analysis_service import queue_new_games_for_analysis
+
+        players = f"{game.white_username or 'White'} vs {game.black_username or 'Black'}"
+        played = (
+            game.end_time.strftime("%b %d")
+            if game.end_time
+            else "recently"
+        )
+        try:
+            result = queue_new_games_for_analysis(
+                db, user, [game.id], source="coach_chat"
+            )
+        except Exception as exc:
+            logger.warning(f"Queuing chat-triggered analysis failed: {exc}")
+            result = {"status": "skipped", "reason": "queue_error"}
+
+        if result.get("status") == "queued":
+            text = (
+                f"I found your most recent game ({players}, "
+                f"{game.time_class or 'unknown time control'}, played {played}). "
+                "It hasn't been analyzed yet, so I've queued a full Stockfish "
+                "analysis for it now. Give me a few minutes, then ask again and "
+                "I'll walk you through the key moments."
+            )
+        else:
+            text = (
+                f"I found your most recent game ({players}, played {played}), "
+                "but automatic analysis is not queued right now. Start "
+                "'Analyze Games' from the sidebar and I'll review it as soon "
+                "as it completes."
+            )
+
+        return ChatResponse(
+            message=text,
+            intent=ChatIntent.ANALYZE_GAME,
+            analysis={"game_id": game.id, "queue_status": result.get("status")},
+            suggestions=[
+                "Ask again in a few minutes",
+                "What should I study meanwhile?",
+            ],
+        )
+
+    def _format_game_analysis_block(self, game, analysis) -> str:
+        """Render persisted game analysis as LLM grounding facts."""
+        def _fmt(value) -> str:
+            return "n/a" if value is None else str(value)
+
+        played = (
+            game.end_time.strftime("%b %d, %Y")
+            if game.end_time
+            else "unknown date"
+        )
+        lines = [
+            "## Latest Game Analysis (Stockfish-grounded facts)",
+            f"- game_id: {game.id}",
+            f"- players: {game.white_username or 'White'} vs "
+            f"{game.black_username or 'Black'} "
+            f"({game.time_class or 'unknown time control'}, played {played})",
+            f"- result: {_fmt(game.winner)} won",
+            f"- your color: {_fmt(analysis.user_color)}",
+            f"- opening: {_fmt(analysis.opening_name)} "
+            f"({_fmt(analysis.opening_eco)}), "
+            f"{_fmt(analysis.opening_moves)} opening moves",
+            f"- your accuracy: {_fmt(analysis.accuracy_percentage)}%, "
+            f"ACPL {_fmt(analysis.user_acpl)} vs opponent "
+            f"{_fmt(analysis.opponent_acpl)}",
+            f"- blunders: {_fmt(analysis.blunders)}, "
+            f"mistakes: {_fmt(analysis.mistakes)}, "
+            f"inaccuracies: {_fmt(analysis.inaccuracies)}",
+            f"- phase ACPL: opening {_fmt(analysis.opening_acpl)}, "
+            f"middlegame {_fmt(analysis.middlegame_acpl)}, "
+            f"endgame {_fmt(analysis.endgame_acpl)}",
+        ]
+        for item in (analysis.critical_positions or [])[:3]:
+            if isinstance(item, dict):
+                detail = (
+                    item.get("san")
+                    or item.get("best_move")
+                    or item.get("fen")
+                    or ""
+                )
+                lines.append(
+                    f"- critical moment: move {item.get('move', 'n/a')} "
+                    f"({_fmt(item.get('classification'))}): {detail}"
+                )
+        return "\n".join(lines)
+
+    def _game_summary_template(self, game, analysis) -> str:
+        """Deterministic fallback summary when the LLM is unavailable."""
+        parts = ["I've reviewed your most recent game."]
+        if isinstance(analysis.accuracy_percentage, (int, float)):
+            parts.append(f"Your accuracy was {analysis.accuracy_percentage:.1f}%.")
+        if isinstance(analysis.blunders, int):
+            parts.append(
+                f"You left {analysis.blunders} blunder"
+                f"{'s' if analysis.blunders != 1 else ''} on the board."
+            )
+        if analysis.opening_name:
+            parts.append(f"The game came out of {analysis.opening_name}.")
+        parts.append(
+            "The clearest next step: replay the first position where the "
+            "evaluation swung against you and compare your move with the "
+            "engine's best. Want me to go deeper once you've looked at it?"
+        )
+        return " ".join(parts)
 
     def _general_question_template(self, coach_context: str) -> str:
         """Fallback template when LLM is unavailable."""

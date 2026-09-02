@@ -87,6 +87,14 @@ describe('CoachWorkspace', () => {
     expect(within(dialog).getByText('Custom Range')).toBeInTheDocument();
   });
 
+  it('opens the analysis flow from the attach button', async () => {
+    const user = userEvent.setup();
+    render(<CoachWorkspace />);
+    await user.click(screen.getByRole('button', { name: 'Attach a game' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Analyze games' })).toBeInTheDocument();
+  });
+
   it('sends a message and shows the coach reply', async () => {
     const user = userEvent.setup();
     mocks.chatService.listSessions.mockResolvedValue([]);
