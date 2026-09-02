@@ -55,6 +55,31 @@ def resolve_handoff_fen(
     return STARTING_FEN, move_ctx
 
 
+def resolve_latest_game_handoff(db: Session, user: User) -> Optional[Dict[str, Any]]:
+    """Find the user's most recent game and build a coach handoff for it.
+
+    Prefers the latest game by end time (analyzed games expose richer move
+    context through ``build_coach_handoff``). Returns ``None`` when the user
+    has no games, or when the latest game carries no usable board state
+    (no stored FEN and no PGN-derived moves) so callers can fall back to
+    asking the player for a position.
+    """
+    from app.services.game_query import GameQueryBuilder
+
+    game = GameQueryBuilder.build_filter_query(db, user.id, limit=1).first()
+    if game is None:
+        return None
+
+    try:
+        handoff = build_coach_handoff(db, game, user)
+    except LookupError:
+        return None
+
+    if handoff["fen"] == STARTING_FEN and not handoff.get("move_san"):
+        return None
+    return handoff
+
+
 def build_suggested_message(
     detail: Dict[str, Any],
     move_ctx: Optional[Dict[str, Any]],

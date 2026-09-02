@@ -159,9 +159,11 @@ async def send_message(
         raise
     except Exception as e:
         logger.error(f"Chat message processing failed: {e}")
+        # Never leak raw engine/LLM error strings to clients; details live in
+        # the service logs.
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to process message: {str(e)}"
+            detail="The coach could not process that message. Please try again."
         )
 
 
@@ -319,10 +321,11 @@ async def quick_analysis(
     position_fen: str,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ):
     """
     Quick position analysis without creating a session.
-    
+
     Useful for one-off position checks.
     """
     try:
@@ -330,6 +333,7 @@ async def quick_analysis(
             message="Analyze this position",
             position_fen=position_fen,
             user_id=current_user.id,
+            db=db,
         )
         
         return {

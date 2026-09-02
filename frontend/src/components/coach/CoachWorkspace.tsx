@@ -385,7 +385,12 @@ export function CoachWorkspace() {
       >
         <div className="mx-auto max-w-[1000px]">
           <div className="flex items-center gap-2 rounded-xl border border-[#262626] bg-[#171717] px-3 py-2 focus-within:border-brand-primary">
-            <button type="button" aria-label="Attach a game" className="p-2 text-[#bbcabf] hover:text-[#e5e2e1]">
+            <button
+              type="button"
+              aria-label="Attach a game"
+              onClick={() => setAnalysisOpen(true)}
+              className="p-2 text-[#bbcabf] hover:text-[#e5e2e1]"
+            >
               <Paperclip className="h-5 w-5" />
             </button>
             <input
