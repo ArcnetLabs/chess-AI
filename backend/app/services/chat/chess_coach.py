@@ -14,6 +14,41 @@ from .session_store import ChatSessionStore
 from ..moves.move_recommender import MoveRecommender
 from ...core.config import settings
 
+_IMAGE_INPUT_ERROR_MARKERS = (
+    "image input",
+    "does not support image",
+    "vision",
+    "screenshot",
+)
+
+
+def _friendly_failure_response(intent: ChatIntent, error: Exception) -> ChatResponse:
+    """Map engine/LLM failures to user-friendly replies.
+
+    Raw model and engine errors (including image/vision-unsupported messages)
+    must never surface verbatim to the player. Timeout gets its own guidance
+    per the product error boundaries; everything else gets a generic retry
+    message. Full details stay in the logs.
+    """
+    message_lower = str(error).lower()
+    if any(marker in message_lower for marker in _IMAGE_INPUT_ERROR_MARKERS):
+        return ChatResponse(
+            message="This feature isn't available yet.",
+            intent=intent,
+        )
+    if isinstance(error, TimeoutError) or "timeout" in message_lower or "timed out" in message_lower:
+        return ChatResponse(
+            message=(
+                "Analysis is taking longer than expected. Would you like to "
+                "try a simpler position?"
+            ),
+            intent=intent,
+        )
+    return ChatResponse(
+        message="I had trouble with that analysis. Please try again in a moment.",
+        intent=intent,
+    )
+
 
 class ChessCoach:
     """
@@ -264,10 +299,7 @@ class ChessCoach:
             
         except Exception as e:
             logger.error(f"Position analysis failed: {e}")
-            return ChatResponse(
-                message=f"I had trouble analyzing this position. Error: {str(e)}",
-                intent=ChatIntent.ANALYZE_POSITION
-            )
+            return _friendly_failure_response(ChatIntent.ANALYZE_POSITION, e)
     
     async def _handle_explain_move(
         self,
@@ -354,10 +386,7 @@ class ChessCoach:
             
         except Exception as e:
             logger.error(f"Move explanation failed: {e}")
-            return ChatResponse(
-                message=f"I had trouble explaining that move. Error: {str(e)}",
-                intent=ChatIntent.EXPLAIN_MOVE
-            )
+            return _friendly_failure_response(ChatIntent.EXPLAIN_MOVE, e)
     
     async def _handle_compare_moves(
         self,
@@ -414,10 +443,7 @@ class ChessCoach:
             
         except Exception as e:
             logger.error(f"Move comparison failed: {e}")
-            return ChatResponse(
-                message=f"I had trouble comparing those moves. Error: {str(e)}",
-                intent=ChatIntent.COMPARE_MOVES
-            )
+            return _friendly_failure_response(ChatIntent.COMPARE_MOVES, e)
     
     async def _handle_general_question(
         self,
