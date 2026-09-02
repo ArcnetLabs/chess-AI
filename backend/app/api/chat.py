@@ -319,10 +319,11 @@ async def quick_analysis(
     position_fen: str,
     current_user: User = Depends(get_current_user),
     coach: ChessCoach = Depends(get_chess_coach),
+    db: Session = Depends(get_db),
 ):
     """
     Quick position analysis without creating a session.
-    
+
     Useful for one-off position checks.
     """
     try:
@@ -330,6 +331,7 @@ async def quick_analysis(
             message="Analyze this position",
             position_fen=position_fen,
             user_id=current_user.id,
+            db=db,
         )
         
         return {

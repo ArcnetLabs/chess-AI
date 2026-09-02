@@ -396,7 +396,7 @@ class ChessCoach:
             )
             cited_pattern_ids = extract_pattern_ids_from_context(coach_context)
 
-        if self.ai_client is not None and coach_context:
+        if self.ai_client is not None:
             try:
                 memory_instruction = ""
                 if "## Relevant Semantic Memories" in coach_context:
@@ -406,17 +406,34 @@ class ChessCoach:
                         "analysis — use them for personalization but do not invent "
                         "evaluations or claims beyond what they state.\n"
                     )
-
+                grounding_block = coach_context or (
+                    "## Player Context\n"
+                    "No stored player analysis is available for this user yet. "
+                    "Answer from general chess principles and say when you would "
+                    "need their game data to be more specific."
+                )
+                position_line = (
+                    f"Current board position (FEN): {context.current_position}\n"
+                    if context.current_position
+                    else ""
+                )
                 llm_messages = [
                     {
                         "role": "system",
                         "content": (
-                            f"{coach_context}\n\n"
-                            "You are a chess improvement coach. Answer using only the "
-                            "facts above for personalization. Start with one high-impact "
-                            "theme, explain it in plain language, and give one practical "
-                            "next step or question. Do not dump a report, compute or invent "
-                            f"chess engine evaluations.{memory_instruction}"
+                            f"{grounding_block}\n\n"
+                            f"{position_line}"
+                            "You are the user's personal chess improvement coach.\n"
+                            f"The user's current question is: \"{message}\"\n"
+                            "Answer THAT question directly and specifically first. "
+                            "Do not fall back to a generic improvement plan unless "
+                            "the question is actually asking for one. Use the facts "
+                            "above only where they are relevant to the question. "
+                            "Never compute or invent chess engine evaluations. If "
+                            "the facts above do not cover the question, answer from "
+                            "general chess principles and name what data would make "
+                            "your answer more specific."
+                            f"{memory_instruction}"
                         ),
                     },
                 ]
