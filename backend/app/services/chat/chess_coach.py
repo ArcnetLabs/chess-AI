@@ -93,6 +93,22 @@ class ChessCoach:
         )
         
         logger.info(f"Intent: {intent.value}, Confidence: {confidence:.2f}")
+
+        # Auto-detect the position from the user's own games so the coach never
+        # asks for a FEN when the synced data already carries one (FEN entry is
+        # a last-resort fallback, not the primary flow).
+        if (
+            intent in self._POSITION_DEPENDENT_INTENTS
+            and not context.current_position
+            and db is not None
+            and context.user_id is not None
+        ):
+            auto_position = self._resolve_auto_position(db, context.user_id)
+            if auto_position:
+                context.current_position = auto_position
+                logger.info(
+                    "Auto-primed session position from the user's latest game"
+                )
         
         # Add user message to context
         user_message = ChatMessage(
@@ -145,6 +161,31 @@ class ChessCoach:
         response.session_id = session_id
         return response
     
+    _POSITION_DEPENDENT_INTENTS = frozenset(
+        {
+            ChatIntent.ANALYZE_POSITION,
+            ChatIntent.EXPLAIN_MOVE,
+            ChatIntent.COMPARE_MOVES,
+        }
+    )
+
+    def _resolve_auto_position(self, db: Session, user_id: int) -> Optional[str]:
+        """Resolve a playable position from the user's most recent game."""
+        try:
+            from ...models import User
+            from ..games.coach_handoff_service import resolve_latest_game_handoff
+
+            user = db.query(User).filter(User.id == user_id).one_or_none()
+            if user is None:
+                return None
+            handoff = resolve_latest_game_handoff(db, user)
+            return handoff["fen"] if handoff else None
+        except Exception as exc:
+            logger.warning(
+                f"Auto position detection failed for user {user_id}: {exc}"
+            )
+            return None
+
     async def _handle_analyze_position(
         self,
         message: str,
@@ -154,12 +195,16 @@ class ChessCoach:
         
         if not context.current_position:
             return ChatResponse(
-                message="I'd love to analyze a position for you! Please provide the position in FEN notation or set up a board.",
+                message=(
+                    "I don't have access to any recent game of yours to pull a "
+                    "position from. Please upload a PGN or enter a position, "
+                    "and I'll analyze it."
+                ),
                 intent=ChatIntent.ANALYZE_POSITION,
                 suggestions=[
-                    "Share a FEN string",
-                    "Describe the position",
-                    "Upload a game PGN"
+                    "Upload a game PGN",
+                    "Paste a FEN string",
+                    "Sync my Chess.com games",
                 ]
             )
         
@@ -245,7 +290,11 @@ class ChessCoach:
         
         if not context.current_position:
             return ChatResponse(
-                message=f"I'd love to explain {move_to_explain}, but I need to know the position first. Can you provide the FEN or describe the position?",
+                message=(
+                    f"I'd love to explain {move_to_explain}, but I couldn't find a "
+                    "position in your recent games to place it on. Upload a PGN or "
+                    "enter a position, and I'll walk you through it."
+                ),
                 intent=ChatIntent.EXPLAIN_MOVE
             )
         
@@ -328,7 +377,11 @@ class ChessCoach:
         
         if not context.current_position:
             return ChatResponse(
-                message="I need to know the position to compare these moves. Can you provide the FEN?",
+                message=(
+                    "I need a position to compare those moves on. I couldn't find "
+                    "one in your recent games — upload a PGN or enter a position "
+                    "and I'll run the comparison."
+                ),
                 intent=ChatIntent.COMPARE_MOVES
             )
         
