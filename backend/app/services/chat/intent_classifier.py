@@ -13,6 +13,7 @@ _RETRIEVAL_DEFAULT_INTENTS = frozenset(
     {
         ChatIntent.GENERAL_QUESTION,
         ChatIntent.ANALYZE_POSITION,
+        ChatIntent.ANALYZE_GAME,
         ChatIntent.EXPLAIN_MOVE,
         ChatIntent.COMPARE_MOVES,
     }
@@ -46,7 +47,7 @@ class IntentClassifier:
     # Pattern definitions for each intent
     PATTERNS = {
         ChatIntent.ANALYZE_POSITION: [
-            r"analyze.*position",
+            r"analy[sz]e.*position",
             r"what.*should.*do",
             r"evaluate.*position",
             r"how.*good.*position",
@@ -54,6 +55,13 @@ class IntentClassifier:
             r"help.*with.*position",
             r"look.*at.*position",
             r"check.*position",
+        ],
+        ChatIntent.ANALYZE_GAME: [
+            r"analy[sz]e (my |the )?(last|latest|recent|most recent) (chess )?game",
+            r"analy[sz]e my (game|games)",
+            r"review (my |the )?(last|latest|recent) (chess )?game",
+            r"how did (i|we|my) (do|play|perform).*(game|match)",
+            r"what.*(think|see).*(my )?(last|latest|recent) game",
         ],
         ChatIntent.EXPLAIN_MOVE: [
             r"why.*\b[a-h][1-8]\b",  # Why e4, why Nf3, etc.

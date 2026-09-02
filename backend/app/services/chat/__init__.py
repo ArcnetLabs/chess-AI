@@ -9,6 +9,7 @@ from datetime import datetime
 class ChatIntent(str, Enum):
     """Intent classification for chat messages."""
     ANALYZE_POSITION = "analyze_position"
+    ANALYZE_GAME = "analyze_game"
     EXPLAIN_MOVE = "explain_move"
     COMPARE_MOVES = "compare_moves"
     GENERAL_QUESTION = "general_question"
