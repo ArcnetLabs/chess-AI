@@ -390,3 +390,86 @@ async def test_get_chess_coach_survives_ai_client_init_failure():
     ):
         coach = await get_chess_coach()
         assert coach.ai_client is None
+
+
+@pytest.mark.asyncio
+async def test_general_question_calls_llm_even_without_db_context():
+    """The coach must attempt the LLM even with no DB context (identical-answer fix)."""
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Check your opponent's checks, captures, and threats first."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    response = await coach.process_message(
+        message="Why do I hang pieces in time trouble?"
+    )
+
+    assert response.used_llm is True
+    assert response.retrieval_used is False
+    mock_client.chat_completion.assert_awaited_once()
+    messages = mock_client.chat_completion.await_args.kwargs["messages"]
+    assert "No stored player analysis" in messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_general_question_system_prompt_is_question_aware(db, coach_user):
+    """The system prompt must carry the user's actual question, not a static instruction."""
+    _create_profile(db, coach_user)
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Blunder-check before every move."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    question = "What should I study to stop blundering my queen?"
+    await coach.process_message(message=question, user_id=coach_user.id, db=db)
+
+    system_prompt = mock_client.chat_completion.await_args.kwargs["messages"][0]["content"]
+    assert question in system_prompt
+    assert "Answer THAT question directly" in system_prompt
+
+
+@pytest.mark.asyncio
+async def test_general_question_system_prompt_includes_session_position(db, coach_user):
+    """A session board position must reach the LLM prompt so the coach stops asking for FENs."""
+    _create_profile(db, coach_user)
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(return_value={"content": "Develop first."})
+    coach = ChessCoach(ai_client=mock_client)
+
+    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    await coach.process_message(
+        message="What should my plan be in this kind of middlegame structure?",
+        user_id=coach_user.id,
+        position_fen=fen,
+        db=db,
+    )
+
+    system_prompt = mock_client.chat_completion.await_args.kwargs["messages"][0]["content"]
+    assert f"Current board position (FEN): {fen}" in system_prompt
+
+
+@pytest.mark.asyncio
+async def test_quick_analysis_passes_db_to_coach():
+    """quick-analysis must provide the DB session so the LLM path runs, not the template."""
+    from app.api.chat import quick_analysis
+
+    coach = MagicMock()
+    coach.process_message = AsyncMock(
+        return_value=MagicMock(to_dict=MagicMock(return_value={}))
+    )
+    current_user = MagicMock(spec=["id"])
+    current_user.id = 7
+    db = object()
+
+    await quick_analysis(
+        position_fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        current_user=current_user,
+        coach=coach,
+        db=db,
+    )
+
+    kwargs = coach.process_message.await_args.kwargs
+    assert kwargs["db"] is db
+    assert kwargs["user_id"] == 7
