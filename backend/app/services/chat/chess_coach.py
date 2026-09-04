@@ -417,43 +417,112 @@ class ChessCoach:
                     intent=ChatIntent.EXPLAIN_MOVE
                 )
             
-            # Build detailed explanation
-            response_text = f"""Great question about **{move_rec.move}**!
+        except Exception as e:
+            logger.error(f"Move explanation failed: {e}")
+            return _friendly_failure_response(ChatIntent.EXPLAIN_MOVE, e)
+
+        # The LLM translates the engine facts into a coaching explanation that
+        # answers the user's actual question (doctrine: Stockfish = truth,
+        # LLM = translation layer). The deterministic template is the fallback.
+        grounding_block = self._format_explain_move_block(
+            context.current_position, move_rec
+        )
+        used_llm = False
+        llm_provider: Optional[str] = None
+        llm_model: Optional[str] = None
+        fallback_used = False
+        fallback_reason: Optional[str] = None
+        llm_latency_ms: Optional[int] = None
+
+        if self.ai_client is not None:
+            try:
+                result = await self._llm_coach_reply(message, context, grounding_block)
+                response_text = result.get("content") or ""
+                if not response_text.strip():
+                    raise ValueError("Empty LLM response")
+                used_llm = True
+                llm_provider = result.get("provider")
+                llm_model = result.get("model")
+                fallback_used = bool(result.get("fallback_used"))
+                fallback_reason = result.get("fallback_reason")
+                llm_latency_ms = result.get("latency_ms")
+            except Exception as e:
+                logger.warning(f"LLM move explanation failed, using template: {e}")
+                response_text = self._explain_move_template(move_rec)
+                fallback_used = True
+                fallback_reason = "LLM provider unavailable"
+        else:
+            response_text = self._explain_move_template(move_rec)
+
+        return ChatResponse(
+            message=response_text,
+            intent=ChatIntent.EXPLAIN_MOVE,
+            analysis=move_rec.to_dict(),
+            suggestions=[
+                "Compare with other moves",
+                "Show me the best move",
+                "What happens next?"
+            ],
+            position_fen=context.current_position,
+            used_llm=used_llm,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            llm_latency_ms=llm_latency_ms,
+        )
+
+    def _format_explain_move_block(self, fen: str, move_rec) -> str:
+        """Render the engine's move recommendation as LLM grounding facts."""
+        lines = [
+            "## Move Explanation (Stockfish-grounded facts)",
+            f"- position_fen: {fen}",
+            f"- move: {move_rec.move} (uci {move_rec.uci}); "
+            f"evaluation: {self._format_evaluation(move_rec.evaluation, move_rec.mate_in)}",
+            f"- engine note: {move_rec.explanation}",
+        ]
+        if getattr(move_rec, "pros", None):
+            lines.append("- pros: " + "; ".join(str(pro) for pro in move_rec.pros[:3]))
+        if getattr(move_rec, "cons", None):
+            lines.append("- cons: " + "; ".join(str(con) for con in move_rec.cons[:2]))
+        if getattr(move_rec, "tactical_themes", None):
+            lines.append(
+                "- themes: "
+                + ", ".join(
+                    theme.value.replace("_", " ") for theme in move_rec.tactical_themes
+                )
+            )
+        difficulty = getattr(move_rec, "difficulty", None)
+        if difficulty is not None:
+            lines.append(f"- difficulty: {getattr(difficulty, 'value', difficulty)}")
+        variations = getattr(move_rec, "variations", None)
+        if variations:
+            lines.append(f"- sample continuation: {variations[0]}")
+        return "\n".join(lines)
+
+    def _explain_move_template(self, move_rec) -> str:
+        """Deterministic fallback when the LLM cannot translate the explanation."""
+        response_text = f"""Great question about **{move_rec.move}**!
 
 {move_rec.explanation}
 
 **Why this move works:**
 """
-            for pro in move_rec.pros[:3]:
-                response_text += f"\n✓ {pro}"
-            
-            if move_rec.cons and move_rec.cons[0] != "No significant drawbacks":
-                response_text += f"\n\n**Things to watch out for:**"
-                for con in move_rec.cons[:2]:
-                    response_text += f"\n⚠️ {con}"
-            
-            response_text += f"\n\n**Tactical themes:** {', '.join([t.value.replace('_', ' ').title() for t in move_rec.tactical_themes])}"
-            response_text += f"\n**Difficulty level:** {move_rec.difficulty.value.title()}"
-            
-            if move_rec.variations:
-                response_text += f"\n\n**Sample continuation:** {move_rec.variations[0]}"
-            
-            return ChatResponse(
-                message=response_text,
-                intent=ChatIntent.EXPLAIN_MOVE,
-                analysis=move_rec.to_dict(),
-                suggestions=[
-                    "Compare with other moves",
-                    "Show me the best move",
-                    "What happens next?"
-                ],
-                position_fen=context.current_position
-            )
-            
-        except Exception as e:
-            logger.error(f"Move explanation failed: {e}")
-            return _friendly_failure_response(ChatIntent.EXPLAIN_MOVE, e)
-    
+        for pro in move_rec.pros[:3]:
+            response_text += f"\n\u2713 {pro}"
+
+        if move_rec.cons and move_rec.cons[0] != "No significant drawbacks":
+            response_text += "\n\n**Things to watch out for:**"
+            for con in move_rec.cons[:2]:
+                response_text += f"\n\u26a0\ufe0f {con}"
+
+        response_text += f"\n\n**Tactical themes:** {', '.join([t.value.replace('_', ' ').title() for t in move_rec.tactical_themes])}"
+        response_text += f"\n**Difficulty level:** {move_rec.difficulty.value.title()}"
+
+        if move_rec.variations:
+            response_text += f"\n\n**Sample continuation:** {move_rec.variations[0]}"
+        return response_text
+
     async def _handle_compare_moves(
         self,
         message: str,
@@ -487,30 +556,84 @@ class ChessCoach:
                 depth=18
             )
             
-            response_text = f"**Comparing {', '.join(moves[:3])}:**\n\n"
-            
-            for comp in comparison["comparisons"]:
-                eval_text = self._format_evaluation(comp["evaluation"], comp.get("mate_in"))
-                response_text += f"• **{comp['move']}:** {eval_text}\n"
-            
-            response_text += f"\n{comparison['recommendation']}"
-            
-            return ChatResponse(
-                message=response_text,
-                intent=ChatIntent.COMPARE_MOVES,
-                analysis=comparison,
-                suggestions=[
-                    "Explain the best move",
-                    "Show me more alternatives",
-                    "Analyze this position"
-                ],
-                position_fen=context.current_position
-            )
-            
         except Exception as e:
             logger.error(f"Move comparison failed: {e}")
             return _friendly_failure_response(ChatIntent.COMPARE_MOVES, e)
-    
+
+        # The LLM translates the engine comparison into a coaching reply that
+        # answers the user's actual question (doctrine: Stockfish = truth,
+        # LLM = translation layer). The deterministic template is the fallback.
+        grounding_block = self._format_compare_block(
+            context.current_position, moves[:3], comparison
+        )
+        used_llm = False
+        llm_provider: Optional[str] = None
+        llm_model: Optional[str] = None
+        fallback_used = False
+        fallback_reason: Optional[str] = None
+        llm_latency_ms: Optional[int] = None
+
+        if self.ai_client is not None:
+            try:
+                result = await self._llm_coach_reply(message, context, grounding_block)
+                response_text = result.get("content") or ""
+                if not response_text.strip():
+                    raise ValueError("Empty LLM response")
+                used_llm = True
+                llm_provider = result.get("provider")
+                llm_model = result.get("model")
+                fallback_used = bool(result.get("fallback_used"))
+                fallback_reason = result.get("fallback_reason")
+                llm_latency_ms = result.get("latency_ms")
+            except Exception as e:
+                logger.warning(f"LLM move comparison failed, using template: {e}")
+                response_text = self._compare_moves_template(moves[:3], comparison)
+                fallback_used = True
+                fallback_reason = "LLM provider unavailable"
+        else:
+            response_text = self._compare_moves_template(moves[:3], comparison)
+
+        return ChatResponse(
+            message=response_text,
+            intent=ChatIntent.COMPARE_MOVES,
+            analysis=comparison,
+            suggestions=[
+                "Explain the best move",
+                "Show me more alternatives",
+                "Analyze this position"
+            ],
+            position_fen=context.current_position,
+            used_llm=used_llm,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            llm_latency_ms=llm_latency_ms,
+        )
+
+    def _format_compare_block(self, fen: str, moves, comparison) -> str:
+        """Render the engine comparison as LLM grounding facts."""
+        lines = [
+            "## Move Comparison (Stockfish-grounded facts)",
+            f"- position_fen: {fen}",
+            f"- moves compared: {', '.join(moves)}",
+        ]
+        for comp in comparison["comparisons"]:
+            eval_text = self._format_evaluation(comp["evaluation"], comp.get("mate_in"))
+            lines.append(f"- {comp['move']}: {eval_text}")
+        if comparison.get("recommendation"):
+            lines.append(f"- engine recommendation: {comparison['recommendation']}")
+        return "\n".join(lines)
+
+    def _compare_moves_template(self, moves, comparison) -> str:
+        """Deterministic fallback when the LLM cannot translate the comparison."""
+        response_text = f"**Comparing {', '.join(moves)}:**\n\n"
+        for comp in comparison["comparisons"]:
+            eval_text = self._format_evaluation(comp["evaluation"], comp.get("mate_in"))
+            response_text += f"\u2022 **{comp['move']}:** {eval_text}\n"
+        response_text += f"\n{comparison['recommendation']}"
+        return response_text
+
     async def _handle_general_question(
         self,
         message: str,
