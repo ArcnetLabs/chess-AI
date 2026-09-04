@@ -1,8 +1,8 @@
 # ChessRun Feature Progress Tracker
 
-**Last updated:** 2026-09-02  
-**Integration branch:** `staging` @ #161 (synced with `main`; coach reliability batch #157–#160 merged)  
-**Production branch:** `main` @ PR **#161** (coach reliability & chat-driven analysis release)  
+**Last updated:** 2026-09-04  
+**Integration branch:** `staging` @ #165 (synced with `main`; coach routing & translation batch #163–#164 merged)  
+**Production branch:** `main` @ PR **#165** (per-sentence intent routing + LLM-translated position analysis)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -33,7 +33,7 @@
 | **3** | Advanced AI & training | **Backend complete** (9/9 backend units; UI: `/coach` shipped, `/training` + chips deferred) | Exit gate: grounding ✅, grep A ✅ |
 | **4** | ChessRun coach product (post-roadmap) | **Shipped** | Passwordless auth, design system, coach UX, analysis pipeline hardening — see below |
 
-**Current focus:** Coach reliability batch shipped (#157–#160): question-aware LLM answers, auto-detected positions, friendly error boundaries, and the chat-driven "analyze my game" flow. Next: verify on the staging deploy with a real account, then iterate on coaching quality from feedback.
+**Current focus:** Prod LLM routing fixed (openrouter primary, glm-5.2 free model), per-sentence intent routing and LLM-translated position analysis shipped (#163–#165). Next: verify the fixed intents on prod, extend the LLM-translation pattern to explain-move/compare-moves handlers (follow-up), and rotate the Cloudflare Access tunnel secret (exposed in chat).
 
 ---
 
@@ -205,14 +205,15 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 | Pre-development cleanup | Done (main) | #150–#154, #156 | Onboarding styling, dead-code cleanup, phase-boundary dedupe, frontend vitest suite, dramatiq removal; promoted by #156 |
 | Coach reliability fixes | Done (main) | #157–#159 | Question-aware LLM prompts + always-attempt-LLM; auto-detected positions (no FEN prompting); friendly error boundaries incl. image-unsupported catch |
 | Chat-driven game analysis | Done (main) | #160 | ANALYZE_GAME intent: grounded walkthrough from persisted analysis, auto-queued Stockfish analysis, attach button wired |
+| Coach routing & translation fixes | Done (main) | #163–#165 | Per-sentence intent classification (no cross-sentence false routing); position analysis translated by the LLM with the engine dump as fallback; prod LLM provider moved to OpenRouter via env |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` and `main` are synced** @ PR **#161** (2026-09-02): coach reliability & chat-driven analysis release (#157–#160).
+**`staging` and `main` are synced** @ PR **#165** (2026-09-04): per-sentence intent routing + LLM-translated position analysis (#163–#164).
 
-**Next up:** staging-deploy verification with a real Chess.com-linked account; coaching-quality iteration from feedback (see Current focus).
+**Next up:** prod verification of the fixed intents; LLM-translation follow-up for explain-move/compare-moves.
 
 ---
 
@@ -220,6 +221,10 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-09-04 | #165 | release: per-sentence intent routing + LLM-translated position analysis (#163–#164) | staging → **main** |
+| 2026-09-04 | #164 | feat: LLM-translated position analysis grounded in Stockfish facts | → staging |
+| 2026-09-04 | #163 | fix: classify chat intents per sentence (no cross-sentence false routing) | → staging |
+| 2026-09-02 | #162 | docs: sync tracker through the coach reliability release (#161) | → staging |
 | 2026-09-02 | #161 | release: coach reliability & chat-driven analysis (#157–#160) | staging → **main** |
 | 2026-09-02 | #160 | feat: chat-driven analyze-my-game flow + auto-queued analysis | → staging |
 | 2026-09-02 | #159 | fix: friendly coach error boundaries (no raw engine/LLM errors) | → staging |
