@@ -87,7 +87,7 @@ development:  feature/<topic>, fix/<topic>,
 
 1. **Never push directly to `main` or `staging`.** Always create a feature branch, open a PR, and merge through the GitHub UI or `gh pr merge`.
 2. **Feature branches target `staging`** for normal work. Promote `staging` → `main` whenever `staging` is ahead of `main` and represents a coherent, shippable state (i.e. the requested task is complete). You do not need to wait for the user to ask for a release — the auto-merge policy in rule 3 applies.
-3. **Auto-merge every PR you open without waiting for the user.** This applies to PRs targeting **`staging`** (integration) and PRs targeting **`main`** (release / promotion). The user has explicitly opted into this fast workflow — do not pause to ask "should I merge now?" or "is this OK to promote?". As soon as the PR is pushed and any required checks pass, merge it.
+3. **Auto-merge every PR you open without waiting for the user.** This applies to PRs targeting **`staging`** (integration) and PRs targeting **`main`** (release / promotion). The user has explicitly opted into this fast workflow — do not pause to ask "should I merge now?" or "is this OK to promote?". As soon as the PR is pushed, the **Testing and production pushes** gate below is satisfied, and any required checks pass, merge it.
 
    **Exceptions where you must NOT auto-merge:**
    - The user explicitly told you to wait, hold, "open the PR but don't merge yet", or any equivalent.
@@ -119,6 +119,14 @@ development:  feature/<topic>, fix/<topic>,
 7. **Never force-push `main` or `staging`.** Force-push only your own feature branches, and only when necessary.
 
 8. **Never rewrite history that has been pushed to a shared branch.**
+
+---
+
+## Testing and production pushes (hard rule)
+
+1. **Never push untested code.** Before every commit/push/merge, run the relevant test suites locally and make sure they pass — backend: `pytest` against `backend/tests/` (targeted suites covering the touched area are acceptable, matching existing PR practice); frontend: `npm test` in `frontend/`. Never "push and see".
+2. **Push to production only with passing tests.** A green local run is the precondition for every `staging` → `main` promotion.
+3. **Scope check for unrequested work.** If the user did not explicitly ask for a fix or feature, discuss before implementing and promoting — do not push surprise changes to production. This gates the auto-merge policy above.
 
 ---
 
