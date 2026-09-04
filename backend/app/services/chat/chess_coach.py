@@ -255,17 +255,96 @@ class ChessCoach:
             
             # Format response
             best_move = analysis.candidate_moves[0] if analysis.candidate_moves else None
-            
+
             if not best_move:
                 return ChatResponse(
                     message="This position has no legal moves!",
                     intent=ChatIntent.ANALYZE_POSITION
                 )
-            
-            # Build conversational response
-            eval_text = self._format_evaluation(best_move.evaluation, best_move.mate_in)
-            
-            response_text = f"""I've analyzed this position for you!
+        except Exception as e:
+            logger.error(f"Position analysis failed: {e}")
+            return _friendly_failure_response(ChatIntent.ANALYZE_POSITION, e)
+
+        # The LLM translates the engine facts into a coaching reply that
+        # answers the user's actual question (doctrine: Stockfish = truth,
+        # LLM = translation layer). The deterministic dump is the fallback.
+        grounding_block = self._format_position_analysis_block(
+            context.current_position, analysis
+        )
+        used_llm = False
+        llm_provider: Optional[str] = None
+        llm_model: Optional[str] = None
+        fallback_used = False
+        fallback_reason: Optional[str] = None
+        llm_latency_ms: Optional[int] = None
+
+        if self.ai_client is not None:
+            try:
+                result = await self._llm_coach_reply(message, context, grounding_block)
+                response_text = result.get("content") or ""
+                if not response_text.strip():
+                    raise ValueError("Empty LLM response")
+                used_llm = True
+                llm_provider = result.get("provider")
+                llm_model = result.get("model")
+                fallback_used = bool(result.get("fallback_used"))
+                fallback_reason = result.get("fallback_reason")
+                llm_latency_ms = result.get("latency_ms")
+            except Exception as e:
+                logger.warning(f"LLM position analysis failed, using template: {e}")
+                response_text = self._position_analysis_template(analysis)
+                fallback_used = True
+                fallback_reason = "LLM provider unavailable"
+        else:
+            response_text = self._position_analysis_template(analysis)
+
+        return ChatResponse(
+            message=response_text,
+            intent=ChatIntent.ANALYZE_POSITION,
+            analysis=analysis.to_dict(),
+            suggestions=[
+                f"Explain {best_move.move} in detail",
+                "Compare the top moves",
+                "Show me the continuation"
+            ],
+            position_fen=context.current_position,
+            used_llm=used_llm,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            llm_latency_ms=llm_latency_ms,
+        )
+
+    def _format_position_analysis_block(self, fen: str, analysis) -> str:
+        """Render Stockfish position analysis as LLM grounding facts."""
+        lines = [
+            "## Position Analysis (Stockfish-grounded facts)",
+            f"- position_fen: {fen}",
+        ]
+        for index, candidate in enumerate(analysis.candidate_moves[:3], start=1):
+            eval_text = self._format_evaluation(candidate.evaluation, candidate.mate_in)
+            themes = (
+                ", ".join(
+                    theme.value.replace("_", " ")
+                    for theme in candidate.tactical_themes[:3]
+                )
+                or "none"
+            )
+            lines.append(
+                f"- candidate {index}: {candidate.move} ({eval_text}); "
+                f"themes: {themes}; engine note: {candidate.explanation}"
+            )
+        if analysis.insights:
+            lines.append(f"- engine insight: {analysis.insights}")
+        return "\n".join(lines)
+
+    def _position_analysis_template(self, analysis) -> str:
+        """Deterministic fallback when the LLM cannot translate the engine output."""
+        best_move = analysis.candidate_moves[0]
+        eval_text = self._format_evaluation(best_move.evaluation, best_move.mate_in)
+
+        response_text = f"""I've analyzed this position for you!
 
 📊 **Evaluation:** {eval_text}
 🎯 **Best Move:** {best_move.move}
@@ -274,35 +353,20 @@ class ChessCoach:
 
 **Key ideas:**
 """
-            
-            # Add tactical themes
-            for theme in best_move.tactical_themes[:2]:
-                response_text += f"\n• {theme.value.replace('_', ' ').title()}"
-            
-            # Add top alternatives
-            if len(analysis.candidate_moves) > 1:
-                response_text += f"\n\n**Alternatives:**"
-                for move in analysis.candidate_moves[1:3]:
-                    response_text += f"\n• {move.move} ({move.evaluation:+.2f})"
-            
-            response_text += f"\n\n💡 {analysis.insights}"
-            
-            return ChatResponse(
-                message=response_text,
-                intent=ChatIntent.ANALYZE_POSITION,
-                analysis=analysis.to_dict(),
-                suggestions=[
-                    f"Explain {best_move.move} in detail",
-                    "Compare the top moves",
-                    "Show me the continuation"
-                ],
-                position_fen=context.current_position
-            )
-            
-        except Exception as e:
-            logger.error(f"Position analysis failed: {e}")
-            return _friendly_failure_response(ChatIntent.ANALYZE_POSITION, e)
-    
+
+        # Add tactical themes
+        for theme in best_move.tactical_themes[:2]:
+            response_text += f"\n• {theme.value.replace('_', ' ').title()}"
+
+        # Add top alternatives
+        if len(analysis.candidate_moves) > 1:
+            response_text += "\n\n**Alternatives:**"
+            for move in analysis.candidate_moves[1:3]:
+                response_text += f"\n• {move.move} ({move.evaluation:+.2f})"
+
+        response_text += f"\n\n💡 {analysis.insights}"
+        return response_text
+
     async def _handle_explain_move(
         self,
         message: str,

@@ -1,8 +1,8 @@
 # ChessRun Feature Progress Tracker
 
-**Last updated:** 2026-08-20  
-**Integration branch:** `staging` (ahead of `main` by PRs **#150–#154** — pre-development cleanup batch)  
-**Production branch:** `main` @ PR **#148** (cancellable, memory-safe game analysis)  
+**Last updated:** 2026-09-02  
+**Integration branch:** `staging` @ #161 (synced with `main`; coach reliability batch #157–#160 merged)  
+**Production branch:** `main` @ PR **#161** (coach reliability & chat-driven analysis release)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -33,7 +33,7 @@
 | **3** | Advanced AI & training | **Backend complete** (9/9 backend units; UI: `/coach` shipped, `/training` + chips deferred) | Exit gate: grounding ✅, grep A ✅ |
 | **4** | ChessRun coach product (post-roadmap) | **Shipped** | Passwordless auth, design system, coach UX, analysis pipeline hardening — see below |
 
-**Current focus:** Pre-development cleanup complete (#150–#154). Promote `staging` → `main`; then planned development work begins (email delivery deferred per product decision).
+**Current focus:** Coach reliability batch shipped (#157–#160): question-aware LLM answers, auto-detected positions, friendly error boundaries, and the chat-driven "analyze my game" flow. Next: verify on the staging deploy with a real account, then iterate on coaching quality from feedback.
 
 ---
 
@@ -201,21 +201,18 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 | ChessRun design system + editorial dashboard | Done (main) | #130, #135, #136 | `chessrun-*` classes; editorial layout |
 | Coach UX alignment | Done (main) | #143 | Frontend aligned with ChessRun coach workspace (`/coach`) |
 | Analysis pipeline hardening | Done (main) | #137–#142, #144–#148 | Diagnostics, self-diagnosis, worker memory limits, job cancel, progress restore |
-| Staging sync | Done (staging) | #149 | `staging` brought in line with `main` after README/product pivot |
-| Pre-development cleanup | Done (staging) | #150–#154 | Onboarding styling, dead-code cleanup, phase-boundary dedupe, frontend vitest suite, dramatiq removal |
+| Staging sync | Done (main) | #149 | `staging` brought in line with `main` after README/product pivot |
+| Pre-development cleanup | Done (main) | #150–#154, #156 | Onboarding styling, dead-code cleanup, phase-boundary dedupe, frontend vitest suite, dramatiq removal; promoted by #156 |
+| Coach reliability fixes | Done (main) | #157–#159 | Question-aware LLM prompts + always-attempt-LLM; auto-detected positions (no FEN prompting); friendly error boundaries incl. image-unsupported catch |
+| Chat-driven game analysis | Done (main) | #160 | ANALYZE_GAME intent: grounded walkthrough from persisted analysis, auto-queued Stockfish analysis, attach button wired |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` ahead of `main`:** PRs **#150–#154** — pre-development cleanup batch:
-- #150 onboarding link-chesscom styling (design system)
-- #151 coach-workspace migration leftovers cleanup (dead files, unused deps, chatStore rewrite)
-- #152 phase boundaries + severity rank single source of truth (backend)
-- #153 frontend vitest suite (10 tests: chat store + coach workspace)
-- #154 unused dramatiq dependency removal
+**`staging` and `main` are synced** @ PR **#161** (2026-09-02): coach reliability & chat-driven analysis release (#157–#160).
 
-**Next release promotion:** promote `staging` → `main` after #150–#154, pending maintainer confirmation that `staging` is a coherent shippable state.
+**Next up:** staging-deploy verification with a real Chess.com-linked account; coaching-quality iteration from feedback (see Current focus).
 
 ---
 
@@ -223,12 +220,14 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-09-02 | #161 | release: coach reliability & chat-driven analysis (#157–#160) | staging → **main** |
+| 2026-09-02 | #160 | feat: chat-driven analyze-my-game flow + auto-queued analysis | → staging |
+| 2026-09-02 | #159 | fix: friendly coach error boundaries (no raw engine/LLM errors) | → staging |
+| 2026-09-02 | #158 | feat: auto-detect coach position from the user's latest game | → staging |
+| 2026-09-02 | #157 | fix: question-aware coach LLM responses, always attempt LLM | → staging |
+| 2026-08-20 | #156 | release: promote pre-development cleanup (#150–#154) | staging → **main** |
+| 2026-08-20 | #155 | docs: sync feature progress tracker through PR #154 | → staging |
 | 2026-08-20 | #154 | chore: remove unused dramatiq dependency | → staging |
-| 2026-08-20 | #153 | test: frontend vitest suite (chat store + coach workspace) | → staging |
-| 2026-08-20 | #152 | refactor: dedupe phase boundaries + severity ranks | → staging |
-| 2026-08-20 | #151 | chore: coach-workspace migration leftovers cleanup | → staging |
-| 2026-08-20 | #150 | fix: onboarding link-chesscom styling | → staging |
-| 2026-08-20 | #149 | chore: sync staging with main | → staging |
 | 2026-07-10 | #148 | release: cancellable, memory-safe game analysis | staging → **main** |
 | 2026-07-10 | #147 | fix: stabilize and cancel game analysis | → staging |
 | 2026-07-10 | #146 | fix: keep analysis worker within memory limits | → main |
