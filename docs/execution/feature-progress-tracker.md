@@ -1,8 +1,8 @@
 # ChessRun Feature Progress Tracker
 
 **Last updated:** 2026-09-04  
-**Integration branch:** `staging` @ #165 (synced with `main`; coach routing & translation batch #163–#164 merged)  
-**Production branch:** `main` @ PR **#165** (per-sentence intent routing + LLM-translated position analysis)  
+**Integration branch:** `staging` @ #170 (synced with `main`; testing hard rules #167, explain/compare translation #168, markdown replies #169)  
+**Production branch:** `main` @ PR **#170** (testing hard rules + translation completion + markdown rendering)  
 **Maintainer:** Principal Architect — update this file when a unit merges to `staging` or `main`
 
 > **This is the live progress doc.** For unit definitions and acceptance criteria, see [`feature-execution-roadmap.md`](./feature-execution-roadmap.md). For governance and agent assignments, see [`implementation-state-and-governance-2026-05-26.md`](./implementation-state-and-governance-2026-05-26.md) (audit snapshot; sync from this tracker).
@@ -33,7 +33,7 @@
 | **3** | Advanced AI & training | **Backend complete** (9/9 backend units; UI: `/coach` shipped, `/training` + chips deferred) | Exit gate: grounding ✅, grep A ✅ |
 | **4** | ChessRun coach product (post-roadmap) | **Shipped** | Passwordless auth, design system, coach UX, analysis pipeline hardening — see below |
 
-**Current focus:** Prod LLM routing fixed (openrouter primary, glm-5.2 free model), per-sentence intent routing and LLM-translated position analysis shipped (#163–#165). Next: verify the fixed intents on prod, extend the LLM-translation pattern to explain-move/compare-moves handlers (follow-up), and rotate the Cloudflare Access tunnel secret (exposed in chat).
+**Current focus:** Prod LLM = OpenCode Go glm-5.3-flash (8192-token budget); all coach handlers now LLM-translated; replies render as markdown; AGENTS.md carries the testing/production hard rules. Next: prod verification of explain/compare + markdown rendering, then coaching-quality iteration from feedback.
 
 ---
 
@@ -206,14 +206,15 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 | Coach reliability fixes | Done (main) | #157–#159 | Question-aware LLM prompts + always-attempt-LLM; auto-detected positions (no FEN prompting); friendly error boundaries incl. image-unsupported catch |
 | Chat-driven game analysis | Done (main) | #160 | ANALYZE_GAME intent: grounded walkthrough from persisted analysis, auto-queued Stockfish analysis, attach button wired |
 | Coach routing & translation fixes | Done (main) | #163–#165 | Per-sentence intent classification (no cross-sentence false routing); position analysis translated by the LLM with the engine dump as fallback; prod LLM provider moved to OpenRouter via env |
+| Translation completion + hard rules | Done (main) | #167–#170 | AGENTS.md testing/production hard rules; explain-move and compare-moves LLM translation; markdown rendering for coach replies (react-markdown) |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` and `main` are synced** @ PR **#165** (2026-09-04): per-sentence intent routing + LLM-translated position analysis (#163–#164).
+**`staging` and `main` are synced** @ PR **#170** (2026-09-04): testing hard rules + explain/compare translation + markdown rendering (#167–#169).
 
-**Next up:** prod verification of the fixed intents; LLM-translation follow-up for explain-move/compare-moves.
+**Next up:** prod verification of the new handlers and markdown rendering; coaching-quality iteration from feedback.
 
 ---
 
@@ -221,10 +222,12 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-09-04 | #170 | release: testing hard rules + translation completion + markdown replies (#167–#169) | staging → **main** |
+| 2026-09-04 | #169 | feat: render coach replies as markdown in the workspace | → staging |
+| 2026-09-04 | #168 | feat: LLM-translated move explanations and comparisons | → staging |
+| 2026-09-04 | #167 | docs: AGENTS.md testing and production push hard rules | → staging |
+| 2026-09-04 | #166 | docs: sync tracker through the intent-routing and translation release (#165) | → staging |
 | 2026-09-04 | #165 | release: per-sentence intent routing + LLM-translated position analysis (#163–#164) | staging → **main** |
-| 2026-09-04 | #164 | feat: LLM-translated position analysis grounded in Stockfish facts | → staging |
-| 2026-09-04 | #163 | fix: classify chat intents per sentence (no cross-sentence false routing) | → staging |
-| 2026-09-02 | #162 | docs: sync tracker through the coach reliability release (#161) | → staging |
 | 2026-09-02 | #161 | release: coach reliability & chat-driven analysis (#157–#160) | staging → **main** |
 | 2026-09-02 | #160 | feat: chat-driven analyze-my-game flow + auto-queued analysis | → staging |
 | 2026-09-02 | #159 | fix: friendly coach error boundaries (no raw engine/LLM errors) | → staging |
