@@ -72,6 +72,11 @@ def _fake_analysis(best_move: str) -> SimpleNamespace:
                 mate_in=None,
                 explanation="Develops toward the center.",
                 tactical_themes=[],
+                pros=["Develops a piece"],
+                cons=["No significant drawbacks"],
+                variations=[f"1. {best_move} Nc6 2. Bb5"],
+                difficulty=SimpleNamespace(value="beginner"),
+                to_dict=lambda: {"candidate_moves": []},
             )
         ],
         insights="A calm developing move.",
