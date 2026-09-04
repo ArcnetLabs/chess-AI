@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   AlertTriangle,
   BarChart3,
@@ -548,6 +549,52 @@ function AnalysisStatusCard({
   );
 }
 
+type MarkdownProps = { children?: ReactNode; href?: string };
+
+const markdownComponents = {
+  h1: ({ children }: MarkdownProps) => (
+    <h1 className="mt-4 mb-2 text-lg font-semibold text-[#e5e2e1]">{children}</h1>
+  ),
+  h2: ({ children }: MarkdownProps) => (
+    <h2 className="mt-4 mb-2 text-base font-semibold text-[#e5e2e1]">{children}</h2>
+  ),
+  h3: ({ children }: MarkdownProps) => (
+    <h3 className="mt-3 mb-2 text-sm font-semibold text-[#e5e2e1]">{children}</h3>
+  ),
+  p: ({ children }: MarkdownProps) => (
+    <p className="my-2 first:mt-0 last:mb-0">{children}</p>
+  ),
+  strong: ({ children }: MarkdownProps) => (
+    <strong className="font-semibold text-[#e5e2e1]">{children}</strong>
+  ),
+  em: ({ children }: MarkdownProps) => <em className="italic">{children}</em>,
+  ul: ({ children }: MarkdownProps) => (
+    <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>
+  ),
+  ol: ({ children }: MarkdownProps) => (
+    <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>
+  ),
+  li: ({ children }: MarkdownProps) => <li>{children}</li>,
+  blockquote: ({ children }: MarkdownProps) => (
+    <blockquote className="my-2 border-l-2 border-[#3c4a42] pl-3 text-[#bbcabf]">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children }: MarkdownProps) => (
+    <code className="rounded bg-black/30 px-1 font-mono text-xs">{children}</code>
+  ),
+  a: ({ children, href }: MarkdownProps) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-brand-primary underline underline-offset-2"
+    >
+      {children}
+    </a>
+  ),
+};
+
 function ChatMessage({ role, content }: { role: string; content: string }) {
   const isUser = role === 'user';
   return (
@@ -558,7 +605,11 @@ function ChatMessage({ role, content }: { role: string; content: string }) {
         } px-5 py-4 text-sm leading-7 text-[#e5e2e1]`}
       >
         {!isUser && <p className="mb-2 font-mono text-xs text-[#bbcabf]">ChessRun Coach</p>}
-        {content}
+        {isUser ? (
+          content
+        ) : (
+          <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+        )}
       </div>
     </div>
   );
