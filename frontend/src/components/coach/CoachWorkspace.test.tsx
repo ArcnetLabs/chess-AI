@@ -130,6 +130,37 @@ describe('CoachWorkspace', () => {
     );
   });
 
+  it('renders coach replies as markdown without literal markers', async () => {
+    const user = userEvent.setup();
+    mocks.chatService.listSessions.mockResolvedValue([]);
+    mocks.chatService.createSession.mockResolvedValue({
+      session_id: 's1',
+      message: 'Welcome to ChessRun.',
+    });
+    mocks.chatService.sendMessage.mockResolvedValue({
+      session_id: 's1',
+      response: {
+        message: '## Plan\n\n**Keep the gambits** with structure.',
+        intent: 'general_question',
+        suggestions: [],
+        used_llm: true,
+        llm_provider: 'local',
+        cited_pattern_ids: [],
+      },
+    });
+    useChatStore.setState({ userId: 7 });
+
+    render(<CoachWorkspace />);
+
+    const input = screen.getByPlaceholderText('Ask your coach anything...');
+    await user.type(input, 'What now?');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+    expect(await screen.findByRole('heading', { name: 'Plan' })).toBeInTheDocument();
+    expect(screen.getByText('Keep the gambits')).toBeInTheDocument();
+    expect(screen.queryByText(/\*\*/)).toBeNull();
+  });
+
   it('starts an analysis job and tracks its progress', async () => {
     const user = userEvent.setup();
     const watchJob = vi.fn();
