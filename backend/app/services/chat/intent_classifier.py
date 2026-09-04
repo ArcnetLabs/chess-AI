@@ -32,6 +32,15 @@ _COACHING_QUESTION_START = re.compile(
     r"^(?:what|why|how|which|where|when|can|could|should|do|am|is|are)\b"
 )
 
+# Discourse markers that may open a message without changing its intent
+# ("Okay, what's holding me back from 1800?").
+_LEADING_FILLER = re.compile(r"^(?:okay|ok|so|well|alright|hey|now|and|but)\b[,\s]*")
+
+# Intent patterns are matched per sentence: punctuation-separated asides must
+# not let a loose whole-message pattern (e.g. `what.*should.*do`) stitch two
+# unrelated sentences into a false position-analysis request.
+_SENTENCE_BOUNDARY = re.compile(r"[.!?;\n]+")
+
 _PLAYER_FOCUS_SIGNALS = re.compile(
     r"\b(?:i|i'm|i've|me|my|mine|rating|elo|game|games|play|playing)\b"
 )
@@ -116,13 +125,25 @@ class IntentClassifier:
             Tuple of (intent, confidence_score)
         """
         message_lower = message.lower().strip()
-        
-        # Check each intent's patterns
-        for intent, patterns in self.PATTERNS.items():
-            for pattern in patterns:
-                if re.search(pattern, message_lower):
-                    confidence = 0.9  # High confidence for pattern match
-                    return intent, confidence
+        sentences = [
+            sentence.strip()
+            for sentence in _SENTENCE_BOUNDARY.split(message_lower)
+            if sentence.strip()
+        ]
+
+        # Per-sentence pattern matching. Greetings ("Hi. Analyze my game.")
+        # are demoted: they only win when nothing else in the message matches.
+        small_talk_hit = False
+        for sentence in sentences:
+            for intent, patterns in self.PATTERNS.items():
+                if not any(re.search(pattern, sentence) for pattern in patterns):
+                    continue
+                if intent is ChatIntent.SMALL_TALK:
+                    small_talk_hit = True
+                    continue
+                return intent, 0.9
+        if small_talk_hit:
+            return ChatIntent.SMALL_TALK, 0.9
         
         # If we have a current position and message is short, likely wants analysis
         if current_position and len(message.split()) <= 5:
@@ -152,9 +173,10 @@ class IntentClassifier:
         return ChatIntent.UNKNOWN, 0.3
 
     def _looks_like_personal_coaching_question(self, message: str) -> bool:
+        stripped = _LEADING_FILLER.sub("", message.strip()).lower()
         return bool(
-            _COACHING_QUESTION_START.search(message)
-            and _PLAYER_FOCUS_SIGNALS.search(message)
+            _COACHING_QUESTION_START.search(stripped)
+            and _PLAYER_FOCUS_SIGNALS.search(stripped)
         )
 
     def retrieval_content_types(self, intent: ChatIntent, message: str) -> list[str]:
