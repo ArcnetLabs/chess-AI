@@ -1,7 +1,8 @@
 """Semantic memory rows for pgvector-backed coaching retrieval (P3-CM-01).
 
 Embeddings are populated by P3-CM-02; similarity search by P3-CM-03.
-On PostgreSQL uses ``Vector(1536)`` (OpenAI text-embedding-3-small).
+On PostgreSQL uses ``Vector(768)`` (gemini-embedding-001 via the OpenAI
+compatibility layer).
 Under pytest/SQLite uses ``Text`` so ``Base.metadata.create_all`` works
 without the pgvector extension.
 """
@@ -21,7 +22,7 @@ from sqlalchemy.sql import func
 
 from ..core.database import Base
 
-_EMBEDDING_DIM = 1536
+_EMBEDDING_DIM = 768
 
 
 def _embedding_column():

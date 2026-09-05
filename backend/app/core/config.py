@@ -249,6 +249,14 @@ class Settings(BaseSettings):
     }
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "20"))
+    # Optional OpenAI `dimensions` parameter — required when the embedding model
+    # supports Matryoshka truncation and the pgvector column uses a non-default
+    # size (e.g. gemini-embedding-001 @ 768).
+    EMBEDDING_DIMENSIONS: int | None = (
+        int(os.environ["EMBEDDING_DIMENSIONS"])
+        if os.getenv("EMBEDDING_DIMENSIONS", "").strip()
+        else None
+    )
     
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
