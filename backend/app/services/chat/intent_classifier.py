@@ -26,6 +26,10 @@ _COACHING_HISTORY_KEYWORDS = (
     r"\bremember\b",
     r"\blast time\b",
     r"\bprevious advice\b",
+    r"\byour memory\b",
+    r"\bwhat did i say\b",
+    r"\brecall\b",
+    r"\bfirst thing\b",
 )
 
 _COACHING_QUESTION_START = re.compile(

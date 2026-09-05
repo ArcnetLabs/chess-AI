@@ -1,5 +1,6 @@
 """Chess coaching chatbot with Stockfish + LLM hybrid intelligence."""
 
+import os
 import re
 import uuid
 from typing import Optional, Any, List, Dict
@@ -194,6 +195,23 @@ class ChessCoach:
         context.add_message(assistant_message)
 
         self.session_store.save(context, db=db)
+
+        # Fire-and-forget: compress this exchange into the semantic memory
+        # layer so future sessions can recall coaching history. Scheduling
+        # must never fail or delay the chat response itself.
+        if (
+            context.user_id is not None
+            and session_id
+            and os.getenv("TESTING") != "1"
+        ):
+            try:
+                from ...tasks.chat_memory_tasks import schedule_chat_memory_extraction
+
+                schedule_chat_memory_extraction(context.user_id, session_id)
+            except Exception as exc:
+                logger.warning(
+                    f"Chat memory scheduling failed session {session_id}: {exc}"
+                )
 
         response.session_id = session_id
         return response
@@ -729,6 +747,13 @@ class ChessCoach:
             if context.current_position
             else ""
         )
+        recall_honesty_rule = (
+            " Recall honesty: if the user asks what they said, asked, or "
+            "discussed before, answer only from the conversation history "
+            "above and any Relevant Semantic Memories entries. If those "
+            "records do not contain it, say plainly that you do not have a "
+            "record of it rather than inventing one.\n"
+        )
         llm_messages = [
             {
                 "role": "system",
@@ -746,6 +771,7 @@ class ChessCoach:
                     "general chess principles and name what data would make "
                     "your answer more specific."
                     f"{memory_instruction}"
+                    f"{recall_honesty_rule}"
                 ),
             },
         ]
