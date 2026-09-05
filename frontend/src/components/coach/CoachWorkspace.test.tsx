@@ -161,6 +161,44 @@ describe('CoachWorkspace', () => {
     expect(screen.queryByText(/\*\*/)).toBeNull();
   });
 
+  it('renders coach tables as real tables via GFM', async () => {
+    const user = userEvent.setup();
+    mocks.chatService.listSessions.mockResolvedValue([]);
+    mocks.chatService.createSession.mockResolvedValue({
+      session_id: 's1',
+      message: 'Welcome to ChessRun.',
+    });
+    mocks.chatService.sendMessage.mockResolvedValue({
+      session_id: 's1',
+      response: {
+        message:
+          'What to do instead (pick one):\n\n| Situation | Better than attacking again |\n| --- | --- |\n| You are up material from a gambit | Trade pieces, win the endgame |\n| Your attack failed but position is fine | Improve your worst piece |',
+        intent: 'general_question',
+        suggestions: [],
+        used_llm: true,
+        llm_provider: 'local',
+        cited_pattern_ids: [],
+      },
+    });
+    useChatStore.setState({ userId: 7 });
+
+    render(<CoachWorkspace />);
+
+    const input = screen.getByPlaceholderText('Ask your coach anything...');
+    await user.type(input, 'What now?');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+    const table = await screen.findByRole('table');
+    expect(table).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Situation' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', { name: 'Trade pieces, win the endgame' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\| Situation \|/)).toBeNull();
+  });
+
   it('starts an analysis job and tracks its progress', async () => {
     const user = userEvent.setup();
     const watchJob = vi.fn();

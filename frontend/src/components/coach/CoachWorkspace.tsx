@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   AlertTriangle,
   BarChart3,
@@ -593,6 +594,26 @@ const markdownComponents = {
       {children}
     </a>
   ),
+  table: ({ children }: MarkdownProps) => (
+    <div className="my-3 overflow-x-auto">
+      <table className="w-full border-collapse text-left text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: MarkdownProps) => (
+    <thead className="bg-[#201f1f]">{children}</thead>
+  ),
+  tbody: ({ children }: MarkdownProps) => (
+    <tbody className="divide-y divide-[#262626]">{children}</tbody>
+  ),
+  tr: ({ children }: MarkdownProps) => <tr className="align-top">{children}</tr>,
+  th: ({ children }: MarkdownProps) => (
+    <th className="border border-[#262626] px-3 py-2 font-mono text-xs font-semibold uppercase tracking-wide text-[#bbcabf]">
+      {children}
+    </th>
+  ),
+  td: ({ children }: MarkdownProps) => (
+    <td className="border border-[#262626] px-3 py-2 align-top">{children}</td>
+  ),
 };
 
 function ChatMessage({ role, content }: { role: string; content: string }) {
@@ -608,7 +629,9 @@ function ChatMessage({ role, content }: { role: string; content: string }) {
         {isUser ? (
           content
         ) : (
-          <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {content}
+          </ReactMarkdown>
         )}
       </div>
     </div>
