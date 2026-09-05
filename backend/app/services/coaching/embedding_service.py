@@ -10,7 +10,7 @@ from loguru import logger
 
 from app.core.config import settings
 
-EMBEDDING_DIM = 1536
+EMBEDDING_DIM = 768
 
 _http_client: Optional[httpx.AsyncClient] = None
 
@@ -65,6 +65,8 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
             "model": settings.EMBEDDING_MODEL,
             "input": batch,
         }
+        if settings.EMBEDDING_DIMENSIONS is not None:
+            payload["dimensions"] = settings.EMBEDDING_DIMENSIONS
         try:
             response = await client.post("/embeddings", json=payload)
             response.raise_for_status()
