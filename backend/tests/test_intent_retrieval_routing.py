@@ -63,6 +63,10 @@ def test_retrieval_content_types_default_pattern(classifier, intent):
         "What did my coach say last time?",
         "What was your previous advice on tactics?",
         "Can you coach me on openings?",
+        "I want to test your memory",
+        "What did I say about my pawn structure?",
+        "Can you recall our discussion on blunders?",
+        "What was the first thing I said today?",
     ],
 )
 def test_retrieval_content_types_includes_coaching_keywords(classifier, message):

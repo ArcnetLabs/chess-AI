@@ -21,6 +21,7 @@ celery_app = Celery(
         'app.tasks.retention_tasks',
         'app.tasks.proactive_coaching_tasks',
         'app.tasks.embedding_tasks',
+        'app.tasks.chat_memory_tasks',
     ]
 )
 
@@ -43,6 +44,7 @@ celery_app.conf.update(
         'app.tasks.proactive_coaching_tasks.scheduled_weekly_digest_dispatch_task': {'queue': 'analysis'},
         'app.tasks.proactive_coaching_tasks.send_weekly_digest_task': {'queue': 'analysis'},
         'app.tasks.embedding_tasks.embed_user_patterns_task': {'queue': 'analysis'},
+        'app.tasks.chat_memory_tasks.extract_chat_memories_task': {'queue': 'analysis'},
     },
     
     task_default_queue='analysis',
