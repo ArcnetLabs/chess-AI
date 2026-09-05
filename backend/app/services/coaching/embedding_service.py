@@ -71,8 +71,13 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
             response = await client.post("/embeddings", json=payload)
             response.raise_for_status()
             data = response.json()
-            ordered = sorted(data["data"], key=lambda row: row["index"])
-            all_embeddings.extend(row["embedding"] for row in ordered)
+            # OpenAI returns an "index" per item; some OpenAI-compatible
+            # providers (e.g. Gemini) omit it — fall back to payload order.
+            ordered = sorted(
+                enumerate(data["data"]),
+                key=lambda pair: pair[1].get("index", pair[0]),
+            )
+            all_embeddings.extend(row["embedding"] for _, row in ordered)
         except httpx.HTTPError as exc:
             logger.error(f"Embedding API error: {exc}")
             raise
