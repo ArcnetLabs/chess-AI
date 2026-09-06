@@ -67,6 +67,7 @@ def test_retrieval_content_types_default_pattern(classifier, intent):
         "What did I say about my pawn structure?",
         "Can you recall our discussion on blunders?",
         "What was the first thing I said today?",
+        "hey, what's the first message i sent in this chat?",
     ],
 )
 def test_retrieval_content_types_includes_coaching_keywords(classifier, message):

@@ -78,21 +78,65 @@ def test_greeting_then_request_routes_to_request(classifier):
     assert intent == ChatIntent.ANALYZE_GAME
 
 
+def test_freely_phrased_recall_question_not_unknown(classifier):
+    """Prod incident: "i meant the first message I sent not your welcome..."
+    classified UNKNOWN (0.3) and retrieval was skipped entirely, so the coach
+    answered from a truncated window and disowned its own earlier quote."""
+    intent, confidence = classifier.classify(
+        "i meant the first message I sent not your welcome message"
+    )
+
+    assert intent == ChatIntent.GENERAL_QUESTION
+    assert confidence == 0.5
+
+
 @pytest.mark.parametrize(
     "message,expected",
     [
         ("Hello!", ChatIntent.SMALL_TALK),
         ("hey, how are you", ChatIntent.SMALL_TALK),
+        ("hey", ChatIntent.SMALL_TALK),
+        ("hello there", ChatIntent.SMALL_TALK),
         ("Analyze this position", ChatIntent.ANALYZE_POSITION),
         ("Why did I play e4?", ChatIntent.EXPLAIN_MOVE),
         ("Compare e4 and d4", ChatIntent.COMPARE_MOVES),
         ("What patterns do you see in my games?", ChatIntent.GENERAL_QUESTION),
         ("What's holding me back from 1800?", ChatIntent.GENERAL_QUESTION),
+        (
+            "hey, what's the first message i sent in this chat?",
+            ChatIntent.GENERAL_QUESTION,
+        ),
+        (
+            "hey, what's the best opening for beginners?",
+            ChatIntent.GENERAL_QUESTION,
+        ),
     ],
 )
 def test_single_sentence_intents_unchanged(classifier, message, expected):
     intent, _ = classifier.classify(message)
     assert intent == expected
+
+
+@pytest.mark.asyncio
+async def test_greeting_prefixed_recall_question_reaches_llm_not_canned_greeting(db, coach_user):
+    """Prod incident: "hey, what's the first message i sent in this chat?" was
+    classified SMALL_TALK and answered with the canned welcome template — no
+    LLM, no memory retrieval. It must reach the grounded coach instead."""
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Your first message was about your opening repertoire."}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    response = await coach.process_message(
+        message="hey, what's the first message i sent in this chat?",
+        user_id=coach_user.id,
+        db=db,
+    )
+
+    assert response.used_llm is True
+    assert "Hi! I'm your chess coach" not in response.message
+    mock_client.chat_completion.assert_awaited_once()
 
 
 @pytest.mark.asyncio
