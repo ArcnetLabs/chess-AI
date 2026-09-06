@@ -30,6 +30,7 @@ _COACHING_HISTORY_KEYWORDS = (
     r"\bwhat did i say\b",
     r"\brecall\b",
     r"\bfirst thing\b",
+    r"\bfirst message\b",
 )
 
 _COACHING_QUESTION_START = re.compile(
@@ -39,6 +40,35 @@ _COACHING_QUESTION_START = re.compile(
 # Discourse markers that may open a message without changing its intent
 # ("Okay, what's holding me back from 1800?").
 _LEADING_FILLER = re.compile(r"^(?:okay|ok|so|well|alright|hey|now|and|but)\b[,\s]*")
+
+# A bare greeting token opening a sentence ("hey, ...") is a discourse
+# marker, not the message itself.
+_GREETING_PREFIX = re.compile(r"^(?:hi|hello|hey|greetings)\b[,\s]*")
+
+_GREETING_INTENT_PATTERNS = (
+    r"^(hi|hello|hey|greetings)",
+    r"how.*are.*you",
+    r"thank.*you",
+    r"thanks",
+    r"bye",
+    r"goodbye",
+    r"see.*you",
+)
+
+
+def _is_small_talk_sentence(sentence: str) -> bool:
+    """Greeting/thanks/bye patterns only yield small talk when the rest of the
+    sentence is empty, a pleasantry, or a very short acknowledgement — never
+    a real question ("hey, what's the first message i sent in this chat?"
+    must reach the grounded coach, not the canned greeting)."""
+    remainder = _GREETING_PREFIX.sub("", sentence).strip(" .!?").strip()
+    if not remainder:
+        return True
+    if "?" in remainder:
+        return False
+    if any(re.search(pattern, remainder) for pattern in _GREETING_INTENT_PATTERNS):
+        return True
+    return len(remainder.split()) <= 2
 
 # Intent patterns are matched per sentence: punctuation-separated asides must
 # not let a loose whole-message pattern (e.g. `what.*should.*do`) stitch two
@@ -136,14 +166,17 @@ class IntentClassifier:
         ]
 
         # Per-sentence pattern matching. Greetings ("Hi. Analyze my game.")
-        # are demoted: they only win when nothing else in the message matches.
+        # are demoted: they only win when nothing else in the message matches,
+        # and a greeting prefix never turns a real question into small talk
+        # ("hey, what's the first message i sent in this chat?").
         small_talk_hit = False
         for sentence in sentences:
             for intent, patterns in self.PATTERNS.items():
                 if not any(re.search(pattern, sentence) for pattern in patterns):
                     continue
                 if intent is ChatIntent.SMALL_TALK:
-                    small_talk_hit = True
+                    if _is_small_talk_sentence(sentence):
+                        small_talk_hit = True
                     continue
                 return intent, 0.9
         if small_talk_hit:
@@ -172,7 +205,13 @@ class IntentClassifier:
         # profile retrieval instead of falling through to the generic unknown reply.
         if self._looks_like_personal_coaching_question(message_lower):
             return ChatIntent.GENERAL_QUESTION, 0.45
-        
+
+        # Recall questions phrased freely ("i meant the first message I sent,
+        # not your welcome") are coaching-history requests: route them to the
+        # grounded coach instead of UNKNOWN, which skips memory retrieval.
+        if self._message_requests_coaching_history(message_lower):
+            return ChatIntent.GENERAL_QUESTION, 0.5
+
         # Unknown intent
         return ChatIntent.UNKNOWN, 0.3
 
@@ -199,6 +238,10 @@ class IntentClassifier:
             return content_types
 
         return []
+
+    def requests_coaching_history(self, message: str) -> bool:
+        """Public gate for the deterministic conversation-record grounding."""
+        return self._message_requests_coaching_history(message)
 
     def _message_requests_coaching_history(self, message: str) -> bool:
         message_lower = message.lower()

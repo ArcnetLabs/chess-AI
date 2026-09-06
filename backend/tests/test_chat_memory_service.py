@@ -279,6 +279,40 @@ async def test_llm_coach_reply_includes_recall_honesty_rule():
 
 
 @pytest.mark.asyncio
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories_async")
+async def test_recall_question_grounds_earliest_conversation_record(
+    mock_retrieve_async, db, monkeypatch
+):
+    """Prod incident: recall questions answered from the truncated 7-message
+    window (and even disowned earlier correct quotes). The earliest exchange
+    must be injected deterministically from the full session history."""
+    monkeypatch.setattr(settings, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key")
+    mock_retrieve_async.return_value = []
+
+    user = _create_user(db)
+    _create_session_record(db, user, _exchange_history())
+    ai_client = _CapturingAIClient()
+    coach = ChessCoach(ai_client=ai_client)
+
+    await coach.process_message(
+        message="what's the first message i sent in this chat?",
+        session_id=SESSION_ID,
+        user_id=user.id,
+        db=db,
+    )
+
+    system_content = ai_client.captured[0]["content"]
+    assert "Conversation Record" in system_content
+    assert "I keep losing pieces in the middlegame." in system_content
+    mock_retrieve_async.assert_awaited_once()
+    assert mock_retrieve_async.call_args.kwargs["content_types"] == [
+        "pattern",
+        "coaching",
+    ]
+
+
+@pytest.mark.asyncio
 @patch("app.tasks.chat_memory_tasks.redis_client", None)
 @patch("app.tasks.chat_memory_tasks.extract_chat_memories_task.apply_async")
 async def test_process_message_schedules_chat_memory_extraction(

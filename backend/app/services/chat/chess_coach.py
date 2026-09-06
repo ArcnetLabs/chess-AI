@@ -690,6 +690,10 @@ class ChessCoach:
                     "Answer from general chess principles and say when you would "
                     "need their game data to be more specific."
                 )
+                if self.intent_classifier.requests_coaching_history(message):
+                    record_block = self._earliest_exchanges_block(context)
+                    if record_block:
+                        grounding_block = f"{grounding_block}\n\n{record_block}"
                 result = await self._llm_coach_reply(message, context, grounding_block)
                 response_text = result.get("content") or ""
                 if not response_text.strip():
@@ -726,6 +730,48 @@ class ChessCoach:
             llm_latency_ms=llm_latency_ms,
         )
 
+    def _earliest_exchanges_block(
+        self, context: ChatContext, max_exchanges: int = 3
+    ) -> str:
+        """Deterministic record of the earliest exchanges in this thread.
+
+        Similarity retrieval cannot reliably rank "the first message I sent";
+        the full session history is already in memory (only the LLM window is
+        capped), so recall questions get the actual earliest user→assistant
+        pairs instead of a best-guess from a truncated window.
+        """
+        pairs: List[tuple[ChatMessage, ChatMessage]] = []
+        pending_user: Optional[ChatMessage] = None
+        for history_message in context.conversation_history:
+            if history_message.role == MessageRole.USER:
+                if pending_user is None:
+                    pending_user = history_message
+            elif (
+                history_message.role == MessageRole.ASSISTANT
+                and pending_user is not None
+            ):
+                pairs.append((pending_user, history_message))
+                pending_user = None
+        if not pairs:
+            return ""
+
+        lines = ["## Conversation Record (earliest messages in this thread)", ""]
+        for user_message, assistant_message in pairs[:max_exchanges]:
+            when = ""
+            if user_message.timestamp is not None:
+                when = f" ({user_message.timestamp.strftime('%Y-%m-%d')})"
+            lines.append(
+                f"- Player{when}: {' '.join(user_message.content.split())[:280]}"
+            )
+            lines.append(
+                f"- Coach: {' '.join(assistant_message.content.split())[:280]}"
+            )
+        lines.append(
+            "Treat these as the authoritative earliest messages of this thread "
+            "for 'first message' / 'first thing I said' questions."
+        )
+        return "\n".join(lines)
+
     async def _llm_coach_reply(
         self, message: str, context: ChatContext, grounding_block: str
     ) -> Dict[str, Any]:
@@ -750,9 +796,10 @@ class ChessCoach:
         recall_honesty_rule = (
             " Recall honesty: if the user asks what they said, asked, or "
             "discussed before, answer only from the conversation history "
-            "above and any Relevant Semantic Memories entries. If those "
-            "records do not contain it, say plainly that you do not have a "
-            "record of it rather than inventing one.\n"
+            "above, the Conversation Record section when present, and any "
+            "Relevant Semantic Memories entries. If those records do not "
+            "contain it, say plainly that you do not have a record of it "
+            "rather than inventing one.\n"
         )
         llm_messages = [
             {
