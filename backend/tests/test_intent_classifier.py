@@ -119,17 +119,17 @@ def test_single_sentence_intents_unchanged(classifier, message, expected):
 
 @pytest.mark.asyncio
 async def test_greeting_prefixed_recall_question_reaches_llm_not_canned_greeting(db, coach_user):
-    """Prod incident: "hey, what's the first message i sent in this chat?" was
-    classified SMALL_TALK and answered with the canned welcome template — no
-    LLM, no memory retrieval. It must reach the grounded coach instead."""
+    """Prod incident: "hey, <question>..." was classified SMALL_TALK and answered
+    with the canned welcome template — no LLM, no memory retrieval. Greeting
+    prefixes must not swallow questions: this reaches the grounded coach."""
     mock_client = MagicMock()
     mock_client.chat_completion = AsyncMock(
-        return_value={"content": "Your first message was about your opening repertoire."}
+        return_value={"content": "We talked about your pawn structure last time."}
     )
     coach = ChessCoach(ai_client=mock_client)
 
     response = await coach.process_message(
-        message="hey, what's the first message i sent in this chat?",
+        message="hey, can you recall what we discussed about pawn structures?",
         user_id=coach_user.id,
         db=db,
     )

@@ -234,3 +234,104 @@ async def test_missing_keys_skip_provider(monkeypatch):
         await client.chat_completion_with_fallback(
             messages=[{"role": "user", "content": "Hi"}]
         )
+
+
+@pytest.mark.asyncio
+async def test_local_empty_completion_falls_through_to_openrouter(monkeypatch):
+    """Prod incident: glm-5.3-flash sometimes returns HTTP 200 with NO content.
+    That must count as a provider failure so the chain tries the next provider
+    instead of handing empty text to the coach (which used to trigger the
+    canned-template fallback)."""
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_PRIMARY_PROVIDER", "local"
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_FALLBACK_CHAIN",
+        "local,openrouter",
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.OPENROUTER_API_KEY", "test-key"
+    )
+
+    health_response = MagicMock(status_code=200)
+    empty_chat_response = MagicMock()
+    empty_chat_response.raise_for_status = MagicMock()
+    empty_chat_response.json.return_value = {
+        "model": "glm-5.3-flash",
+        "choices": [{"message": {"content": ""}}],
+        "usage": {},
+    }
+
+    openrouter_response = MagicMock()
+    openrouter_response.raise_for_status = MagicMock()
+    openrouter_response.json.return_value = {
+        "model": "google/gemma-2-9b-it:free",
+        "choices": [{"message": {"content": "Hello from OpenRouter"}}],
+        "usage": {},
+    }
+
+    mock_openrouter_client = AsyncMock()
+    mock_openrouter_client.post = AsyncMock(return_value=openrouter_response)
+
+    with patch(
+        "app.services.integration.ai_client.httpx.AsyncClient",
+        side_effect=[
+            _make_async_client_mock(get_response=health_response),
+            _make_async_client_mock(post_response=empty_chat_response),
+        ],
+    ), patch.object(
+        AIClient,
+        "_get_openrouter_client",
+        return_value=mock_openrouter_client,
+    ):
+        result = await AIClient().chat_completion(
+            messages=[{"role": "user", "content": "Hi"}]
+        )
+
+    assert result["provider"] == "openrouter"
+    assert result["content"] == "Hello from OpenRouter"
+    assert result["fallback_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_local_sends_session_header_when_configured(monkeypatch):
+    """OpenCode Go requires x-opencode-session; without it requests get a 400
+    (MissingSessionID) or degraded routing with empty completions."""
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_PRIMARY_PROVIDER", "local"
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_FALLBACK_CHAIN", "local"
+    )
+    monkeypatch.setattr(
+        "app.services.integration.ai_client.settings.LLM_LOCAL_SESSION_ID",
+        "chessrun-prod-01",
+    )
+
+    health_response = MagicMock(status_code=200)
+    chat_response = MagicMock()
+    chat_response.raise_for_status = MagicMock()
+    chat_response.json.return_value = {
+        "model": "glm-5.3-flash",
+        "choices": [{"message": {"content": "PROVIDER OK"}}],
+        "usage": {},
+    }
+
+    constructor_kwargs = []
+
+    def _client_factory(*args, **kwargs):
+        constructor_kwargs.append(kwargs)
+        if len(constructor_kwargs) == 1:
+            return _make_async_client_mock(get_response=health_response)
+        return _make_async_client_mock(post_response=chat_response)
+
+    with patch(
+        "app.services.integration.ai_client.httpx.AsyncClient",
+        side_effect=_client_factory,
+    ):
+        result = await AIClient().chat_completion(
+            messages=[{"role": "user", "content": "Hi"}]
+        )
+
+    assert result["provider"] == "local"
+    assert constructor_kwargs[1]["headers"]["x-opencode-session"] == "chessrun-prod-01"

@@ -296,7 +296,7 @@ async def test_recall_question_grounds_earliest_conversation_record(
     coach = ChessCoach(ai_client=ai_client)
 
     await coach.process_message(
-        message="what's the first message i sent in this chat?",
+        message="can you recall what we discussed in this chat?",
         session_id=SESSION_ID,
         user_id=user.id,
         db=db,
@@ -311,6 +311,37 @@ async def test_recall_question_grounds_earliest_conversation_record(
         "pattern",
         "coaching",
     ]
+
+
+@pytest.mark.asyncio
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories_async")
+async def test_first_message_recall_answered_deterministically(
+    mock_retrieve_async, db, monkeypatch
+):
+    """"what's the first message I sent" is a fact from the session record,
+    not a generation task: it must be answered deterministically without an
+    LLM call (three prod failures showed models paraphrase it away)."""
+    monkeypatch.setattr(settings, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key")
+    mock_retrieve_async.return_value = []
+
+    user = _create_user(db)
+    _create_session_record(db, user, _exchange_history())
+    ai_client = _CapturingAIClient()
+    coach = ChessCoach(ai_client=ai_client)
+
+    response = await coach.process_message(
+        message="hey, what's the first message i sent in this chat?",
+        session_id=SESSION_ID,
+        user_id=user.id,
+        db=db,
+    )
+
+    assert response.used_llm is False
+    assert "Your first message in this thread was" in response.message
+    assert "I keep losing pieces in the middlegame." in response.message
+    mock_retrieve_async.assert_not_awaited()
+    assert ai_client.captured is None
 
 
 @pytest.mark.asyncio

@@ -103,16 +103,30 @@ def test_rating_goal_routes_to_general_coaching(classifier):
     assert confidence == 0.45
 
 
-def test_profile_question_fallback_uses_coach_language():
-    coach = ChessCoach()
-    response = coach._general_question_template(
-        "games_analyzed_count: 10\n"
-        "primary_weaknesses: Opening-phase ACPL is elevated\n"
+class _BrokenAIClient:
+    """Simulates every provider failing (e.g. empty completions up the chain)."""
+
+    async def chat_completion(self, messages, temperature, max_tokens):
+        raise RuntimeError(
+            "All LLM providers failed: local: empty; openrouter: 429"
+        )
+
+
+@pytest.mark.asyncio
+async def test_general_question_llm_failure_returns_honest_failure(db, routing_user):
+    """Canned template fallbacks are gone: when the LLM cannot answer, the
+    coach must say so plainly instead of fabricating a coach answer."""
+    coach = ChessCoach(ai_client=_BrokenAIClient())
+
+    response = await coach.process_message(
+        message="How can I improve my endgames?",
+        user_id=routing_user.id,
+        db=db,
     )
 
-    assert "10 games" in response
-    assert "openings" in response
-    assert "ACPL" not in response
+    assert "can't reach my language-model service" in response.message
+    assert "One useful theme" not in response.message
+    assert response.used_llm is False
 
 
 @patch("app.services.chat.context_assembler.retrieve_semantic_memories")
