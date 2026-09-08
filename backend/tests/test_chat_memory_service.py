@@ -345,6 +345,63 @@ async def test_first_message_recall_answered_deterministically(
 
 
 @pytest.mark.asyncio
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories_async")
+async def test_chronology_injected_for_recall_questions(
+    mock_retrieve_async, db, monkeypatch
+):
+    """Prod incident: "what did i ask after that?" matched no keyword, so no
+    record was injected and the model hallucinated from the 7-message window.
+    Recall questions now get the full dated player chronology."""
+    monkeypatch.setattr(settings, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key")
+    mock_retrieve_async.return_value = []
+
+    user = _create_user(db)
+    _create_session_record(db, user, _exchange_history())
+    ai_client = _CapturingAIClient()
+    coach = ChessCoach(ai_client=ai_client)
+
+    await coach.process_message(
+        message="what did i ask after that?",
+        session_id=SESSION_ID,
+        user_id=user.id,
+        db=db,
+    )
+
+    system_content = ai_client.captured[0]["content"]
+    assert "Player message chronology" in system_content
+    assert "I keep losing pieces in the middlegame." in system_content
+
+
+@pytest.mark.asyncio
+@patch("app.services.chat.context_assembler.retrieve_semantic_memories_async")
+async def test_record_block_injected_for_every_coach_call(
+    mock_retrieve_async, db, monkeypatch
+):
+    """Non-recall coaching questions also get the Conversation Record (so the
+    thread's beginning is always grounded), but not the chronology section."""
+    monkeypatch.setattr(settings, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key")
+    mock_retrieve_async.return_value = []
+
+    user = _create_user(db)
+    _create_session_record(db, user, _exchange_history())
+    ai_client = _CapturingAIClient()
+    coach = ChessCoach(ai_client=ai_client)
+
+    await coach.process_message(
+        message="How can I improve my endgames?",
+        session_id=SESSION_ID,
+        user_id=user.id,
+        db=db,
+    )
+
+    system_content = ai_client.captured[0]["content"]
+    assert "Conversation Record" in system_content
+    assert "Player message chronology" not in system_content
+
+
+@pytest.mark.asyncio
 @patch("app.tasks.chat_memory_tasks.redis_client", None)
 @patch("app.tasks.chat_memory_tasks.extract_chat_memories_task.apply_async")
 async def test_process_message_schedules_chat_memory_extraction(
