@@ -65,6 +65,8 @@ def test_retrieval_content_types_default_pattern(classifier, intent):
         "Can you coach me on openings?",
         "I want to test your memory",
         "What did I say about my pawn structure?",
+        "What did I ask after that?",
+        "What did we talk about before the middlegame?",
         "Can you recall our discussion on blunders?",
         "What was the first thing I said today?",
         "hey, what's the first message i sent in this chat?",

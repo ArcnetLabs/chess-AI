@@ -696,10 +696,8 @@ class ChessCoach:
         # from the session history, not something to delegate to a model that
         # can paraphrase it away (three prod failures proved this). Runs before
         # retrieval so the record answer needs neither embeddings nor the LLM.
-        if (
-            self.intent_classifier.requests_coaching_history(message)
-            and re.search(r"\bfirst\b", message.lower())
-        ):
+        recall = self.intent_classifier.requests_coaching_history(message)
+        if recall and re.search(r"\bfirst\b", message.lower()):
             first_answer = self._first_exchange_answer(context)
             if first_answer is not None:
                 return first_answer
@@ -724,10 +722,13 @@ class ChessCoach:
                     "Answer from general chess principles and say when you would "
                     "need their game data to be more specific."
                 )
-                if self.intent_classifier.requests_coaching_history(message):
-                    record_block = self._earliest_exchanges_block(context)
-                    if record_block:
-                        grounding_block = f"{grounding_block}\n\n{record_block}"
+                # Every coach call gets the Conversation Record; recall
+                # questions additionally get the full player chronology.
+                record_block = self._earliest_exchanges_block(
+                    context, include_chronology=recall
+                )
+                if record_block:
+                    grounding_block = f"{grounding_block}\n\n{record_block}"
                 result = await self._llm_coach_reply(message, context, grounding_block)
                 response_text = result.get("content") or ""
                 if not response_text.strip():
@@ -804,14 +805,17 @@ class ChessCoach:
         )
 
     def _earliest_exchanges_block(
-        self, context: ChatContext, max_exchanges: int = 3
+        self, context: ChatContext, max_exchanges: int = 3, include_chronology: bool = False
     ) -> str:
         """Deterministic record of the earliest exchanges in this thread.
 
         Similarity retrieval cannot reliably rank "the first message I sent";
         the full session history is already in memory (only the LLM window is
         capped), so recall questions get the actual earliest user→assistant
-        pairs instead of a best-guess from a truncated window.
+        pairs instead of a best-guess from a truncated window. With
+        ``include_chronology`` a dated list of every player message is
+        appended so "what did I ask after/before X" questions are grounded
+        across the whole thread.
         """
         pairs = self._earliest_pairs(context)
         if not pairs:
@@ -846,6 +850,33 @@ class ChessCoach:
             "and the date. Coach lines in this record are your own replies, "
             "never the player's messages."
         )
+        if include_chronology:
+            user_messages = [
+                message
+                for message in context.conversation_history
+                if message.role == MessageRole.USER
+            ]
+            lines.extend(
+                [
+                    "",
+                    "## Player message chronology (this thread, in order)",
+                    "",
+                ]
+            )
+            for user_message in user_messages[-60:]:
+                when = (
+                    user_message.timestamp.strftime("%Y-%m-%d")
+                    if user_message.timestamp is not None
+                    else "unknown date"
+                )
+                lines.append(
+                    f"- ({when}) {' '.join(user_message.content.split())[:100]}"
+                )
+            lines.append(
+                "Use this chronology to answer 'what did I ask / say / talk "
+                "about' questions about any point in the thread — quote the "
+                "player's actual message that matches the position they mean."
+            )
         return "\n".join(lines)
 
     async def _llm_coach_reply(
