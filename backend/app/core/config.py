@@ -144,6 +144,9 @@ class Settings(BaseSettings):
     )
     LLM_LOCAL_MODEL: str = os.getenv("LLM_LOCAL_MODEL", "llama3:8b-instruct")
     LLM_LOCAL_API_KEY: str = os.getenv("LLM_LOCAL_API_KEY", "")
+    # OpenCode Go routes requests per session; without a session id it may
+    # return 400 (MissingSessionID) or degraded/empty completions.
+    LLM_LOCAL_SESSION_ID: str = os.getenv("LLM_LOCAL_SESSION_ID", "")
     # A local development model may need longer than a hosted provider for a
     # first response. Keep its output intentionally concise for coach chat.
     LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "75"))

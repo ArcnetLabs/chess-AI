@@ -51,6 +51,23 @@ def _friendly_failure_response(intent: ChatIntent, error: Exception) -> ChatResp
     )
 
 
+def _llm_unavailable_response(intent: ChatIntent, error: Exception) -> ChatResponse:
+    """Honest failure reply when the LLM cannot answer.
+
+    User directive: when LLM calls fail, say so plainly — never fall back to
+    a canned template that pretends to be a coach answer.
+    """
+    logger.warning(f"LLM unavailable for {intent.value}: {error}")
+    return ChatResponse(
+        message=(
+            "I can't reach my language-model service right now, so I can't "
+            "answer that properly. Please try again in a moment — if it keeps "
+            "happening, the LLM provider is probably down."
+        ),
+        intent=intent,
+    )
+
+
 class ChessCoach:
     """
     AI Chess Coach that combines Stockfish analysis with conversational AI.
@@ -173,7 +190,12 @@ class ChessCoach:
                 message, context, db=db, intent=intent
             )
         elif intent == ChatIntent.SMALL_TALK:
-            response = await self._handle_small_talk(message, context)
+            # Canned greeting templates were removed: small talk goes through
+            # the LLM like every other conversational intent, and LLM failures
+            # surface the honest unavailability message.
+            response = await self._handle_general_question(
+                message, context, db=db, intent=intent
+            )
         else:
             # The coach is a conversation-first experience. Intent detection is
             # deliberately conservative, so route any otherwise-unclassified
@@ -670,6 +692,18 @@ class ChessCoach:
         fallback_reason: Optional[str] = None
         llm_latency_ms: Optional[int] = None
 
+        # Deterministic record answer: the earliest player message is a fact
+        # from the session history, not something to delegate to a model that
+        # can paraphrase it away (three prod failures proved this). Runs before
+        # retrieval so the record answer needs neither embeddings nor the LLM.
+        if (
+            self.intent_classifier.requests_coaching_history(message)
+            and re.search(r"\bfirst\b", message.lower())
+        ):
+            first_answer = self._first_exchange_answer(context)
+            if first_answer is not None:
+                return first_answer
+
         if db is not None and context.user_id is not None:
             content_types = self.intent_classifier.retrieval_content_types(
                 intent, message
@@ -705,12 +739,12 @@ class ChessCoach:
                 fallback_reason = result.get("fallback_reason")
                 llm_latency_ms = result.get("latency_ms")
             except Exception as e:
-                logger.warning(f"LLM general question failed, using template: {e}")
-                response_text = self._general_question_template(coach_context)
-                fallback_used = True
-                fallback_reason = "LLM provider unavailable"
+                return _llm_unavailable_response(ChatIntent.GENERAL_QUESTION, e)
         else:
-            response_text = self._general_question_template(coach_context)
+            return _llm_unavailable_response(
+                ChatIntent.GENERAL_QUESTION,
+                RuntimeError("no AI client configured"),
+            )
 
         return ChatResponse(
             message=response_text,
@@ -730,16 +764,12 @@ class ChessCoach:
             llm_latency_ms=llm_latency_ms,
         )
 
-    def _earliest_exchanges_block(
-        self, context: ChatContext, max_exchanges: int = 3
-    ) -> str:
-        """Deterministic record of the earliest exchanges in this thread.
-
-        Similarity retrieval cannot reliably rank "the first message I sent";
-        the full session history is already in memory (only the LLM window is
-        capped), so recall questions get the actual earliest user→assistant
-        pairs instead of a best-guess from a truncated window.
-        """
+    @staticmethod
+    def _earliest_pairs(
+        context: ChatContext,
+    ) -> List[tuple[ChatMessage, ChatMessage]]:
+        """Pair user messages with the assistant replies that follow them,
+        in chronological order, across the FULL session history."""
         pairs: List[tuple[ChatMessage, ChatMessage]] = []
         pending_user: Optional[ChatMessage] = None
         for history_message in context.conversation_history:
@@ -752,6 +782,38 @@ class ChessCoach:
             ):
                 pairs.append((pending_user, history_message))
                 pending_user = None
+        return pairs
+
+    def _first_exchange_answer(self, context: ChatContext) -> Optional[ChatResponse]:
+        """Deterministic answer for 'what was my first message' questions."""
+        pairs = self._earliest_pairs(context)
+        if not pairs:
+            return None
+        first_user = pairs[0][0]
+        when = (
+            first_user.timestamp.strftime("%Y-%m-%d")
+            if first_user.timestamp is not None
+            else "an unknown date"
+        )
+        return ChatResponse(
+            message=(
+                "Your first message in this thread was "
+                f"({when}):\n\n> {' '.join(first_user.content.split())[:500]}"
+            ),
+            intent=ChatIntent.GENERAL_QUESTION,
+        )
+
+    def _earliest_exchanges_block(
+        self, context: ChatContext, max_exchanges: int = 3
+    ) -> str:
+        """Deterministic record of the earliest exchanges in this thread.
+
+        Similarity retrieval cannot reliably rank "the first message I sent";
+        the full session history is already in memory (only the LLM window is
+        capped), so recall questions get the actual earliest user→assistant
+        pairs instead of a best-guess from a truncated window.
+        """
+        pairs = self._earliest_pairs(context)
         if not pairs:
             return ""
 
@@ -1080,108 +1142,6 @@ class ChessCoach:
         )
         return " ".join(parts)
 
-    def _general_question_template(self, coach_context: str) -> str:
-        """Fallback template when LLM is unavailable."""
-        if coach_context:
-            games_match = re.search(r"games_analyzed_count:\s*(\d+)", coach_context)
-            weakness_match = re.search(r"primary_weaknesses:\s*([^\n;]+)", coach_context)
-            games = games_match.group(1) if games_match else None
-            weakness = weakness_match.group(1).strip() if weakness_match else ""
-
-            if "opening" in weakness.lower():
-                focus = "your openings are creating avoidable problems before the middlegame begins"
-                next_step = "review the first position where the game starts to drift and turn it into one simple opening rule"
-            elif "middlegame" in weakness.lower():
-                focus = "your biggest gains are likely to come from clearer middlegame plans"
-                next_step = "compare candidate moves in one recurring position and build a repeatable thinking process"
-            elif "endgame" in weakness.lower():
-                focus = "your endgame technique is the clearest improvement opportunity"
-                next_step = "practice the winning or drawing method in one simplified position from your games"
-            else:
-                focus = "consistency is the main theme I want to investigate with you"
-                next_step = "work through your decision-making in one recent critical position"
-
-            sample = f" across the {games} games I've reviewed" if games else " from the games I've reviewed"
-            return (
-                f"One useful theme stands out{sample}: {focus}. "
-                f"I would start small: {next_step}. "
-                "Would you like to look at an example from your games?"
-            )
-
-        personalized = ""
-        if coach_context:
-            personalized = (
-                f"\n\n**Personalized context from your games:**\n"
-                f"{coach_context}\n"
-            )
-
-        return f"""That's a great question about chess improvement!
-
-Based on general chess principles, here are my recommendations:
-
-**Study Focus:**
-• Tactics training (puzzles daily)
-• Endgame fundamentals
-• Opening principles (not memorization)
-
-**Practice:**
-• Play longer time controls
-• Analyze your games
-• Review master games
-
-**Resources:**
-• Chess.com tactics trainer
-• Lichess studies
-• YouTube channels (GothamChess, ChessVibes)
-{personalized}
-Would you like me to analyze one of your recent games to give more specific advice?
-"""
-    
-    async def _handle_small_talk(
-        self,
-        message: str,
-        context: ChatContext
-    ) -> ChatResponse:
-        """Handle small talk and greetings."""
-        
-        message_lower = message.lower()
-        
-        if any(greeting in message_lower for greeting in ["hi", "hello", "hey"]):
-            response = "Hi! I'm your chess coach. I can help you analyze positions, explain moves, and improve your game. What would you like to work on today?"
-        elif "thank" in message_lower:
-            response = "You're welcome! Happy to help you improve your chess. What else can I assist you with?"
-        elif any(bye in message_lower for bye in ["bye", "goodbye", "see you"]):
-            response = "Goodbye! Keep practicing and I'll see you next time. Remember: tactics, tactics, tactics! 😊"
-        else:
-            response = "I'm here to help you with chess! Feel free to ask me about positions, moves, or general chess improvement."
-        
-        return ChatResponse(
-            message=response,
-            intent=ChatIntent.SMALL_TALK,
-            suggestions=[
-                "Analyze a position",
-                "Explain a move",
-                "Chess improvement tips"
-            ]
-        )
-    
-    async def _handle_unknown(
-        self,
-        message: str,
-        context: ChatContext
-    ) -> ChatResponse:
-        """Handle messages with unknown intent."""
-        
-        return ChatResponse(
-            message="I'm not sure I understood that. I can help you with:\n\n• Analyzing chess positions\n• Explaining specific moves\n• Comparing different moves\n• General chess improvement advice\n\nWhat would you like to do?",
-            intent=ChatIntent.UNKNOWN,
-            suggestions=[
-                "Analyze this position",
-                "Explain a move",
-                "Chess tips"
-            ]
-        )
-    
     def _format_evaluation(self, evaluation: float, mate_in: Optional[int] = None) -> str:
         """Format evaluation score for display."""
         if mate_in is not None:
