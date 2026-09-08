@@ -304,6 +304,7 @@ async def test_recall_question_grounds_earliest_conversation_record(
 
     system_content = ai_client.captured[0]["content"]
     assert "Conversation Record" in system_content
+    assert "Earliest player message in this thread:" in system_content
     assert "I keep losing pieces in the middlegame." in system_content
     mock_retrieve_async.assert_awaited_once()
     assert mock_retrieve_async.call_args.kwargs["content_types"] == [

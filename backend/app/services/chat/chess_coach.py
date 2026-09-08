@@ -755,7 +755,19 @@ class ChessCoach:
         if not pairs:
             return ""
 
-        lines = ["## Conversation Record (earliest messages in this thread)", ""]
+        first_user = pairs[0][0]
+        first_when = "unknown date"
+        if first_user.timestamp is not None:
+            first_when = first_user.timestamp.strftime("%Y-%m-%d")
+        lines = [
+            "## Conversation Record (earliest messages in this thread)",
+            "",
+            (
+                "Earliest player message in this thread: "
+                f"\"{' '.join(first_user.content.split())[:280]}\" ({first_when})."
+            ),
+            "",
+        ]
         for user_message, assistant_message in pairs[:max_exchanges]:
             when = ""
             if user_message.timestamp is not None:
@@ -767,8 +779,10 @@ class ChessCoach:
                 f"- Coach: {' '.join(assistant_message.content.split())[:280]}"
             )
         lines.append(
-            "Treat these as the authoritative earliest messages of this thread "
-            "for 'first message' / 'first thing I said' questions."
+            "For 'first message' / 'first thing I said' questions, answer with "
+            "the Earliest player message line above — quote the player's words "
+            "and the date. Coach lines in this record are your own replies, "
+            "never the player's messages."
         )
         return "\n".join(lines)
 
@@ -797,9 +811,13 @@ class ChessCoach:
             " Recall honesty: if the user asks what they said, asked, or "
             "discussed before, answer only from the conversation history "
             "above, the Conversation Record section when present, and any "
-            "Relevant Semantic Memories entries. If those records do not "
-            "contain it, say plainly that you do not have a record of it "
-            "rather than inventing one.\n"
+            "Relevant Semantic Memories entries. When a Conversation Record "
+            "is present and the question is about the first message or the "
+            "first thing the user said, answer with its Earliest player "
+            "message line — the player's words and date, never your own "
+            "replies, and never a summary from Relevant Semantic Memories. "
+            "If the records do not contain something, say plainly that you "
+            "do not have a record of it rather than inventing one.\n"
         )
         llm_messages = [
             {
