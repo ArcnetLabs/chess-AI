@@ -34,6 +34,19 @@ except ImportError:
 from ...core.config import settings
 
 
+def _require_content(provider: str, content: Any) -> str:
+    """Treat an empty completion as a provider failure.
+
+    Some hosted runtimes return HTTP 200 with no text (observed on OpenCode
+    Go glm-5.3-flash). Returning it as success would skip the fallback chain
+    and left the coach silently substituting canned text for real answers.
+    """
+    text = str(content or "").strip()
+    if not text:
+        raise RuntimeError(f"{provider} returned an empty completion")
+    return text
+
+
 class ModelProvider(str, Enum):
     """Supported AI model providers."""
 
@@ -329,6 +342,8 @@ class AIClient:
         headers = {}
         if settings.LLM_LOCAL_API_KEY:
             headers["Authorization"] = f"Bearer {settings.LLM_LOCAL_API_KEY}"
+        if settings.LLM_LOCAL_SESSION_ID:
+            headers["x-opencode-session"] = settings.LLM_LOCAL_SESSION_ID
 
         base = settings.LLM_LOCAL_BASE_URL.rstrip("/")
         async with httpx.AsyncClient(
@@ -339,7 +354,7 @@ class AIClient:
             data = response.json()
 
         return {
-            "content": data["choices"][0]["message"]["content"],
+            "content": _require_content("local", data["choices"][0]["message"]["content"]),
             "usage": data.get("usage", {}),
             "model": data.get("model", model_name),
             "provider": "local",
@@ -378,7 +393,7 @@ class AIClient:
 
         content = (data.get("message") or {}).get("content") or ""
         return {
-            "content": content,
+            "content": _require_content("ollama", content),
             "usage": {},
             "model": data.get("model", payload["model"]),
             "provider": "ollama",
@@ -407,7 +422,7 @@ class AIClient:
         )
 
         return {
-            "content": response.choices[0].message.content,
+            "content": _require_content("openai", response.choices[0].message.content),
             "usage": {
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
@@ -441,7 +456,9 @@ class AIClient:
         data = response.json()
 
         return {
-            "content": data["choices"][0]["message"]["content"],
+            "content": _require_content(
+                "openrouter", data["choices"][0]["message"]["content"]
+            ),
             "usage": data.get("usage", {}),
             "model": data.get("model", model_name),
             "provider": "openrouter",
