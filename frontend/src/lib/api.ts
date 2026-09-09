@@ -321,6 +321,52 @@ export const analysisApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Notifications API (weekly digest + proactive coaching feed, P3-PC-02)
+// ---------------------------------------------------------------------------
+
+export interface NotificationItem {
+  id: number;
+  user_id: number;
+  notification_type: string;
+  title: string;
+  body?: string | null;
+  payload_json?: unknown | null;
+  read_at?: string | null;
+  created_at: string;
+  is_read: boolean;
+}
+
+export interface NotificationListResponse {
+  notifications: NotificationItem[];
+  unread_count: number;
+  limit: number;
+  offset: number;
+}
+
+export const notificationsApi = {
+  list: async (
+    userId: number,
+    options?: { unreadOnly?: boolean; limit?: number; offset?: number },
+  ): Promise<NotificationListResponse> => {
+    const response = await apiClient.get<NotificationListResponse>(
+      `/users/${userId}/notifications`,
+      {
+        params: {
+          unread_only: options?.unreadOnly ?? undefined,
+          limit: options?.limit ?? 20,
+          offset: options?.offset ?? 0,
+        },
+      },
+    );
+    return response.data;
+  },
+
+  markRead: async (userId: number, notificationId: number): Promise<void> => {
+    await apiClient.patch(`/users/${userId}/notifications/${notificationId}/read`);
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Insights API
 // ---------------------------------------------------------------------------
 
@@ -650,6 +696,7 @@ const api = {
   chat: chatApi,
   memories: memoryApi,
   training: trainingApi,
+  notifications: notificationsApi,
 };
 
 export default api;

@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bot,
   Brain,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -24,6 +25,8 @@ import {
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { InsightsModal } from '@/components/coach/InsightsModal';
+import { PatternsModal } from '@/components/coach/PatternsModal';
+import { DigestModal } from '@/components/coach/DigestModal';
 import { TrainingModal } from '@/components/coach/TrainingModal';
 import { useAnalysisStatus, useChatSession, useCurrentUser, usePlayerProfile } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
@@ -102,6 +105,8 @@ export function CoachWorkspace() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
+  const [patternsOpen, setPatternsOpen] = useState(false);
+  const [digestOpen, setDigestOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<AnalysisRange>(30);
   const [customDays, setCustomDays] = useState(14);
   const [startingAnalysis, setStartingAnalysis] = useState(false);
@@ -279,6 +284,20 @@ export function CoachWorkspace() {
           >
             <Target className="h-4 w-4" /> Training
           </button>
+          <button
+            type="button"
+            onClick={() => setPatternsOpen(true)}
+            className="flex w-full items-center gap-3 px-2 py-1 text-sm text-[#bbcabf] transition-colors hover:text-brand-primary"
+          >
+            <BarChart3 className="h-4 w-4" /> Your patterns
+          </button>
+          <button
+            type="button"
+            onClick={() => setDigestOpen(true)}
+            className="flex w-full items-center gap-3 px-2 py-1 text-sm text-[#bbcabf] transition-colors hover:text-brand-primary"
+          >
+            <CalendarClock className="h-4 w-4" /> Weekly digest
+          </button>
           <div className="mt-7 space-y-4 px-2 text-sm text-[#bbcabf]">
             <span className="flex items-center gap-3">
               <HelpCircle className="h-4 w-4" /> Help
@@ -348,6 +367,26 @@ export function CoachWorkspace() {
             className="mt-2 flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm text-[#bbcabf]"
           >
             <Target className="h-4 w-4 text-brand-primary" /> Training
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPatternsOpen(true);
+              setMobileMenuOpen(false);
+            }}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm text-[#bbcabf]"
+          >
+            <BarChart3 className="h-4 w-4 text-brand-primary" /> Your patterns
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDigestOpen(true);
+              setMobileMenuOpen(false);
+            }}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm text-[#bbcabf]"
+          >
+            <CalendarClock className="h-4 w-4 text-brand-primary" /> Weekly digest
           </button>
           {recentSessions.length > 0 && (
             <div className="mt-4 border-t border-[#3c4a42] pt-3">
@@ -547,6 +586,12 @@ export function CoachWorkspace() {
       )}
       {trainingOpen && user && (
         <TrainingModal userId={user.id} onClose={() => setTrainingOpen(false)} />
+      )}
+      {patternsOpen && user && (
+        <PatternsModal userId={user.id} onClose={() => setPatternsOpen(false)} />
+      )}
+      {digestOpen && user && (
+        <DigestModal userId={user.id} onClose={() => setDigestOpen(false)} />
       )}
     </div>
   );
