@@ -936,6 +936,19 @@ class ChessCoach:
                 "essential is still unknown, keep asking instead of "
                 "summarizing. Never invent facts to fill a gap.\n"
             )
+        analyze_rule = ""
+        if context.mode == SessionMode.ANALYZE.value:
+            analyze_rule = (
+                "\nAnalyze-mode session: the player came here to analyze "
+                "positions, not for lifestyle coaching. Keep replies "
+                "focused and technical. When a Current board position "
+                "section is present, build the reply on those engine facts "
+                "only (evaluation, best moves, threats) and connect them "
+                "to the player's patterns where relevant. Never estimate "
+                "or invent an evaluation when the engine facts are absent: "
+                "instead ask the player to paste the FEN so the engine can "
+                "analyze it for real.\n"
+            )
         thread_summary_block = ""
         if context.early_summary:
             thread_summary_block = (
@@ -962,6 +975,7 @@ class ChessCoach:
                     f"{memory_instruction}"
                     f"{recall_honesty_rule}"
                     f"{interview_rule}"
+                    f"{analyze_rule}"
                 ),
             },
         ]

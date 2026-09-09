@@ -110,6 +110,35 @@ async def test_interview_prompt_only_in_interview_mode():
     assert "Interview mode" not in coach_system
 
 
+async def test_analyze_prompt_only_in_analyze_mode():
+    mock_client = AsyncMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "ok", "provider": "local"}
+    )
+    coach = ChessCoach(ai_client=mock_client)
+
+    analyze_context = ChatContext(session_id="s-an", user_id=1, mode="analyze")
+    await coach._llm_coach_reply("Evaluate this position", analyze_context, "grounding")
+    analyze_system = mock_client.chat_completion.await_args_list[-1].kwargs[
+        "messages"
+    ][0]["content"]
+    assert "Analyze-mode session" in analyze_system
+    assert "never estimate" in analyze_system.lower()
+
+    coach_context = ChatContext(session_id="s-coach2", user_id=1, mode="coach")
+    await coach._llm_coach_reply("hello", coach_context, "grounding")
+    coach_system = mock_client.chat_completion.await_args_list[-1].kwargs[
+        "messages"
+    ][0]["content"]
+    assert "Analyze-mode session" not in coach_system
+    interview_context = _interview_context()
+    await coach._llm_coach_reply("1800", interview_context, "grounding")
+    interview_system = mock_client.chat_completion.await_args_list[-1].kwargs[
+        "messages"
+    ][0]["content"]
+    assert "Analyze-mode session" not in interview_system
+
+
 async def test_no_marker_leaves_context_untouched():
     mock_client = AsyncMock()
     mock_client.chat_completion = AsyncMock(
