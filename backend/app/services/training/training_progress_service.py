@@ -119,14 +119,14 @@ def complete_drill_attempt(
     attempt.completed_at = datetime.now(timezone.utc)
 
     if attempt.training_plan_id is not None:
-        _sync_plan_completed_count(db, attempt.training_plan_id)
+        sync_plan_completed_count(db, attempt.training_plan_id)
 
     db.commit()
     db.refresh(attempt)
     return attempt
 
 
-def _sync_plan_completed_count(db: Session, training_plan_id: int) -> None:
+def sync_plan_completed_count(db: Session, training_plan_id: int) -> None:
     """Update plan completed count and mark plan completed when all drills are done."""
     db.flush()
 
@@ -150,6 +150,10 @@ def _sync_plan_completed_count(db: Session, training_plan_id: int) -> None:
     plan.completed_drill_count = int(completed_count)
     if plan.drill_count > 0 and plan.completed_drill_count >= plan.drill_count:
         plan.status = "completed"
+
+
+# Backwards-compatible alias for the previously private name.
+_sync_plan_completed_count = sync_plan_completed_count
 
 
 def training_progress_to_dict(stats: TrainingProgressStats) -> dict[str, Any]:
