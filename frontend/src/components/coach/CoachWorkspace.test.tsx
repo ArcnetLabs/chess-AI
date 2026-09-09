@@ -23,6 +23,15 @@ const mocks = vi.hoisted(() => ({
   memoryApi: {
     list: vi.fn(),
   },
+  trainingApi: {
+    listPlans: vi.fn(),
+    getActivePlan: vi.fn(),
+    createPlan: vi.fn(),
+    saveDrill: vi.fn(),
+    setDrillStatus: vi.fn(),
+    completeDrill: vi.fn(),
+    getProgress: vi.fn(),
+  },
 }));
 
 vi.mock('@/hooks', () => ({
@@ -35,6 +44,7 @@ vi.mock('@/hooks', () => ({
 vi.mock('@/lib/api', () => ({
   default: mocks.api,
   memoryApi: mocks.memoryApi,
+  trainingApi: mocks.trainingApi,
 }));
 
 vi.mock('@/services/chatService', () => ({ default: mocks.chatService }));
@@ -342,5 +352,191 @@ describe('CoachWorkspace', () => {
     await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
     const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
     expect(within(dialog).getByText(/no saved notes here yet/i)).toBeInTheDocument();
+  });
+
+  it('shows the training empty state when no plan exists', async () => {
+    const user = userEvent.setup();
+    mocks.trainingApi.getProgress.mockResolvedValue({
+      total_drills: 0,
+      completed_drills: 0,
+      pending_drills: 0,
+      skipped_drills: 0,
+      in_progress_drills: 0,
+      completion_rate: 0,
+      active_plan_id: null,
+      active_plan_version: null,
+      active_plan_completion_rate: null,
+      by_drill_type: {},
+      last_completed_at: null,
+    });
+    mocks.trainingApi.getActivePlan.mockRejectedValue(new Error('none'));
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'Training' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Your training plan' });
+    expect(within(dialog).getByText(/No training plan yet/i)).toBeInTheDocument();
+  });
+
+  it('lists active plan drills and moves one through start to solved', async () => {
+    const user = userEvent.setup();
+    mocks.trainingApi.getProgress.mockResolvedValue({
+      total_drills: 2,
+      completed_drills: 1,
+      pending_drills: 1,
+      skipped_drills: 0,
+      in_progress_drills: 0,
+      completion_rate: 50,
+      active_plan_id: 3,
+      active_plan_version: 2,
+      active_plan_completion_rate: 0,
+      by_drill_type: {},
+      last_completed_at: null,
+    });
+    mocks.trainingApi.getActivePlan.mockResolvedValue({
+      id: 3,
+      plan_version: 2,
+      status: 'active',
+      title: 'Endgame Conversion Focus',
+      focus_areas: ['Losing gained material in the middlegame'],
+      focus_pattern_ids: [11],
+      drill_count: 2,
+      completed_drill_count: 0,
+      source: 'interview',
+      generated_at: '2026-09-09T00:00:00Z',
+      drills: [
+        {
+          id: 71,
+          training_plan_id: 3,
+          pattern_id: 11,
+          drill_type: 'conversion',
+          status: 'pending',
+          prompt_text: 'Trade into the won rook endgame instead of attacking.',
+          position_fen: null,
+          expected_answer: null,
+          user_answer: null,
+          is_correct: null,
+          score: null,
+          started_at: null,
+          completed_at: null,
+        },
+        {
+          id: 72,
+          training_plan_id: 3,
+          pattern_id: null,
+          drill_type: 'tactic',
+          status: 'completed',
+          prompt_text: 'Spot the fork against the loose knight.',
+          position_fen: null,
+          expected_answer: null,
+          user_answer: null,
+          is_correct: true,
+          score: null,
+          started_at: null,
+          completed_at: '2026-09-09T00:00:00Z',
+        },
+      ],
+    });
+    mocks.trainingApi.setDrillStatus.mockResolvedValue({
+      id: 71,
+      training_plan_id: 3,
+      pattern_id: 11,
+      drill_type: 'conversion',
+      status: 'in_progress',
+      prompt_text: 'Trade into the won rook endgame instead of attacking.',
+      position_fen: null,
+      expected_answer: null,
+      user_answer: null,
+      is_correct: null,
+      score: null,
+      started_at: '2026-09-09T00:00:01Z',
+      completed_at: null,
+    });
+    mocks.trainingApi.completeDrill.mockResolvedValue({
+      id: 71,
+      training_plan_id: 3,
+      pattern_id: 11,
+      drill_type: 'conversion',
+      status: 'completed',
+      prompt_text: 'Trade into the won rook endgame instead of attacking.',
+      position_fen: null,
+      expected_answer: null,
+      user_answer: 'Trade pieces',
+      is_correct: true,
+      score: null,
+      started_at: '2026-09-09T00:00:01Z',
+      completed_at: '2026-09-09T00:00:02Z',
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'Training' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Your training plan' });
+
+    expect(within(dialog).getByText('Endgame Conversion Focus')).toBeInTheDocument();
+    expect(within(dialog).getByText('Losing gained material in the middlegame')).toBeInTheDocument();
+    expect(within(dialog).getByText('Spot the fork against the loose knight.')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Start drill' }));
+    expect(mocks.trainingApi.setDrillStatus).toHaveBeenCalledWith(7, 71, 'in_progress');
+    const input = await within(dialog).findByPlaceholderText('Your answer (optional)...');
+    await user.type(input, 'Trade pieces');
+    await user.click(within(dialog).getByRole('button', { name: 'Solved' }));
+
+    expect(mocks.trainingApi.completeDrill).toHaveBeenCalledWith(7, 71, {
+      user_answer: 'Trade pieces',
+      is_correct: true,
+    });
+  });
+
+  it('skips a pending drill when skip is chosen', async () => {
+    const user = userEvent.setup();
+    mocks.trainingApi.getProgress.mockResolvedValue({
+      total_drills: 1,
+      completed_drills: 0,
+      pending_drills: 1,
+      skipped_drills: 0,
+      in_progress_drills: 0,
+      completion_rate: 0,
+      active_plan_id: 5,
+      active_plan_version: 1,
+      active_plan_completion_rate: 0,
+      by_drill_type: {},
+      last_completed_at: null,
+    });
+    mocks.trainingApi.getActivePlan.mockResolvedValue({
+      id: 5,
+      plan_version: 1,
+      status: 'active',
+      title: 'Openings Primer',
+      focus_areas: null,
+      focus_pattern_ids: null,
+      drill_count: 1,
+      completed_drill_count: 0,
+      source: 'coach',
+      generated_at: '2026-09-09T00:00:00Z',
+      drills: [
+        {
+          id: 91,
+          training_plan_id: 5,
+          pattern_id: null,
+          drill_type: 'opening',
+          status: 'pending',
+          prompt_text: 'Name the gambit line you keep losing against.',
+          position_fen: null,
+          expected_answer: null,
+          user_answer: null,
+          is_correct: null,
+          score: null,
+          started_at: null,
+          completed_at: null,
+        },
+      ],
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'Training' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Your training plan' });
+
+    await user.click(within(dialog).getByRole('button', { name: 'Skip' }));
+    expect(mocks.trainingApi.setDrillStatus).toHaveBeenCalledWith(7, 91, 'skipped');
   });
 });
