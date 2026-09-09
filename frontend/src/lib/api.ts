@@ -460,6 +460,184 @@ export const chatApi = {
     });
     return response.data;
   },
+
+  createSessionWithOptions: async (
+    request?: CreateSessionRequest & { mode?: string },
+  ): Promise<CreateSessionResponse> => {
+    const response = await apiClient.post<CreateSessionResponse>('/chat/session', request ?? {});
+    return response.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Memories API (semantic-memory catalog — "What your coach knows")
+// ---------------------------------------------------------------------------
+
+export interface MemoryItem {
+  id: number;
+  content_type: string;
+  content_text: string;
+  content_id: number | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface MemoryListResponse {
+  memories: MemoryItem[];
+  total_count: number;
+  limit: number;
+  offset: number;
+}
+
+export const memoryApi = {
+  list: async (
+    userId: number,
+    options?: { contentType?: string; limit?: number; offset?: number },
+  ): Promise<MemoryListResponse> => {
+    const response = await apiClient.get<MemoryListResponse>(
+      `/users/${userId}/memories`,
+      {
+        params: {
+          content_type: options?.contentType ?? undefined,
+          limit: options?.limit ?? 20,
+          offset: options?.offset ?? 0,
+        },
+      },
+    );
+    return response.data;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Training API (plans, drills, progress — coach/interview-authored artifacts)
+// ---------------------------------------------------------------------------
+
+export interface TrainingDrill {
+  id: number;
+  training_plan_id: number | null;
+  pattern_id: number | null;
+  drill_type: string;
+  status: string;
+  prompt_text: string;
+  position_fen: string | null;
+  expected_answer: string | null;
+  user_answer: string | null;
+  is_correct: boolean | null;
+  score: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface TrainingPlanSummary {
+  id: number;
+  plan_version: number;
+  status: string;
+  title: string;
+  focus_areas: string[] | null;
+  focus_pattern_ids: number[] | null;
+  drill_count: number;
+  completed_drill_count: number;
+  source: string;
+  generated_at: string | null;
+}
+
+export interface TrainingPlanDetail extends TrainingPlanSummary {
+  drills: TrainingDrill[];
+}
+
+export interface TrainingPlanInput {
+  title: string;
+  drills: Array<{
+    drill_type?: string;
+    prompt_text: string;
+    position_fen?: string | null;
+    pattern_id?: number | null;
+    expected_answer?: string | null;
+  }>;
+  focus_areas?: string[];
+  focus_pattern_ids?: number[];
+  source?: 'interview' | 'coach' | 'self';
+}
+
+export interface TrainingProgress {
+  total_drills: number;
+  completed_drills: number;
+  pending_drills: number;
+  skipped_drills: number;
+  in_progress_drills: number;
+  completion_rate: number;
+  active_plan_id: number | null;
+  active_plan_version: number | null;
+  active_plan_completion_rate: number | null;
+  by_drill_type: Record<string, { total: number; completed: number }>;
+  last_completed_at: string | null;
+}
+
+export const trainingApi = {
+  listPlans: async (userId: number): Promise<{ plans: TrainingPlanSummary[] }> => {
+    const response = await apiClient.get(`/training/${userId}/plans`);
+    return response.data;
+  },
+
+  getActivePlan: async (userId: number): Promise<TrainingPlanDetail> => {
+    const response = await apiClient.get<TrainingPlanDetail>(
+      `/training/${userId}/plans/active`,
+    );
+    return response.data;
+  },
+
+  createPlan: async (userId: number, plan: TrainingPlanInput): Promise<TrainingPlanDetail> => {
+    const response = await apiClient.post<TrainingPlanDetail>(
+      `/training/${userId}/plans`,
+      plan,
+    );
+    return response.data;
+  },
+
+  saveDrill: async (
+    userId: number,
+    drill: {
+      drill_type?: string;
+      prompt_text: string;
+      position_fen?: string | null;
+      pattern_id?: number | null;
+      training_plan_id?: number | null;
+      expected_answer?: string | null;
+    },
+  ): Promise<TrainingDrill> => {
+    const response = await apiClient.post<TrainingDrill>(`/training/${userId}/drills`, drill);
+    return response.data;
+  },
+
+  setDrillStatus: async (
+    userId: number,
+    drillId: number,
+    status: 'in_progress' | 'skipped',
+  ): Promise<TrainingDrill> => {
+    const response = await apiClient.patch<TrainingDrill>(
+      `/training/${userId}/drills/${drillId}`,
+      { status },
+    );
+    return response.data;
+  },
+
+  completeDrill: async (
+    userId: number,
+    drillId: number,
+    attempt: { user_answer: string; is_correct: boolean; score?: number | null },
+  ): Promise<TrainingDrill> => {
+    const response = await apiClient.post<TrainingDrill>(
+      `/training/${userId}/drills/${drillId}/complete`,
+      attempt,
+    );
+    return response.data;
+  },
+
+  getProgress: async (userId: number): Promise<TrainingProgress> => {
+    const response = await apiClient.get<TrainingProgress>(`/training/${userId}/progress`);
+    return response.data;
+  },
 };
 
 const api = {
@@ -470,6 +648,8 @@ const api = {
   patterns: patternApi,
   profiles: profileApi,
   chat: chatApi,
+  memories: memoryApi,
+  training: trainingApi,
 };
 
 export default api;

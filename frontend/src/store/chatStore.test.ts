@@ -135,4 +135,51 @@ describe('chatStore', () => {
       expect(state.messages).toHaveLength(2);
     });
   });
+
+  describe('session modes', () => {
+    it('passes the selected mode when initializing a session', async () => {
+      chatServiceMock.createSession.mockResolvedValue({
+        session_id: 'interview-1',
+        message: `Let's set your coaching baseline.`,
+      });
+      chatServiceMock.listSessions.mockResolvedValue([]);
+
+      await useChatStore.getState().initializeSession(7, 'interview');
+
+      expect(chatServiceMock.createSession).toHaveBeenCalledWith(7, 'interview');
+      const state = useChatStore.getState();
+      expect(state.sessionMode).toBe('interview');
+      expect(state.messages[0].content).toContain('coaching baseline');
+    });
+
+    it('defaults to coach mode when no mode is given', async () => {
+      chatServiceMock.createSession.mockResolvedValue({
+        session_id: 'coach-1',
+        message: 'Welcome.',
+      });
+      chatServiceMock.listSessions.mockResolvedValue([]);
+
+      await useChatStore.getState().initializeSession(7);
+
+      expect(chatServiceMock.createSession).toHaveBeenCalledWith(7, 'coach');
+      expect(useChatStore.getState().sessionMode).toBe('coach');
+    });
+
+    it('adopts a restored session mode from the session summary', async () => {
+      chatServiceMock.listSessions.mockResolvedValue([
+        {
+          session_id: 'restored',
+          preview: 'Interview thread',
+          mode: 'interview',
+        },
+      ]);
+      chatServiceMock.getHistory.mockResolvedValue([]);
+
+      await useChatStore.getState().restoreSession(7);
+
+      const state = useChatStore.getState();
+      expect(state.sessionMode).toBe('interview');
+      expect(state.sessionId).toBe('restored');
+    });
+  });
 });

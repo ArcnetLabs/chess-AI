@@ -23,6 +23,7 @@ interface ChatState {
   // Session State
   sessionId: string | null;
   userId: number | undefined;
+  sessionMode: 'coach' | 'analyze' | 'interview';
   messages: Message[];
   isTyping: boolean;
   recentSessions: ChatSessionSummary[];
@@ -34,7 +35,10 @@ interface ChatState {
 
   // Actions
   sendMessage: (content: string) => Promise<void>;
-  initializeSession: (userId?: number) => Promise<void>;
+  initializeSession: (
+    userId?: number,
+    mode?: 'coach' | 'analyze' | 'interview',
+  ) => Promise<void>;
   restoreSession: (userId: number) => Promise<void>;
   openSession: (sessionId: string) => Promise<void>;
   refreshSessions: () => Promise<void>;
@@ -45,6 +49,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Initial State
   sessionId: null,
   userId: undefined,
+  sessionMode: 'coach',
   messages: [],
   isTyping: false,
   recentSessions: [],
@@ -53,15 +58,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
 
   // Session Actions
-  initializeSession: async (userId?: number) => {
+  initializeSession: async (userId?: number, mode?: 'coach' | 'analyze' | 'interview') => {
     try {
       const resolvedUserId = userId ?? get().userId;
+      const resolvedMode = mode ?? 'coach';
       set({ error: null, userId: resolvedUserId });
       chatService.setUserId(resolvedUserId);
-      const response = await chatService.createSession(resolvedUserId);
+      const response = await chatService.createSession(resolvedUserId, resolvedMode);
 
       set({
         sessionId: response.session_id,
+        sessionMode: resolvedMode,
         messages: [{
           id: `welcome-${Date.now()}`,
           role: 'assistant',
@@ -106,7 +113,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const state = get();
     if (state.sessionId || state.isRestoringSession) return;
 
-    set({ userId, error: null, isRestoringSession: true });
+    set({
+      userId,
+      error: null,
+      isRestoringSession: true,
+      sessionMode: state.sessionMode ?? 'coach',
+    });
     chatService.setUserId(userId);
     try {
       const recentSessions = await chatService.listSessions();
@@ -117,6 +129,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       );
       const sessionToRestore = rememberedSession ?? recentSessions[0];
       if (sessionToRestore) {
+        set({ sessionMode: sessionToRestore.mode ?? 'coach' });
         try {
           await get().openSession(sessionToRestore.session_id);
         } catch {

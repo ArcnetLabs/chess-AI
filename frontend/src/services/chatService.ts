@@ -14,11 +14,15 @@ class ChatService {
     this.userId = userId;
   }
 
-  async createSession(userId?: number): Promise<{ session_id: string; message: string }> {
+  async createSession(
+    userId?: number,
+    mode?: 'coach' | 'analyze' | 'interview',
+  ): Promise<{ session_id: string; message: string }> {
     const resolvedUserId = userId ?? this.userId;
-    const data = await api.chat.createSession(
-      resolvedUserId !== undefined ? { user_id: resolvedUserId } : undefined,
-    );
+    const data = await api.chat.createSessionWithOptions({
+      user_id: resolvedUserId,
+      mode: mode ?? 'coach',
+    });
     this.sessionId = data.session_id;
     return { session_id: data.session_id, message: data.message };
   }
