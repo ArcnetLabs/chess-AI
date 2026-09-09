@@ -189,7 +189,9 @@ class Settings(BaseSettings):
     )
 
     # Scheduled Chess.com sync (P2-AA-05 — optional Celery beat)
-    CELERY_BEAT_ENABLED: bool = os.getenv("CELERY_BEAT_ENABLED", "false").lower() in {
+    # Celery beat — required for the proactive loop (scheduled Chess.com sync
+    # + weekly digest). Runs embedded in the production worker via `-B`.
+    CELERY_BEAT_ENABLED: bool = os.getenv("CELERY_BEAT_ENABLED", "true").lower() in {
         "1",
         "true",
         "yes",
@@ -226,8 +228,10 @@ class Settings(BaseSettings):
         os.getenv("WEEKLY_EMAIL_STAGGER_SECONDS", "2")
     )
 
-    # Proactive coaching weekly digest (P3-PC-01 — optional Celery beat)
-    WEEKLY_DIGEST_ENABLED: bool = os.getenv("WEEKLY_DIGEST_ENABLED", "false").lower() in {
+    # Proactive coaching weekly digest (P3-PC-01 — Celery beat).
+    # Defaults ON: the in-app digest is a core launch surface (the Digest UI
+    # reads it); email delivery remains a separate, optional stub.
+    WEEKLY_DIGEST_ENABLED: bool = os.getenv("WEEKLY_DIGEST_ENABLED", "true").lower() in {
         "1",
         "true",
         "yes",
