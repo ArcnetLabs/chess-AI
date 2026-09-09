@@ -207,14 +207,17 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 | Chat-driven game analysis | Done (main) | #160 | ANALYZE_GAME intent: grounded walkthrough from persisted analysis, auto-queued Stockfish analysis, attach button wired |
 | Coach routing & translation fixes | Done (main) | #163–#165 | Per-sentence intent classification (no cross-sentence false routing); position analysis translated by the LLM with the engine dump as fallback; prod LLM provider moved to OpenRouter via env |
 | Translation completion + hard rules | Done (main) | #167–#170 | AGENTS.md testing/production hard rules; explain-move and compare-moves LLM translation; markdown rendering for coach replies (react-markdown) |
+| Coach table rendering | Done (main) | #172, #173 | remark-gfm tables in coach replies |
+| Semantic embeddings (Gemini) | Done (main) | #174–#177 | `gemini-embedding-001` @ 768 dims via OpenAI-compat endpoint; index-field tolerance |
+| Conversational memory architecture | Done (main) | #178–#191 | Per-exchange chat-memory extractor (coaching slice, idempotent); recall grounding (Conversation Record + chronology, deterministic first-message answer); rolling thread summary; full-store retrieval baseline; LLM empty-completion failover + `x-opencode-session`; canned templates removed |
 
 ---
 
 ## Production vs staging delta
 
-**`staging` and `main` are synced** @ PR **#170** (2026-09-04): testing hard rules + explain/compare translation + markdown rendering (#167–#169).
+**`staging` and `main` are synced** @ PR **#191** (2026-09-09): full memory store searched on every question (#190).
 
-**Next up:** prod verification of the new handlers and markdown rendering; coaching-quality iteration from feedback.
+**Next up:** prod verification of the conversational memory pipeline (summary generation after the user's next exchange); remove the deterministic first-message special case once grounding proves stable.
 
 ---
 
@@ -222,6 +225,27 @@ Workstreams delivered after the roadmap's Phase 3 exit, in support of the ChessR
 
 | Date | PR | Unit | Branch |
 |------|-----|------|--------|
+| 2026-09-09 | #191 | release: full memory store searched on every question (#190) | staging → **main** |
+| 2026-09-09 | #190 | fix: search the full memory store on every question — recall is baseline | → staging |
+| 2026-09-09 | #189 | release: rolling thread summary (#188) | staging → **main** |
+| 2026-09-09 | #188 | feat: rolling thread summary — summarize context instead of cutting it | → staging |
+| 2026-09-09 | #187 | release: conversation record on every coach call + chronology (#186) | staging → **main** |
+| 2026-09-08 | #186 | fix: ground every coach call with the conversation record; chronology for recall | → staging |
+| 2026-09-08 | #185 | release: LLM empty-completion failover, honest failure messages, templates removed (#184) | staging → **main** |
+| 2026-09-08 | #184 | fix: treat empty LLM completions as provider failures; delete canned templates | → staging |
+| 2026-09-08 | #183 | release: first-message recall from the Conversation Record headline (#182) | staging → **main** |
+| 2026-09-08 | #182 | fix: answer first-message recall from the record headline | → staging |
+| 2026-09-06 | #181 | release: recall-question grounding (#180) | staging → **main** |
+| 2026-09-06 | #180 | fix: ground recall questions in the earliest session history | → staging |
+| 2026-09-05 | #179 | release: coaching chat-memory extraction + recall honesty (#178) | staging → **main** |
+| 2026-09-05 | #178 | feat: extract coaching chat memories into semantic memory | → staging |
+| 2026-09-05 | #177 | release: embeddings index-field tolerance (#176) | staging → **main** |
+| 2026-09-05 | #176 | fix: tolerate embeddings responses without the index field | → staging |
+| 2026-09-05 | #175 | release: gemini-embedding-001 (768 dims) semantic memory wiring (#174) | staging → **main** |
+| 2026-09-05 | #174 | feat: wire gemini-embedding-001 (768 dims) for semantic memory | → staging |
+| 2026-09-05 | #173 | release: render coach tables via remark-gfm (#172) | staging → **main** |
+| 2026-09-05 | #172 | fix: render coach tables via remark-gfm | → staging |
+| 2026-09-04 | #171 | docs: sync tracker through hard-rules and translation-completion release (#170) | → staging |
 | 2026-09-04 | #170 | release: testing hard rules + translation completion + markdown replies (#167–#169) | staging → **main** |
 | 2026-09-04 | #169 | feat: render coach replies as markdown in the workspace | → staging |
 | 2026-09-04 | #168 | feat: LLM-translated move explanations and comparisons | → staging |

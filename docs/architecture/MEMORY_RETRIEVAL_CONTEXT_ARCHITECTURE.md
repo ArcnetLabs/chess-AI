@@ -1145,7 +1145,7 @@ CREATE TABLE chat_summaries (
 );
 ```
 
-### 7.2 Long-Term Memory Extraction
+### 7.2 Long-Term Memory Extraction (original design sketch — see §7.4 for the as-built pipeline)
 
 **Not all chat content needs to live forever in context. Extract what matters:**
 
@@ -1227,6 +1227,68 @@ class ChatMemoryExtractor:
 - Sending full conversation history to LLM consumes context window
 - Semantic memory allows retrieval of relevant prior coaching without sending everything
 - User can have 1000+ messages, but only top 5 relevant memories get injected
+
+### 7.4 As-Built Chat Memory Pipeline (2026-09-09)
+
+Section §7.2 above is the original design sketch. The shipped pipeline
+(PRs #174–#191) implements the same summarize-then-embed doctrine with these
+deliberate divergences: **no importance filtering** (every completed
+exchange becomes a memory — deterministic ids keep re-runs idempotent), and
+**breakthrough / recurring-struggle detection is deferred**.
+
+**Flow (after every coaching exchange):**
+
+1. `chess_coach.process_message` persists the exchange and fires a
+   fire-and-forget schedule call (TESTING-guarded, exception-safe).
+2. `schedule_chat_memory_extraction` debounces per session (Redis `SET NX`,
+   TTL 300s, 30s countdown; direct enqueue without Redis) onto the
+   `analysis` queue.
+3. `extract_chat_memories_task` runs two idempotent jobs:
+   - **Exchange memories** (`chat_memory_service.sync_session_chat_memories`):
+     each user→assistant pair is compressed into one dated memory sentence —
+     `"Coaching exchange (YYYY-MM-DD). Player asked: … | Coach: …"`,
+     whitespace-collapsed, 220/320-char caps — and upserted into the
+     `coaching` slice of `semantic_memory` keyed by a deterministic content
+     id (`md5(session_id + ":" + user_message_index)`). Only exchanges
+     without a row are embedded (batch; Gemini `gemini-embedding-001`,
+     768 dims).
+   - **Rolling thread summary** (`sync_session_thread_summary`): messages
+     older than the 7-message LLM window are folded into a stored summary
+     (`context_json.early_summary` / `summary_upto`) — one incremental LLM
+     call per run, only when new out-of-window messages exist; factual,
+     under 250 words.
+
+**Context layers injected into every coach LLM call** (system prompt, in
+order): Player Context + Relevant Semantic Memories (similarity-retrieved),
+Thread Summary (rolling, when it exists), Conversation Record (earliest 3
+exchanges with an "Earliest player message" headline; recall-flagged
+questions additionally get the full dated player-message chronology, last
+60 entries, 100 chars each), then the 7-message recent window as chat turns.
+
+**Retrieval baseline — recall is not a question shape:** every
+retrieval-eligible intent searches the FULL memory store,
+`["pattern", "coaching"]`, with the limit scaled to `5 + 3 × (slices − 1)`
+(8 when both are searched). Similarity alone decides what surfaces;
+`_COACHING_HISTORY_KEYWORDS` no longer gate retrieval — they only enable
+the chronology grounding. Small talk / unknown skip retrieval.
+
+**Recall honesty:** a standing system-prompt rule restricts "what did I say
+/ first message" answers to the visible history, Conversation Record, and
+retrieved memories, and explicitly forbids answering from the coach's own
+lines or memory summaries. "What was the first message I sent" is
+additionally answered deterministically from the session record (no LLM,
+no retrieval) — a special case retained after repeated model compliance
+failures; a candidate for removal now that grounding is comprehensive.
+
+**LLM reliability substrate (applies to every coach and summary call):**
+empty completions are provider failures (`_require_content` in
+`ai_client.py`), triggering per-provider retries and chain failover
+(`local → openrouter → openai`); the local provider sends
+`x-opencode-session` when `LLM_LOCAL_SESSION_ID` is configured (OpenCode Go
+returns 400 `MissingSessionID` or degraded/empty completions without it);
+all canned response templates were removed — LLM failure returns an honest
+"I can't reach my language-model service" reply, never a fabricated coach
+answer.
 
 ---
 
