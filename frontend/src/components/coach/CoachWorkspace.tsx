@@ -14,6 +14,7 @@ import {
   Menu,
   MessageSquarePlus,
   Paperclip,
+  Search,
   Send,
   Sparkles,
   X,
@@ -25,12 +26,33 @@ import { useChatStore } from '@/store/chatStore';
 import type { AnalysisJobStatus } from '@/types/analysis.types';
 
 type AnalysisRange = 'all' | 7 | 30 | 'month' | 'custom';
+type ChatMode = 'coach' | 'analyze' | 'interview';
+
+const MODE_OPTIONS: Array<{ mode: ChatMode; label: string; icon: typeof MessageSquarePlus }> = [
+  { mode: 'coach', label: 'New Chat', icon: MessageSquarePlus },
+  { mode: 'analyze', label: 'New Analyze Chat', icon: Search },
+  { mode: 'interview', label: 'New Interview', icon: HelpCircle },
+];
 
 const STARTERS = [
   { title: 'Pattern Recognition', prompt: 'What patterns do you see in my games?' },
   { title: 'Conversion Issues', prompt: 'Why do I lose winning positions?' },
   { title: 'Rating Goals', prompt: "What's holding me back from 1800?" },
   { title: 'Opening Prep', prompt: 'Which openings fit my playing style?' },
+];
+
+const INTERVIEW_STARTERS = [
+  { title: 'Full Baseline', prompt: 'Interview me about my rating goal, my weakest area, my weekly time budget, and my openings.' },
+  { title: 'Your Goal', prompt: 'My rating goal is to reach ' },
+  { title: 'Time Budget', prompt: 'I can train around ' },
+  { title: 'Openings Repertoire', prompt: 'As White I play ' },
+];
+
+const ANALYZE_STARTERS = [
+  { title: 'Evaluate A Position', prompt: 'Evaluate this position for me: ' },
+  { title: 'Best Plan Here', prompt: 'What is the best plan for this position? ' },
+  { title: 'Blunder Did I Miss', prompt: 'Did I blunder in this position? ' },
+  { title: 'Understand The Idea', prompt: 'Explain the key idea in this position: ' },
 ];
 
 function firstProfileItem(items: unknown[] | null | undefined, fallback: string): string {
@@ -62,6 +84,7 @@ export function CoachWorkspace() {
   const initializeSession = useChatStore((state) => state.initializeSession);
   const openSession = useChatStore((state) => state.openSession);
   const sessionId = useChatStore((state) => state.sessionId);
+  const sessionMode = useChatStore((state) => state.sessionMode);
   const recentSessions = useChatStore((state) => state.recentSessions);
   const isRestoringSession = useChatStore((state) => state.isRestoringSession);
   const sendMessage = useChatStore((state) => state.sendMessage);
@@ -99,6 +122,15 @@ export function CoachWorkspace() {
     [profile, user?.analyzed_games],
   );
 
+  const sessionsStarters =
+    sessionMode === 'interview' ? INTERVIEW_STARTERS
+      : sessionMode === 'analyze' ? ANALYZE_STARTERS
+        : STARTERS;
+  const composerPlaceholder =
+    sessionMode === 'interview' ? "Answer your coach's question..."
+      : sessionMode === 'analyze' ? 'Paste a FEN or describe the position...'
+        : 'Ask your coach anything...';
+
   const handleSend = async (event?: FormEvent) => {
     event?.preventDefault();
     const message = input.trim();
@@ -107,9 +139,9 @@ export function CoachWorkspace() {
     await sendMessage(message);
   };
 
-  const handleNewChat = async () => {
+  const handleSelectMode = async (mode: ChatMode) => {
     if (!user?.id) return;
-    await initializeSession(user.id);
+    await initializeSession(user.id, mode);
     setMobileMenuOpen(false);
   };
 
@@ -174,13 +206,22 @@ export function CoachWorkspace() {
     <div className="min-h-screen bg-[#0a0a0a] font-sans text-[#e5e2e1]">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-80 flex-col bg-[#201f1f] p-7 lg:flex">
         <Brand />
-        <button
-          type="button"
-          onClick={() => void handleNewChat()}
-          className="mt-12 flex items-center justify-center gap-3 rounded-lg border border-[#3c4a42] bg-[#2a2a2a] px-4 py-3 font-mono text-sm text-[#e5e2e1] transition-colors hover:border-brand-primary hover:text-brand-primary"
-        >
-          <MessageSquarePlus className="h-5 w-5" /> New Chat
-        </button>
+        <div className="mt-12 space-y-1">
+          {MODE_OPTIONS.map(({ mode, label, icon: Icon }) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => void handleSelectMode(mode)}
+              className={`flex w-full items-center justify-center gap-3 rounded-lg border px-4 py-3 font-mono text-sm transition-colors ${
+                sessionMode === mode
+                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                  : 'border-[#3c4a42] bg-[#2a2a2a] text-[#e5e2e1] hover:border-brand-primary hover:text-brand-primary'
+              }`}
+            >
+              <Icon className="h-5 w-5" /> {label}
+            </button>
+          ))}
+        </div>
         <div className="mt-7 min-h-0 flex-1 overflow-y-auto">
           <p className="mb-4 px-2 font-mono text-xs uppercase tracking-wider text-[#bbcabf]">
             Recent
@@ -252,13 +293,22 @@ export function CoachWorkspace() {
       </header>
       {mobileMenuOpen && (
         <div className="fixed inset-x-0 top-16 z-40 max-h-[70vh] overflow-y-auto border-b border-[#3c4a42] bg-[#201f1f] p-4 lg:hidden">
-          <button
-            type="button"
-            onClick={() => void handleNewChat()}
-            className="flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm"
-          >
-            <MessageSquarePlus className="h-4 w-4 text-brand-primary" /> New Chat
-          </button>
+          <div className="space-y-1">
+            {MODE_OPTIONS.map(({ mode, label, icon: Icon }) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => void handleSelectMode(mode)}
+                className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm ${
+                  sessionMode === mode
+                    ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                    : 'bg-[#2a2a2a] text-[#e5e2e1]'
+                }`}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </button>
+            ))}
+          </div>
           {recentSessions.length > 0 && (
             <div className="mt-4 border-t border-[#3c4a42] pt-3">
               <p className="mb-2 font-mono text-xs uppercase text-[#bbcabf]">Recent</p>
@@ -350,20 +400,46 @@ export function CoachWorkspace() {
               {error && <p className="mt-4 text-sm text-brand-error">{error}</p>}
               <div className={`${messages.length ? 'mt-12' : 'my-auto pb-14'} text-center`}>
                 {messages.length === 0 && (
-                  <>
-                    <Bot className="mx-auto mb-5 h-9 w-9 text-brand-primary" />
-                    <h1 className="text-2xl font-semibold sm:text-[32px]">
-                      What should we focus on next?
-                    </h1>
-                    <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#bbcabf]">
-                      {profile?.profile_summary ||
-                        'Analyze your games and I will build a focused coaching profile around the improvement that matters most.'}
-                    </p>
-                  </>
+                  <div className="text-center">
+                    {sessionMode === 'interview' ? (
+                      <>
+                        <HelpCircle className="mx-auto mb-5 h-9 w-9 text-brand-primary" />
+                        <h1 className="text-2xl font-semibold sm:text-[32px]">
+                          Let&apos;s set your coaching baseline
+                        </h1>
+                        <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#bbcabf]">
+                          Answer a few questions about your goal, your weakest area, the time you
+                          have, and your openings — your coach keeps the answers as your focus.
+                        </p>
+                      </>
+                    ) : sessionMode === 'analyze' ? (
+                      <>
+                        <Search className="mx-auto mb-5 h-9 w-9 text-brand-primary" />
+                        <h1 className="text-2xl font-semibold sm:text-[32px]">
+                          Which position should we dig into?
+                        </h1>
+                        <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#bbcabf]">
+                          Paste a FEN or describe the position and your coach will break it down
+                          with the engine.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="mx-auto mb-5 h-9 w-9 text-brand-primary" />
+                        <h1 className="text-2xl font-semibold sm:text-[32px]">
+                          What should we focus on next?
+                        </h1>
+                        <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-[#bbcabf]">
+                          {profile?.profile_summary ||
+                            'Analyze your games and I will build a focused coaching profile around the improvement that matters most.'}
+                        </p>
+                      </>
+                    )}
+                  </div>
                 )}
                 {!hasUserMessage && (
                   <div className="mx-auto mt-8 grid max-w-[940px] grid-cols-1 gap-4 md:grid-cols-2">
-                    {STARTERS.map(({ title, prompt }) => (
+                    {sessionsStarters.map(({ title, prompt }) => (
                       <button
                         key={title}
                         type="button"
@@ -398,7 +474,7 @@ export function CoachWorkspace() {
             <input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask your coach anything..."
+              placeholder={composerPlaceholder}
               className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[#bbcabf]"
             />
             <button

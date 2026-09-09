@@ -221,4 +221,48 @@ describe('CoachWorkspace', () => {
     expect(mocks.api.analysis.analyzeGames).toHaveBeenCalledWith(7, { days: 30 });
     expect(watchJob).toHaveBeenCalledWith('job-1', expect.any(Object));
   });
+
+  it('offers a mode picker with the three coaching modes', () => {
+    render(<CoachWorkspace />);
+    expect(screen.getAllByRole('button', { name: 'New Chat' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'New Analyze Chat' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'New Interview' }).length).toBeGreaterThan(0);
+  });
+
+  it('starts an interview session when the interview mode is selected', async () => {
+    const user = userEvent.setup();
+    mocks.chatService.listSessions.mockResolvedValue([]);
+    mocks.chatService.createSession.mockResolvedValue({
+      session_id: 's-interview',
+      message: "Let's set your coaching baseline.",
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'New Interview' })[0]);
+
+    expect(mocks.chatService.createSession).toHaveBeenCalledWith(7, 'interview');
+    expect(await screen.findByText("Let's set your coaching baseline.")).toBeInTheDocument();
+  });
+
+  it('shows interview baseline prompts in interview mode', () => {
+    useChatStore.setState({ sessionMode: 'interview' });
+    render(<CoachWorkspace />);
+    expect(screen.getByText('Full Baseline')).toBeInTheDocument();
+    expect(screen.getByText('Time Budget')).toBeInTheDocument();
+    expect(screen.queryByText('Pattern Recognition')).toBeNull();
+  });
+
+  it('shows position prompts and copy in analyze mode', () => {
+    useChatStore.setState({ sessionMode: 'analyze' });
+    render(<CoachWorkspace />);
+    expect(screen.getByText('Which position should we dig into?')).toBeInTheDocument();
+    expect(screen.getByText('Evaluate A Position')).toBeInTheDocument();
+  });
+
+  it('adapts the composer placeholder to the session mode', () => {
+    useChatStore.setState({ sessionMode: 'interview' });
+    render(<CoachWorkspace />);
+    expect(screen.getByPlaceholderText("Answer your coach's question...")).toBeInTheDocument();
+  });
+
 });
