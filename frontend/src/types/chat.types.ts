@@ -111,6 +111,7 @@ export interface ChatSessionSummary {
   message_count: number;
   preview: string;
   updated_at: string | null;
+  mode?: 'coach' | 'analyze' | 'interview';
 }
 
 export interface ChatSessionListResponse {
