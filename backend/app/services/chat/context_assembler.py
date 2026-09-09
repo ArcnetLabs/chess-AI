@@ -44,6 +44,12 @@ def _rank_top_patterns(patterns: List[PlayerPattern], limit: int) -> List[Player
     return ranked[:limit]
 
 
+def _retrieval_limit(content_types: list[str] | None) -> int:
+    """Keep per-slice depth stable when more slices are searched together."""
+    slice_count = len(content_types or [])
+    return 5 + 3 * max(0, slice_count - 1)
+
+
 def _format_phase_performance(phase_performance: object) -> str:
     if not phase_performance or not isinstance(phase_performance, dict):
         return "unavailable"
@@ -130,7 +136,11 @@ def assemble_coach_context(
             memories = []
         else:
             memories = retrieve_semantic_memories(
-                db, user_id, query_text, content_types=content_types
+                db,
+                user_id,
+                query_text,
+                content_types=content_types,
+                limit=_retrieval_limit(content_types),
             )
 
     memory_block = format_retrieved_memories_for_context(memories or [])
@@ -155,7 +165,11 @@ async def assemble_coach_context_async(
             semantic_memories = []
         else:
             semantic_memories = await retrieve_semantic_memories_async(
-                db, user_id, query_text, content_types=content_types
+                db,
+                user_id,
+                query_text,
+                content_types=content_types,
+                limit=_retrieval_limit(content_types),
             )
 
     return assemble_coach_context(

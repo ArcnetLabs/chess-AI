@@ -131,7 +131,10 @@ def test_assemble_coach_context_empty_user_has_no_data(db, coach_user):
 
 
 @pytest.mark.asyncio
-async def test_general_question_injects_context_without_llm(db, coach_user):
+async def test_general_question_without_llm_returns_honest_failure(db, coach_user):
+    """Canned template fallbacks are gone: with no AI client configured the
+    coach says so plainly instead of fabricating a coach answer from the
+    player profile."""
     _create_profile(db, coach_user)
     coach = ChessCoach()
 
@@ -142,9 +145,9 @@ async def test_general_question_injects_context_without_llm(db, coach_user):
     )
 
     assert response.intent == ChatIntent.GENERAL_QUESTION
-    assert "15 games" in response.message
-    assert "endgame" in response.message.lower()
-    assert "profile_version" not in response.message
+    assert "can't reach my language-model service" in response.message
+    assert "15 games" not in response.message
+    assert response.used_llm is False
 
 
 @pytest.mark.asyncio
@@ -271,6 +274,7 @@ def test_assemble_coach_context_includes_retrieved_memories(
         coach_user.id,
         "How do I improve endgames?",
         content_types=None,
+        limit=5,
     )
     assert "## Relevant Semantic Memories" in context
     assert "rook endgames under time pressure" in context
@@ -316,7 +320,8 @@ async def test_general_question_system_prompt_includes_semantic_memories(
         db,
         coach_user.id,
         "How can I improve my endgames?",
-        content_types=["pattern"],
+        content_types=["pattern", "coaching"],
+        limit=8,
     )
     messages = mock_client.chat_completion.await_args.kwargs["messages"]
     system_prompt = messages[0]["content"]
