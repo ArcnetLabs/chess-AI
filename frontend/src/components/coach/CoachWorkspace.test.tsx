@@ -32,6 +32,13 @@ const mocks = vi.hoisted(() => ({
     completeDrill: vi.fn(),
     getProgress: vi.fn(),
   },
+  patternApi: {
+    list: vi.fn(),
+  },
+  notificationsApi: {
+    list: vi.fn(),
+    markRead: vi.fn(),
+  },
 }));
 
 vi.mock('@/hooks', () => ({
@@ -45,6 +52,8 @@ vi.mock('@/lib/api', () => ({
   default: mocks.api,
   memoryApi: mocks.memoryApi,
   trainingApi: mocks.trainingApi,
+  patternApi: mocks.patternApi,
+  notificationsApi: mocks.notificationsApi,
 }));
 
 vi.mock('@/services/chatService', () => ({ default: mocks.chatService }));
@@ -538,5 +547,124 @@ describe('CoachWorkspace', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Skip' }));
     expect(mocks.trainingApi.setDrillStatus).toHaveBeenCalledWith(7, 91, 'skipped');
+  });
+
+  it('lists patterns grouped as leaks and strengths', async () => {
+    const user = userEvent.setup();
+    mocks.patternApi.list.mockResolvedValue([
+      {
+        id: 11,
+        user_id: 7,
+        pattern_type: 'positional',
+        pattern_subtype: 'endgame_conversion',
+        severity: 'critical',
+        confidence_score: 0.8,
+        occurrence_count: 101,
+        affected_games_count: 14,
+        affected_games_ratio: 0.47,
+        pattern_description: 'Losing gained material in conversion.',
+        example_positions: null,
+        first_seen_at: null,
+        last_seen_at: null,
+        trend_direction: 'worsening',
+        is_strength: false,
+        recommended_drill_type: 'endgame',
+        created_at: null,
+        updated_at: null,
+      },
+      {
+        id: 12,
+        user_id: 7,
+        pattern_type: 'tactical',
+        pattern_subtype: 'fork_patterns',
+        severity: 'moderate',
+        confidence_score: 0.6,
+        occurrence_count: 22,
+        affected_games_count: 9,
+        affected_games_ratio: 0.3,
+        pattern_description: 'Wins material with clean forks.',
+        example_positions: null,
+        first_seen_at: null,
+        last_seen_at: null,
+        trend_direction: 'improving',
+        is_strength: true,
+        recommended_drill_type: null,
+        created_at: null,
+        updated_at: null,
+      },
+    ]);
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'Your patterns' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Your patterns' });
+
+    expect(within(dialog).getByText('Leaks to close')).toBeInTheDocument();
+    expect(within(dialog).getByText('Strengths to lean on')).toBeInTheDocument();
+    expect(within(dialog).getByText('Losing gained material in conversion.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Trending worse')).toBeInTheDocument();
+    expect(within(dialog).getByText('Improving')).toBeInTheDocument();
+    expect(within(dialog).getByText('101 occurrences across 14 games')).toBeInTheDocument();
+  });
+
+  it('lists the weekly digest with unread state and marks one read', async () => {
+    const user = userEvent.setup();
+    mocks.notificationsApi.list.mockResolvedValue({
+      notifications: [
+        {
+          id: 900,
+          user_id: 7,
+          notification_type: 'weekly_digest',
+          title: 'Your week in chess',
+          body: 'Opening accuracy improved to 72%. Focus next on endgame conversion.',
+          payload_json: null,
+          read_at: null,
+          created_at: '2026-09-08T06:00:00Z',
+          is_read: false,
+        },
+        {
+          id: 899,
+          notification_type: 'analysis',
+          title: 'Analysis finished',
+          body: '12 games processed.',
+          payload_json: null,
+          read_at: '2026-09-07T00:00:00Z',
+          created_at: '2026-09-07T00:00:00Z',
+          is_read: true,
+        },
+      ],
+      unread_count: 1,
+      limit: 20,
+      offset: 0,
+    });
+    mocks.notificationsApi.markRead.mockResolvedValue(undefined);
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'Weekly digest' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Weekly digest' });
+
+    expect(within(dialog).getByText('Your week in chess')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Opening accuracy improved to 72%. Focus next on endgame conversion.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('1 unread')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Mark as read' }));
+    expect(mocks.notificationsApi.markRead).toHaveBeenCalledWith(7, 900);
+    expect(mocks.notificationsApi.markRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the weekly digest empty state when nothing has been sent', async () => {
+    const user = userEvent.setup();
+    mocks.notificationsApi.list.mockResolvedValue({
+      notifications: [],
+      unread_count: 0,
+      limit: 20,
+      offset: 0,
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'Weekly digest' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Weekly digest' });
+    expect(within(dialog).getByText(/Nothing here yet/i)).toBeInTheDocument();
   });
 });
