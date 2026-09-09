@@ -18,11 +18,13 @@ import {
   Search,
   Send,
   Sparkles,
+  Target,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { InsightsModal } from '@/components/coach/InsightsModal';
+import { TrainingModal } from '@/components/coach/TrainingModal';
 import { useAnalysisStatus, useChatSession, useCurrentUser, usePlayerProfile } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
 import type { AnalysisJobStatus } from '@/types/analysis.types';
@@ -99,6 +101,7 @@ export function CoachWorkspace() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [trainingOpen, setTrainingOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<AnalysisRange>(30);
   const [customDays, setCustomDays] = useState(14);
   const [startingAnalysis, setStartingAnalysis] = useState(false);
@@ -269,6 +272,13 @@ export function CoachWorkspace() {
           >
             <Brain className="h-4 w-4" /> What your coach knows
           </button>
+          <button
+            type="button"
+            onClick={() => setTrainingOpen(true)}
+            className="flex w-full items-center gap-3 px-2 py-1 text-sm text-[#bbcabf] transition-colors hover:text-brand-primary"
+          >
+            <Target className="h-4 w-4" /> Training
+          </button>
           <div className="mt-7 space-y-4 px-2 text-sm text-[#bbcabf]">
             <span className="flex items-center gap-3">
               <HelpCircle className="h-4 w-4" /> Help
@@ -328,6 +338,16 @@ export function CoachWorkspace() {
             className="mt-4 flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm text-[#bbcabf]"
           >
             <Brain className="h-4 w-4 text-brand-primary" /> What your coach knows
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTrainingOpen(true);
+              setMobileMenuOpen(false);
+            }}
+            className="mt-2 flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm text-[#bbcabf]"
+          >
+            <Target className="h-4 w-4 text-brand-primary" /> Training
           </button>
           {recentSessions.length > 0 && (
             <div className="mt-4 border-t border-[#3c4a42] pt-3">
@@ -524,6 +544,9 @@ export function CoachWorkspace() {
       )}
       {insightsOpen && user && (
         <InsightsModal userId={user.id} onClose={() => setInsightsOpen(false)} />
+      )}
+      {trainingOpen && user && (
+        <TrainingModal userId={user.id} onClose={() => setTrainingOpen(false)} />
       )}
     </div>
   );
