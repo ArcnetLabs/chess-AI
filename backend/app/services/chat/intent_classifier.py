@@ -19,7 +19,14 @@ _RETRIEVAL_DEFAULT_INTENTS = frozenset(
     }
 )
 
-_DEFAULT_RETRIEVAL_CONTENT_TYPES = [CONTENT_TYPE_PATTERN]
+# The full memory store (game-analysis patterns + past coaching exchanges)
+# is searched for every retrieval-eligible question: recall is the baseline
+# capability, not a special question shape. Keywords only deepen the
+# grounding (player-message chronology), never restrict what is searched.
+_DEFAULT_RETRIEVAL_CONTENT_TYPES = [
+    CONTENT_TYPE_PATTERN,
+    CONTENT_TYPE_COACHING,
+]
 
 _COACHING_HISTORY_KEYWORDS = (
     r"\bcoach\b",
@@ -227,18 +234,16 @@ class IntentClassifier:
 
     def retrieval_content_types(self, intent: ChatIntent, message: str) -> list[str]:
         """
-        Map chat intent (+ optional message keywords) to semantic memory slices.
+        Map chat intent to semantic memory slices.
 
         Returns an empty list to skip retrieval entirely for small talk / unknown.
+        Every other intent searches the full memory store.
         """
         if intent in _RETRIEVAL_SKIP_INTENTS:
             return []
 
         if intent in _RETRIEVAL_DEFAULT_INTENTS:
-            content_types = list(_DEFAULT_RETRIEVAL_CONTENT_TYPES)
-            if self._message_requests_coaching_history(message):
-                content_types.append(CONTENT_TYPE_COACHING)
-            return content_types
+            return list(_DEFAULT_RETRIEVAL_CONTENT_TYPES)
 
         return []
 

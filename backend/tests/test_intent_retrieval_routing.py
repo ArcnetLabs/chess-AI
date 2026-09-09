@@ -52,7 +52,8 @@ def test_retrieval_content_types_skips_semantic_retrieval(classifier, intent):
 )
 def test_retrieval_content_types_default_pattern(classifier, intent):
     assert classifier.retrieval_content_types(intent, "How do I improve?") == [
-        CONTENT_TYPE_PATTERN
+        CONTENT_TYPE_PATTERN,
+        CONTENT_TYPE_COACHING,
     ]
 
 
@@ -77,11 +78,14 @@ def test_retrieval_content_types_includes_coaching_keywords(classifier, message)
     assert result == [CONTENT_TYPE_PATTERN, CONTENT_TYPE_COACHING]
 
 
-def test_retrieval_content_types_pattern_only_without_keywords(classifier):
+def test_retrieval_content_types_always_searches_full_store(classifier):
+    """Recall is the baseline capability: every retrieval-eligible question
+    searches the whole memory store (patterns + past coaching exchanges),
+    regardless of question shape."""
     result = classifier.retrieval_content_types(
         ChatIntent.GENERAL_QUESTION, "How can I improve my endgames?"
     )
-    assert result == [CONTENT_TYPE_PATTERN]
+    assert result == [CONTENT_TYPE_PATTERN, CONTENT_TYPE_COACHING]
 
 
 @pytest.mark.parametrize(
@@ -180,7 +184,8 @@ async def test_general_question_passes_pattern_content_types(
         db,
         routing_user.id,
         "How can I improve my endgames?",
-        content_types=["pattern"],
+        content_types=["pattern", "coaching"],
+        limit=8,
     )
 
 
@@ -203,6 +208,7 @@ async def test_general_question_includes_coaching_content_type_for_keywords(
         routing_user.id,
         "Do you remember our last session on rook endgames?",
         content_types=["pattern", "coaching"],
+        limit=8,
     )
 
 
