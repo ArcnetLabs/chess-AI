@@ -99,12 +99,18 @@ services:
       pip install -r requirements.txt
     # Render did not retain the generated binary in one deploy. Re-running the
     # idempotent installer at startup guarantees the worker never starts without it.
-    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -Q analysis --pool=solo --concurrency=1
+    # `-B` embeds Celery beat: the worker also runs the scheduled sync + weekly
+    # digest entries (gated by CELERY_BEAT_ENABLED / WEEKLY_DIGEST_ENABLED).
+    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -B -Q analysis --pool=solo --concurrency=1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: ENVIRONMENT
         value: production
+      - key: CELERY_BEAT_ENABLED
+        value: "true"
+      - key: WEEKLY_DIGEST_ENABLED
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: SUPABASE_URL
