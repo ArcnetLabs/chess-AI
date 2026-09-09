@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -17,6 +17,7 @@ from app.services.coaching.chat_memory_service import (
     build_exchanges,
     content_id_for_exchange,
     sync_session_chat_memories,
+    sync_session_thread_summary,
 )
 from app.services.coaching.embedding_service import EMBEDDING_DIM
 from app.tasks.chat_memory_tasks import (
@@ -399,6 +400,73 @@ async def test_record_block_injected_for_every_coach_call(
     system_content = ai_client.captured[0]["content"]
     assert "Conversation Record" in system_content
     assert "Player message chronology" not in system_content
+
+
+def _long_history(message_count: int) -> list[dict]:
+    history = []
+    for i in range(message_count):
+        role = MessageRole.USER if i % 2 == 0 else MessageRole.ASSISTANT
+        history.append(_chat_message_dict(role, f"message number {i}"))
+    return history
+
+
+@patch("app.services.integration.ai_client.get_ai_client")
+def test_thread_summary_generated_for_out_of_window_messages(
+    mock_get_client, db
+):
+    """User directive: summarize the context instead of cutting it. Messages
+    older than the LLM window get folded into a rolling summary stored on the
+    session record."""
+    mock_client = MagicMock()
+    mock_client.chat_completion = AsyncMock(
+        return_value={"content": "Rolling summary of the older conversation."}
+    )
+    mock_get_client.return_value = mock_client
+
+    user = _create_user(db)
+    _create_session_record(db, user, _long_history(12))
+
+    result = sync_session_thread_summary(db, SESSION_ID, user.id)
+
+    assert result["status"] == "success"
+    assert result["updated"] is True
+    assert result["summary_upto"] == 5  # 12 - 7 window
+    record = db.query(ChatSessionRecord).filter_by(session_id=SESSION_ID).one()
+    assert record.context_json["early_summary"] == (
+        "Rolling summary of the older conversation."
+    )
+    mock_client.chat_completion.assert_awaited_once()
+
+
+@patch("app.services.integration.ai_client.get_ai_client")
+def test_thread_summary_skipped_when_all_in_window(mock_get_client, db):
+    user = _create_user(db)
+    _create_session_record(db, user, _long_history(6))
+
+    result = sync_session_thread_summary(db, SESSION_ID, user.id)
+
+    assert result["status"] == "success"
+    assert result["updated"] is False
+    mock_get_client.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_llm_coach_reply_injects_thread_summary():
+    ai_client = _CapturingAIClient()
+    coach = ChessCoach(ai_client=ai_client)
+    context = ChatContext(
+        session_id="s1",
+        early_summary="We discussed king's gambit openings and middlegame blunders.",
+    )
+
+    await coach._llm_coach_reply("What did we cover so far?", context, "Grounding")
+
+    system_content = ai_client.captured[0]["content"]
+    assert "Thread summary" in system_content
+    assert (
+        "We discussed king's gambit openings and middlegame blunders."
+        in system_content
+    )
 
 
 @pytest.mark.asyncio

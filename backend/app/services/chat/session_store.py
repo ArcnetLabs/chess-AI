@@ -50,6 +50,8 @@ def deserialize_context(data: Any) -> ChatContext:
         skill_level=payload.get("skill_level", "intermediate"),
         focus_areas=payload.get("focus_areas") or [],
         recent_topics=payload.get("recent_topics") or [],
+        early_summary=payload.get("early_summary") or "",
+        summary_upto=int(payload.get("summary_upto") or 0),
     )
 
 

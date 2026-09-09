@@ -912,11 +912,18 @@ class ChessCoach:
             "If the records do not contain something, say plainly that you "
             "do not have a record of it rather than inventing one.\n"
         )
+        thread_summary_block = ""
+        if context.early_summary:
+            thread_summary_block = (
+                "## Thread summary (messages before the visible window)\n"
+                f"{context.early_summary}\n\n"
+            )
         llm_messages = [
             {
                 "role": "system",
                 "content": (
                     f"{grounding_block}\n\n"
+                    f"{thread_summary_block}"
                     f"{position_line}"
                     "You are the user's personal chess improvement coach.\n"
                     f"The user's current question is: \"{message}\"\n"

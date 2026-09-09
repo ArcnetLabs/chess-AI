@@ -58,6 +58,11 @@ class ChatContext:
     skill_level: str = "intermediate"
     focus_areas: List[str] = None
     recent_topics: List[str] = None
+    # Rolling summary of everything that has scrolled out of the recent
+    # window, maintained by the chat-memory Celery task (user directive:
+    # summarize context instead of silently cutting it).
+    early_summary: str = ""
+    summary_upto: int = 0
     
     def __post_init__(self):
         if self.conversation_history is None:
@@ -84,7 +89,9 @@ class ChatContext:
             "conversation_history": [msg.to_dict() for msg in self.conversation_history],
             "skill_level": self.skill_level,
             "focus_areas": self.focus_areas,
-            "recent_topics": self.recent_topics
+            "recent_topics": self.recent_topics,
+            "early_summary": self.early_summary,
+            "summary_upto": self.summary_upto,
         }
 
 
