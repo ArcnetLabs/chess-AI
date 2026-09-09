@@ -78,15 +78,25 @@ def extract_chat_memories_task(self, user_id: int, session_id: str):
     """
     db = SessionLocal()
     try:
-        from app.services.coaching.chat_memory_service import sync_session_chat_memories
+        from app.services.coaching.chat_memory_service import (
+            sync_session_chat_memories,
+            sync_session_thread_summary,
+        )
 
         logger.info(f"Starting chat memory extraction session={session_id}")
         result = sync_session_chat_memories(db, session_id, user_id)
+        summary_result = sync_session_thread_summary(db, session_id, user_id)
         logger.info(
             f"Chat memory extraction complete session={session_id}: "
-            f"status={result['status']} embedded={result.get('embedded_count', 0)}"
+            f"status={result['status']} embedded={result.get('embedded_count', 0)} "
+            f"summary={summary_result.get('status')}"
         )
-        return {"session_id": session_id, "user_id": user_id, **result}
+        return {
+            "session_id": session_id,
+            "user_id": user_id,
+            **result,
+            "thread_summary": summary_result,
+        }
     except Exception as exc:
         db.rollback()
         logger.error(f"Chat memory extraction failed session={session_id}: {exc}")

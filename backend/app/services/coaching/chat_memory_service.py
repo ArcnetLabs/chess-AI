@@ -8,8 +8,9 @@ growing session never duplicates rows.
 """
 from __future__ import annotations
 
+import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import md5
 from typing import Any, Optional
 
@@ -24,6 +25,23 @@ from app.services.coaching.embedding_service import (
 )
 
 CONTENT_TYPE_COACHING = "coaching"
+
+# Must match the LLM window in chess_coach._llm_coach_reply
+# (get_recent_messages(7)[:-1]) — messages older than this are summarized.
+THREAD_WINDOW_MESSAGES = 7
+
+_SUMMARY_SYSTEM_PROMPT = (
+    "You maintain a rolling summary of the earlier part of a chess-coaching "
+    "thread (the part that has scrolled out of the model's recent window). "
+    "Update the provided previous summary so it covers both the previous "
+    "summary and the new transcript excerpt: keep the questions the player "
+    "asked, the key coaching advice given, openings / weaknesses / goals "
+    "discussed, and any decisions made. Be factual and compact — under 250 "
+    "words. Output only the summary text."
+)
+
+_TRANSCRIPT_MESSAGE_CHARS = 300
+_TRANSCRIPT_TOTAL_CHARS = 24000
 
 # Cap the extraction sweep so one oversized session cannot dominate the
 # embedding budget; the most recent exchanges are the useful ones. Exchange
@@ -216,3 +234,106 @@ def sync_session_chat_memories(
         "embedded_count": embedded_count,
         "skipped_count": skipped_count,
     }
+
+
+def sync_session_thread_summary(
+    db: Session,
+    session_id: str,
+    user_id: int,
+) -> dict[str, Any]:
+    """
+    Maintain a rolling summary of everything older than the LLM window.
+
+    User directive: summarize the context instead of silently cutting it. The
+    messages that have scrolled out of ``THREAD_WINDOW_MESSAGES`` are appended
+    to the stored rolling summary (one LLM call per debounce run, only when
+    new out-of-window messages exist), and the result is stored on the session
+    record as ``early_summary`` / ``summary_upto`` so the coach can inject it.
+    """
+    from app.models.chat import ChatSessionRecord
+
+    record = (
+        db.query(ChatSessionRecord)
+        .filter_by(session_id=session_id, user_id=user_id)
+        .one_or_none()
+    )
+    if record is None:
+        return {"status": "skipped", "reason": "session not found"}
+
+    payload = record.context_json if isinstance(record.context_json, dict) else {}
+    history = payload.get("conversation_history") or []
+    summary_upto = int(payload.get("summary_upto") or 0)
+    window_start = max(0, len(history) - THREAD_WINDOW_MESSAGES)
+    if window_start <= summary_upto:
+        return {
+            "status": "success",
+            "updated": False,
+            "reason": "no messages outside the window",
+        }
+
+    pending = history[summary_upto:window_start]
+    transcript_lines = []
+    for message in pending:
+        if not isinstance(message, dict):
+            continue
+        content = str(message.get("content") or "").strip()
+        if not content:
+            continue
+        role = str(message.get("role") or "unknown")
+        transcript_lines.append(f"{role}: {' '.join(content.split())[:_TRANSCRIPT_MESSAGE_CHARS]}")
+    if not transcript_lines:
+        return {"status": "success", "updated": False, "reason": "empty transcript"}
+    transcript = "\n".join(transcript_lines)[-_TRANSCRIPT_TOTAL_CHARS:]
+    previous_summary = str(payload.get("early_summary") or "")
+
+    try:
+        from app.services.integration.ai_client import get_ai_client
+
+        result = asyncio.run(
+            get_ai_client().chat_completion(
+                messages=[
+                    {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Previous summary (may be empty):\n{previous_summary}\n\n"
+                            f"New transcript excerpt to fold in:\n{transcript}"
+                        ),
+                    },
+                ],
+                temperature=0.2,
+                max_tokens=800,
+            )
+        )
+    except Exception as exc:
+        logger.error(
+            f"Thread summary generation failed session={session_id}: {exc}"
+        )
+        return {"status": "failed", "reason": str(exc)}
+
+    summary_text = str(result.get("content") or "").strip()
+    if not summary_text:
+        return {"status": "failed", "reason": "empty summary response"}
+
+    # Re-read and touch only the summary keys to minimize a lost-update race
+    # with the API process appending new messages.
+    record = (
+        db.query(ChatSessionRecord)
+        .filter_by(session_id=session_id, user_id=user_id)
+        .one_or_none()
+    )
+    if record is None:
+        return {"status": "skipped", "reason": "session deleted during summary"}
+    fresh_payload = (
+        dict(record.context_json) if isinstance(record.context_json, dict) else {}
+    )
+    fresh_payload["early_summary"] = summary_text
+    fresh_payload["summary_upto"] = window_start
+    record.context_json = fresh_payload
+    record.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    logger.info(
+        f"Thread summary updated session={session_id}: "
+        f"covers {window_start}/{len(history)} messages"
+    )
+    return {"status": "success", "updated": True, "summary_upto": window_start}
