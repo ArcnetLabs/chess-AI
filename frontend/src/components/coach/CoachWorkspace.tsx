@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BarChart3,
   Bot,
+  Brain,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
+import { InsightsModal } from '@/components/coach/InsightsModal';
 import { useAnalysisStatus, useChatSession, useCurrentUser, usePlayerProfile } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
 import type { AnalysisJobStatus } from '@/types/analysis.types';
@@ -96,6 +98,7 @@ export function CoachWorkspace() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [selectedRange, setSelectedRange] = useState<AnalysisRange>(30);
   const [customDays, setCustomDays] = useState(14);
   const [startingAnalysis, setStartingAnalysis] = useState(false);
@@ -259,6 +262,13 @@ export function CoachWorkspace() {
             {isTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
             {isTracking ? 'Analysis Running' : 'Analyze Games'}
           </button>
+          <button
+            type="button"
+            onClick={() => setInsightsOpen(true)}
+            className="flex w-full items-center gap-3 px-2 py-1 text-sm text-[#bbcabf] transition-colors hover:text-brand-primary"
+          >
+            <Brain className="h-4 w-4" /> What your coach knows
+          </button>
           <div className="mt-7 space-y-4 px-2 text-sm text-[#bbcabf]">
             <span className="flex items-center gap-3">
               <HelpCircle className="h-4 w-4" /> Help
@@ -309,6 +319,16 @@ export function CoachWorkspace() {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setInsightsOpen(true);
+              setMobileMenuOpen(false);
+            }}
+            className="mt-4 flex w-full items-center gap-3 rounded-lg bg-[#2a2a2a] p-3 text-left text-sm text-[#bbcabf]"
+          >
+            <Brain className="h-4 w-4 text-brand-primary" /> What your coach knows
+          </button>
           {recentSessions.length > 0 && (
             <div className="mt-4 border-t border-[#3c4a42] pt-3">
               <p className="mb-2 font-mono text-xs uppercase text-[#bbcabf]">Recent</p>
@@ -501,6 +521,9 @@ export function CoachWorkspace() {
           onClose={() => !startingAnalysis && setAnalysisOpen(false)}
           onStart={() => void handleStartAnalysis()}
         />
+      )}
+      {insightsOpen && user && (
+        <InsightsModal userId={user.id} onClose={() => setInsightsOpen(false)} />
       )}
     </div>
   );

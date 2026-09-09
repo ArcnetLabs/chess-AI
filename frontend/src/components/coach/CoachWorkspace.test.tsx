@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
     games: { fetchRecent: vi.fn() },
     analysis: { analyzeGames: vi.fn() },
   },
+  memoryApi: {
+    list: vi.fn(),
+  },
 }));
 
 vi.mock('@/hooks', () => ({
@@ -29,7 +32,10 @@ vi.mock('@/hooks', () => ({
   useChatSession: mocks.useChatSession,
 }));
 
-vi.mock('@/lib/api', () => ({ default: mocks.api }));
+vi.mock('@/lib/api', () => ({
+  default: mocks.api,
+  memoryApi: mocks.memoryApi,
+}));
 
 vi.mock('@/services/chatService', () => ({ default: mocks.chatService }));
 
@@ -265,4 +271,76 @@ describe('CoachWorkspace', () => {
     expect(screen.getByPlaceholderText("Answer your coach's question...")).toBeInTheDocument();
   });
 
+  it('opens the insights modal and lists what the coach knows', async () => {
+    const user = userEvent.setup();
+    mocks.memoryApi.list.mockResolvedValue({
+      memories: [
+        {
+          id: 1,
+          content_type: 'pattern',
+          content_text: 'Opens with the Italian Game as White.',
+          content_id: 11,
+          metadata: null,
+          created_at: null,
+          updated_at: '2026-09-09T00:00:00Z',
+        },
+        {
+          id: 2,
+          content_type: 'coaching',
+          content_text: 'Goal: 1700 rapid.',
+          content_id: null,
+          metadata: null,
+          created_at: null,
+          updated_at: '2026-09-09T00:00:00Z',
+        },
+      ],
+      total_count: 2,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
+
+    const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
+    expect(within(dialog).getByText('Opens with the Italian Game as White.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Goal: 1700 rapid.')).toBeInTheDocument();
+    expect(within(dialog).getByText('2 memories')).toBeInTheDocument();
+    expect(mocks.memoryApi.list).toHaveBeenCalledWith(7, { contentType: undefined, limit: 50 });
+  });
+
+  it('filters memories by source when a filter tab is selected', async () => {
+    const user = userEvent.setup();
+    mocks.memoryApi.list.mockResolvedValue({
+      memories: [],
+      total_count: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
+    await user.click(within(dialog).getByRole('button', { name: 'From Your Games' }));
+
+    expect(mocks.memoryApi.list).toHaveBeenCalledWith(7, { contentType: 'pattern', limit: 50 });
+
+    await user.click(within(dialog).getByRole('button', { name: 'From Our Chats' }));
+    expect(mocks.memoryApi.list).toHaveBeenCalledWith(7, { contentType: 'coaching', limit: 50 });
+  });
+
+  it('shows the coach-knows empty state when nothing is stored yet', async () => {
+    const user = userEvent.setup();
+    mocks.memoryApi.list.mockResolvedValue({
+      memories: [],
+      total_count: 0,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
+    expect(within(dialog).getByText(/no saved notes here yet/i)).toBeInTheDocument();
+  });
 });
