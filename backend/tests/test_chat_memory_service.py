@@ -16,6 +16,7 @@ from app.services.coaching.chat_memory_service import (
     build_exchange_memory_text,
     build_exchanges,
     content_id_for_exchange,
+    content_id_for_interview_summary,
     sync_session_chat_memories,
     sync_session_thread_summary,
 )
@@ -491,3 +492,111 @@ async def test_process_message_schedules_chat_memory_extraction(
     (task_user_id, task_session_id) = call_kwargs["args"]
     assert task_user_id == user.id
     assert task_session_id
+
+@patch("app.services.coaching.chat_memory_service.embed_texts_sync")
+def test_sync_persists_interview_summary_idempotently(mock_embed, db, monkeypatch):
+    monkeypatch.setattr(settings, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key")
+    mock_embed.return_value = [[0.4] * EMBEDDING_DIM]
+    user = _create_user(db)
+    history = [
+        _chat_message_dict(
+            MessageRole.ASSISTANT, "What rating are you aiming for?"
+        ),
+        _chat_message_dict(MessageRole.USER, "1800 rapid"),
+    ]
+    payload = {
+        "session_id": SESSION_ID,
+        "user_id": user.id,
+        "conversation_history": history,
+        "skill_level": "intermediate",
+        "focus_areas": [],
+        "recent_topics": [],
+        "mode": "interview",
+        "interview_summary": (
+            "Goal: 1800 rapid | Weaknesses: rook endgames | "
+            "Time budget: 5h | Openings: Italian"
+        ),
+    }
+    db.add(
+        ChatSessionRecord(
+            session_id=SESSION_ID, user_id=user.id, context_json=payload
+        )
+    )
+    db.commit()
+
+    result = sync_session_chat_memories(db, SESSION_ID, user.id)
+    # History ends with an unpaired user message (no reply yet), so only
+    # the interview summary row embeds on this run.
+    assert result["embedded_count"] == 1
+
+    rows = db.query(SemanticMemory).filter_by(user_id=user.id).all()
+    interview_rows = [
+        row
+        for row in rows
+        if row.memory_metadata and row.memory_metadata.get("kind") == "interview_summary"
+    ]
+    assert len(interview_rows) == 1
+    assert (
+        interview_rows[0].content_id == content_id_for_interview_summary(SESSION_ID)
+    )
+    assert "Interview summary (" in interview_rows[0].content_text
+    assert "Goal: 1800 rapid" in interview_rows[0].content_text
+
+    # Second run: exchange and summary unchanged -> nothing re-embedded.
+    mock_embed.reset_mock()
+    second = sync_session_chat_memories(db, SESSION_ID, user.id)
+    assert second["embedded_count"] == 0
+    mock_embed.assert_not_called()
+
+
+@patch("app.services.coaching.chat_memory_service.embed_texts_sync")
+def test_interview_summary_refresh_is_reembedded(mock_embed, db, monkeypatch):
+    monkeypatch.setattr(settings, "EMBEDDING_ENABLED", True)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-key")
+    mock_embed.return_value = [[0.4] * EMBEDDING_DIM]
+    user = _create_user(db)
+    payload = {
+        "session_id": SESSION_ID,
+        "user_id": user.id,
+        "conversation_history": [
+            _chat_message_dict(
+                MessageRole.ASSISTANT, "What rating are you aiming for?"
+            ),
+            _chat_message_dict(MessageRole.USER, "1800 rapid"),
+        ],
+        "skill_level": "intermediate",
+        "focus_areas": [],
+        "recent_topics": [],
+        "mode": "interview",
+        "interview_summary": "Goal: 1800 rapid",
+    }
+    record = ChatSessionRecord(
+        session_id=SESSION_ID, user_id=user.id, context_json=payload
+    )
+    db.add(record)
+    db.commit()
+
+    first = sync_session_chat_memories(db, SESSION_ID, user.id)
+    # Interview-only session: no completed exchange yet, one row embeds.
+    assert first["embedded_count"] == 1
+
+    refined = dict(payload)
+    refined["interview_summary"] = (
+        "Goal: 1800 rapid | Weaknesses: rook endgames"
+    )
+    record.context_json = refined
+    db.commit()
+
+    second = sync_session_chat_memories(db, SESSION_ID, user.id)
+    assert second["embedded_count"] == 1
+
+    row = (
+        db.query(SemanticMemory)
+        .filter(
+            SemanticMemory.user_id == user.id,
+            SemanticMemory.content_id == content_id_for_interview_summary(SESSION_ID),
+        )
+        .one()
+    )
+    assert "Weaknesses: rook endgames" in row.content_text

@@ -34,6 +34,11 @@ class ChatMessageRequest(BaseModel):
 class CreateSessionRequest(BaseModel):
     """Request model for creating a chat session."""
     user_id: Optional[int] = Field(None, description="User ID")
+    mode: str = Field(
+        "coach",
+        pattern="^(coach|analyze|interview)$",
+        description="Conversation mode: coach | analyze | interview",
+    )
 
 
 class ChatMessageResponse(BaseModel):
@@ -67,6 +72,7 @@ def _session_summary(session) -> dict:
         "session_id": session.session_id,
         "message_count": len(history),
         "preview": preview[:100],
+        "mode": getattr(session, "mode", "coach"),
         "updated_at": latest.timestamp.isoformat() if latest and latest.timestamp else None,
     }
 
@@ -183,7 +189,9 @@ async def create_session(
     """
     try:
         # Always create sessions under the authenticated user identity.
-        session = coach.create_session(user_id=current_user.id, db=db)
+        session = coach.create_session(
+            user_id=current_user.id, db=db, mode=request.mode
+        )
         
         welcome_message = session.conversation_history[-1].content
         
