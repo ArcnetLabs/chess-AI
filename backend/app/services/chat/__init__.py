@@ -24,6 +24,18 @@ class MessageRole(str, Enum):
     SYSTEM = "system"
 
 
+class SessionMode(str, Enum):
+    """Conversation mode for a chat session.
+
+    ``coach`` and ``analyze`` use the standard coaching prompt; ``interview``
+    runs the structured intake that extracts the player's goals and writes
+    them into the memory layer.
+    """
+    COACH = "coach"
+    ANALYZE = "analyze"
+    INTERVIEW = "interview"
+
+
 @dataclass
 class ChatMessage:
     """Represents a chat message."""
@@ -63,7 +75,14 @@ class ChatContext:
     # summarize context instead of silently cutting it).
     early_summary: str = ""
     summary_upto: int = 0
-    
+    # Conversation mode (coach | analyze | interview). Interview sessions
+    # run the structured intake prompt; see chess_coach._llm_coach_reply.
+    mode: str = SessionMode.COACH.value
+    # Compact goal summary emitted by the coach at the end of an interview
+    # (Goal / Weaknesses / Time budget / Openings). Persisted into the
+    # coaching memory slice by the chat-memory task.
+    interview_summary: str = ""
+
     def __post_init__(self):
         if self.conversation_history is None:
             self.conversation_history = []
@@ -71,6 +90,13 @@ class ChatContext:
             self.focus_areas = []
         if self.recent_topics is None:
             self.recent_topics = []
+        try:
+            SessionMode(self.mode)
+        except ValueError:
+            raise ValueError(
+                f"Unknown session mode: {self.mode!r} "
+                f"(expected one of {[m.value for m in SessionMode]})"
+            )
     
     def add_message(self, message: ChatMessage):
         """Add a message to conversation history."""
@@ -92,6 +118,8 @@ class ChatContext:
             "recent_topics": self.recent_topics,
             "early_summary": self.early_summary,
             "summary_upto": self.summary_upto,
+            "mode": self.mode,
+            "interview_summary": self.interview_summary,
         }
 
 

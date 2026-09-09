@@ -8,7 +8,9 @@ from datetime import datetime
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole
+from . import ChatIntent, ChatMessage, ChatContext, ChatResponse, MessageRole, SessionMode
+
+_WS_RUN = re.compile(r"\s+")
 from .context_assembler import assemble_coach_context_async, extract_pattern_ids_from_context
 from .intent_classifier import IntentClassifier
 from .session_store import ChatSessionStore
@@ -885,7 +887,11 @@ class ChessCoach:
         """Build the question-aware LLM request and return the provider result.
 
         Raises on empty responses so each caller applies its own fallback and
-        metadata handling.
+        metadata handling. In interview mode the reply is post-processed: the
+        structured ``[INTERVIEW_SUMMARY]`` block (emitted by the model when the
+        intake essentials are known) is stripped from the user-visible text
+        and stored on the context; the chat-memory task persists it into the
+        coaching memory slice.
         """
         memory_instruction = ""
         if "## Relevant Semantic Memories" in grounding_block:
@@ -912,6 +918,24 @@ class ChessCoach:
             "If the records do not contain something, say plainly that you "
             "do not have a record of it rather than inventing one.\n"
         )
+        interview_rule = ""
+        if context.mode == SessionMode.INTERVIEW.value:
+            interview_rule = (
+                "\nInterview mode: you are running a structured coaching "
+                "intake, one short question at a time. Cover exactly these "
+                "essentials: (1) the rating goal the player is aiming for, "
+                "(2) what the player feels is their biggest weakness, (3) "
+                "how much time per week they can train, (4) the openings "
+                "they play and want to improve. Keep acknowledgements brief "
+                "and do not hand out long advice during the intake. When "
+                "all four essentials are known from the player's own words, "
+                "finish your reply with a new line containing exactly "
+                "[INTERVIEW_SUMMARY] followed by compact lines 'Goal: ...', "
+                "'Weaknesses: ...', 'Time budget: ...', 'Openings: ...' — "
+                "using only what the player actually told you; if an "
+                "essential is still unknown, keep asking instead of "
+                "summarizing. Never invent facts to fill a gap.\n"
+            )
         thread_summary_block = ""
         if context.early_summary:
             thread_summary_block = (
@@ -937,6 +961,7 @@ class ChessCoach:
                     "your answer more specific."
                     f"{memory_instruction}"
                     f"{recall_honesty_rule}"
+                    f"{interview_rule}"
                 ),
             },
         ]
@@ -949,11 +974,44 @@ class ChessCoach:
             if history_message.role in {MessageRole.USER, MessageRole.ASSISTANT}
         )
         llm_messages.append({"role": "user", "content": message})
-        return await self.ai_client.chat_completion(
+        result = await self.ai_client.chat_completion(
             messages=llm_messages,
             temperature=0.7,
             max_tokens=settings.LLM_COACH_MAX_TOKENS,
         )
+        if context.mode == SessionMode.INTERVIEW.value:
+            self._apply_interview_summary(result, context)
+        return result
+
+    _INTERVIEW_MARKER = "[INTERVIEW_SUMMARY]"
+
+    def _apply_interview_summary(
+        self, result: Dict[str, Any], context: ChatContext
+    ) -> None:
+        """Strip the interview summary marker from the visible reply and
+        record the compact summary on the context (idempotent)."""
+        content = result.get("content")
+        if not content or self._INTERVIEW_MARKER not in content:
+            return
+        visible, _, summary_section = content.partition(self._INTERVIEW_MARKER)
+        summary_text = summary_section.strip()
+        result["content"] = visible.rstrip()
+        if not summary_text:
+            return
+        context.interview_summary = _WS_RUN.sub(" ", summary_text)
+        focus_areas: List[str] = []
+        for line in summary_text.splitlines():
+            lowered = line.strip().lower()
+            if lowered.startswith(("weaknesses:", "goal:", "openings:")):
+                _, _, value_part = line.partition(":")
+                for item in value_part.split(","):
+                    cleaned = _WS_RUN.sub(" ", item).strip(" .-")
+                    if cleaned and cleaned.lower() not in {
+                        area.lower() for area in focus_areas
+                    }:
+                        focus_areas.append(cleaned)
+        if focus_areas:
+            context.focus_areas = focus_areas[:6]
 
     async def _handle_analyze_game(
         self,
@@ -1223,6 +1281,7 @@ class ChessCoach:
         user_id: Optional[int] = None,
         position_fen: Optional[str] = None,
         db: Optional[Session] = None,
+        mode: str = SessionMode.COACH.value,
     ) -> ChatContext:
         """Create a new chat session, optionally primed with a board position."""
         session_id = str(uuid.uuid4())
@@ -1230,15 +1289,24 @@ class ChessCoach:
             session_id=session_id,
             user_id=user_id,
             current_position=position_fen,
+            mode=mode,
         )
+        if mode == SessionMode.INTERVIEW.value:
+            welcome = (
+                "Let's set your coaching baseline. I'll ask a few short "
+                "questions about your goals and how you experience your own "
+                "play — one at a time. What rating are you aiming for?"
+            )
+        else:
+            welcome = (
+                "Welcome. I can review your recent games, identify recurring "
+                "patterns, and build a coaching profile tailored to your play. "
+                "What would you like to work on today?"
+            )
         context.add_message(
             ChatMessage(
                 role=MessageRole.ASSISTANT,
-                content=(
-                    "Welcome. I can review your recent games, identify recurring "
-                    "patterns, and build a coaching profile tailored to your play. "
-                    "What would you like to work on today?"
-                ),
+                content=welcome,
                 timestamp=datetime.now(),
             )
         )

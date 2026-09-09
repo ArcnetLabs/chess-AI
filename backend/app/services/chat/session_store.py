@@ -52,6 +52,8 @@ def deserialize_context(data: Any) -> ChatContext:
         recent_topics=payload.get("recent_topics") or [],
         early_summary=payload.get("early_summary") or "",
         summary_upto=int(payload.get("summary_upto") or 0),
+        mode=payload.get("mode") or "coach",
+        interview_summary=payload.get("interview_summary") or "",
     )
 
 

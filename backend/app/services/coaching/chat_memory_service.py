@@ -61,6 +61,19 @@ def content_id_for_exchange(session_id: str, exchange_index: int) -> int:
     return int(digest[:12], 16)
 
 
+def content_id_for_interview_summary(session_id: str) -> int:
+    """Deterministic 48-bit id for a session's interview summary row."""
+    digest = md5(f"{session_id}:interview-summary".encode("utf-8")).hexdigest()
+    return int(digest[:12], 16)
+
+
+def build_interview_memory_text(summary: str) -> str:
+    """Compress the interview goal summary into one dated memory sentence."""
+    date_prefix = f"Interview summary ({datetime.now(timezone.utc).strftime('%Y-%m-%d')})"
+    body = _collapse_whitespace(summary)[:400]
+    return f"{date_prefix}. {body}"
+
+
 def _collapse_whitespace(text: str) -> str:
     return _WS_RUN.sub(" ", text or "").strip()
 
@@ -144,28 +157,37 @@ def sync_session_chat_memories(
 
     context = deserialize_context(record.context_json)
     exchanges = build_exchanges(context.conversation_history)
-    if not exchanges:
+    for exchange in exchanges:
+        exchange["content_id"] = content_id_for_exchange(
+            session_id, exchange["exchange_index"]
+        )
+
+    interview_id = content_id_for_interview_summary(session_id)
+    interview_text: Optional[str] = None
+    if context.interview_summary:
+        interview_text = build_interview_memory_text(context.interview_summary)
+
+    if not exchanges and interview_text is None:
         return {
             "status": "success",
             "embedded_count": 0,
             "skipped_count": 0,
         }
 
-    for exchange in exchanges:
-        exchange["content_id"] = content_id_for_exchange(
-            session_id, exchange["exchange_index"]
-        )
-
     if not is_embedding_configured():
         return {
             "status": "skipped",
             "embedded_count": 0,
-            "skipped_count": len(exchanges),
+            "skipped_count": len(exchanges) + (1 if interview_text else 0),
             "reason": "embedding not configured",
         }
 
-    existing_ids: set[int] = set()
     candidate_ids = [exchange["content_id"] for exchange in exchanges]
+    if interview_text is not None:
+        candidate_ids.append(interview_id)
+
+    existing_ids: set[int] = set()
+    interview_row: Optional[SemanticMemory] = None
     for memory in (
         db.query(SemanticMemory)
         .filter(
@@ -175,29 +197,56 @@ def sync_session_chat_memories(
         )
         .all()
     ):
-        if memory.content_id is not None:
-            existing_ids.add(int(memory.content_id))
+        if memory.content_id is None:
+            continue
+        existing_ids.add(int(memory.content_id))
+        if int(memory.content_id) == interview_id:
+            interview_row = memory
 
     pending = [
         exchange for exchange in exchanges if exchange["content_id"] not in existing_ids
     ]
-    if not pending:
+
+    # Persist the interview summary when new, and refresh it when the coach
+    # refined the summary in a later exchange.
+    include_interview = interview_text is not None and (
+        interview_row is None or interview_row.content_text != interview_text
+    )
+
+    if not pending and not include_interview:
         return {
             "status": "success",
             "embedded_count": 0,
             "skipped_count": len(exchanges),
         }
 
-    texts = [
-        build_exchange_memory_text(
-            exchange["user_content"],
-            exchange["assistant_content"],
-            exchange["asked_at"],
+    targets: list[tuple[int, str, dict[str, Any]]] = []
+    for exchange in pending:
+        metadata: dict[str, Any] = {"session_id": session_id}
+        if exchange["asked_at"] is not None:
+            metadata["asked_at"] = exchange["asked_at"].isoformat()
+        targets.append(
+            (
+                exchange["content_id"],
+                build_exchange_memory_text(
+                    exchange["user_content"],
+                    exchange["assistant_content"],
+                    exchange["asked_at"],
+                ),
+                metadata,
+            )
         )
-        for exchange in pending
-    ]
+    if include_interview:
+        targets.append(
+            (
+                interview_id,
+                interview_text,
+                {"session_id": session_id, "kind": "interview_summary"},
+            )
+        )
+
     try:
-        embeddings = embed_texts_sync(texts)
+        embeddings = embed_texts_sync([target[1] for target in targets])
     except Exception as exc:
         logger.error(
             f"Chat memory embedding failed session={session_id} user_id={user_id}: {exc}"
@@ -209,22 +258,19 @@ def sync_session_chat_memories(
             "reason": str(exc),
         }
 
-    for exchange, text, vector in zip(pending, texts, embeddings):
-        metadata: dict[str, Any] = {"session_id": session_id}
-        if exchange["asked_at"] is not None:
-            metadata["asked_at"] = exchange["asked_at"].isoformat()
+    for (content_id, text, metadata), vector in zip(targets, embeddings):
         upsert_semantic_memory(
             db,
             user_id=user_id,
             content_type=CONTENT_TYPE_COACHING,
-            content_id=exchange["content_id"],
+            content_id=content_id,
             content_text=text,
             embedding=vector,
             metadata=metadata,
         )
 
-    embedded_count = len(pending)
-    skipped_count = len(exchanges) - embedded_count
+    embedded_count = len(targets)
+    skipped_count = len(exchanges) - len(pending)
     logger.info(
         f"Chat memories synced session={session_id} user_id={user_id}: "
         f"embedded={embedded_count} skipped={skipped_count}"
