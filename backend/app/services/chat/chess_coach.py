@@ -724,6 +724,19 @@ class ChessCoach:
                     "Answer from general chess principles and say when you would "
                     "need their game data to be more specific."
                 )
+                # Game-scope chat: in a session focused on one game, the game's
+                # persisted Stockfish facts lead the grounding block.
+                if db is not None and context.game_id is not None:
+                    focused_block = self._focused_game_block(db, context)
+                    if focused_block:
+                        grounding_block = f"{focused_block}\n\n{grounding_block}"
+                    else:
+                        grounding_block = (
+                            f"{grounding_block}\n\n"
+                            "Note: the full engine analysis for the focused game "
+                            "is not available yet — the user can queue it by "
+                            "asking you to analyze that game."
+                        )
                 # Every coach call gets the Conversation Record; recall
                 # questions additionally get the full player chronology.
                 record_block = self._earliest_exchanges_block(
@@ -1051,15 +1064,25 @@ class ChessCoach:
         if user is None:
             return self._no_games_response()
 
-        game = GameQueryBuilder.build_filter_query(
-            db, context.user_id, limit=1
-        ).first()
+        # Game-scope chat: analyze THE session's focused game when set;
+        # otherwise fall back to the player's latest game.
+        game = (
+            self._resolve_focused_game(db, context)
+            if context.game_id is not None
+            else None
+        )
+        if game is None:
+            game = GameQueryBuilder.build_filter_query(
+                db, context.user_id, limit=1
+            ).first()
         if game is None:
             return self._no_games_response()
 
         analysis = game.analysis
         if analysis is None:
-            return await self._queue_latest_game_analysis(db, user, game)
+            return await self._queue_latest_game_analysis(
+                db, user, game, focused=context.game_id is not None
+            )
 
         grounding_block = self._format_game_analysis_block(game, analysis)
         cited_pattern_ids: List[int] = []
@@ -1144,8 +1167,43 @@ class ChessCoach:
             ],
         )
 
-    async def _queue_latest_game_analysis(self, db: Session, user, game) -> ChatResponse:
-        """Queue Stockfish analysis for the latest game and tell the player."""
+    def _resolve_focused_game(self, db: Session, context: ChatContext):
+        """Resolve the session's focused game when the user owns it (or None)."""
+        if db is None or context.game_id is None or context.user_id is None:
+            return None
+        from ...models import Game
+
+        game = (
+            db.query(Game)
+            .filter(Game.id == context.game_id, Game.user_id == context.user_id)
+            .one_or_none()
+        )
+        if game is None:
+            logger.warning(
+                f"Focused game {context.game_id} not found for user {context.user_id}"
+            )
+            return None
+        return game
+
+    def _focused_game_block(self, db: Session, context: ChatContext) -> Optional[str]:
+        """Load the session's focused game analysis as a grounding block.
+
+        Returns the formatted Stockfish-grounded block, or None when the
+        session has no focused game, the game is missing, or its analysis has
+        not been persisted yet (that case is handled by the caller).
+        """
+        game = self._resolve_focused_game(db, context)
+        if game is None:
+            return None
+        analysis = game.analysis
+        if analysis is None:
+            return None
+        return self._format_game_analysis_block(game, analysis)
+
+    async def _queue_latest_game_analysis(
+        self, db: Session, user, game, *, focused: bool = False
+    ) -> ChatResponse:
+        """Queue Stockfish analysis for the game and tell the player."""
         from ..analysis.auto_analysis_service import queue_new_games_for_analysis
 
         players = f"{game.white_username or 'White'} vs {game.black_username or 'Black'}"
@@ -1163,19 +1221,31 @@ class ChessCoach:
             result = {"status": "skipped", "reason": "queue_error"}
 
         if result.get("status") == "queued":
+            lead = (
+                "That game hasn't been analyzed yet"
+                if focused
+                else (
+                    f"I found your most recent game ({players}, "
+                    f"{game.time_class or 'unknown time control'}, played {played})"
+                )
+            )
             text = (
-                f"I found your most recent game ({players}, "
-                f"{game.time_class or 'unknown time control'}, played {played}). "
-                "It hasn't been analyzed yet, so I've queued a full Stockfish "
-                "analysis for it now. Give me a few minutes, then ask again and "
-                "I'll walk you through the key moments."
+                f"{lead}. I've queued a full Stockfish analysis for it now. "
+                "Give me a few minutes, then ask again and I'll walk you "
+                "through the key moments."
             )
         else:
             text = (
-                f"I found your most recent game ({players}, played {played}), "
+                f"Your game ({players}, played {played}) hasn't been analyzed, "
                 "but automatic analysis is not queued right now. Start "
-                "'Analyze Games' from the sidebar and I'll review it as soon "
-                "as it completes."
+                "'Analyze Games' and I'll review it as soon as it completes."
+                if focused
+                else (
+                    f"I found your most recent game ({players}, played {played}), "
+                    "but automatic analysis is not queued right now. Start "
+                    "'Analyze Games' from the sidebar and I'll review it as soon "
+                    "as it completes."
+                )
             )
 
         return ChatResponse(
@@ -1296,6 +1366,7 @@ class ChessCoach:
         position_fen: Optional[str] = None,
         db: Optional[Session] = None,
         mode: str = SessionMode.COACH.value,
+        game_id: Optional[int] = None,
     ) -> ChatContext:
         """Create a new chat session, optionally primed with a board position."""
         session_id = str(uuid.uuid4())
@@ -1304,12 +1375,19 @@ class ChessCoach:
             user_id=user_id,
             current_position=position_fen,
             mode=mode,
+            game_id=game_id,
         )
         if mode == SessionMode.INTERVIEW.value:
             welcome = (
                 "Let's set your coaching baseline. I'll ask a few short "
                 "questions about your goals and how you experience your own "
                 "play — one at a time. What rating are you aiming for?"
+            )
+        elif game_id is not None:
+            welcome = (
+                "Game session ready. This chat is focused on that one game — "
+                "I have its full Stockfish analysis loaded, so ask me about "
+                "any move, moment, or pattern you want to understand."
             )
         else:
             welcome = (

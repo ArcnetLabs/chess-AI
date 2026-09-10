@@ -36,6 +36,31 @@ router = APIRouter()
 
 
 
+class GameAnalysisSummary(BaseModel):
+
+    analysis_id: Optional[int] = None
+
+    opening_name: Optional[str] = None
+
+    opening_eco: Optional[str] = None
+
+    accuracy_percentage: Optional[float] = None
+
+    user_acpl: Optional[float] = None
+
+    opponent_acpl: Optional[float] = None
+
+    blunders: Optional[int] = None
+
+    mistakes: Optional[int] = None
+
+    user_color: Optional[str] = None
+
+    class Config:
+
+        from_attributes = True
+
+
 class GameResponse(BaseModel):
 
     id: int
@@ -67,6 +92,8 @@ class GameResponse(BaseModel):
     end_time: Optional[datetime]
 
     is_analyzed: bool
+
+    analysis: Optional[GameAnalysisSummary] = None
 
     
 

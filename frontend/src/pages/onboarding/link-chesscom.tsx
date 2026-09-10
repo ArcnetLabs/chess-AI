@@ -77,7 +77,9 @@ export default function LinkChesscomPage(_props: Props) {
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const next =
-    typeof router.query.next === 'string' ? router.query.next : '/coach';
+    typeof router.query.next === 'string'
+      ? router.query.next
+      : '/onboarding/analyze';
 
   useEffect(() => {
     if (!router.isReady) return;
