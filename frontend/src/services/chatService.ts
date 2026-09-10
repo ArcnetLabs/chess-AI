@@ -17,11 +17,13 @@ class ChatService {
   async createSession(
     userId?: number,
     mode?: 'coach' | 'analyze' | 'interview',
+    gameId?: number,
   ): Promise<{ session_id: string; message: string }> {
     const resolvedUserId = userId ?? this.userId;
     const data = await api.chat.createSessionWithOptions({
       user_id: resolvedUserId,
       mode: mode ?? 'coach',
+      ...(gameId != null ? { game_id: gameId } : {}),
     });
     this.sessionId = data.session_id;
     return { session_id: data.session_id, message: data.message };

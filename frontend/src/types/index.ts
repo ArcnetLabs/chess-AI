@@ -17,6 +17,7 @@ export interface User {
   is_chesscom_connected?: boolean;
   connection_status?: string;  // Property from backend: "Public Data Only", "Authenticated", etc.
   can_access_private_data?: boolean;  // Property from backend
+  chesscom_avatar?: string | null;  // Chess.com profile picture, when exposed
   
   // Chess.com data
   chesscom_profile?: Record<string, any>;
@@ -64,6 +65,18 @@ export interface Game {
   start_time?: string;
   end_time?: string;
   is_analyzed: boolean;
+  /** Compact per-game analysis summary, present for analyzed games. */
+  analysis?: {
+    analysis_id?: number | null;
+    opening_name?: string | null;
+    opening_eco?: string | null;
+    accuracy_percentage?: number | null;
+    user_acpl?: number | null;
+    opponent_acpl?: number | null;
+    blunders?: number | null;
+    mistakes?: number | null;
+    user_color?: string | null;
+  } | null;
 }
 
 export interface CoachHandoffRequest {

@@ -90,6 +90,8 @@ export interface SendMessageResponse {
 
 export interface CreateSessionRequest {
   user_id?: number;
+  mode?: 'coach' | 'analyze' | 'interview';
+  game_id?: number;
 }
 
 export interface CreateSessionResponse {
@@ -112,6 +114,7 @@ export interface ChatSessionSummary {
   preview: string;
   updated_at: string | null;
   mode?: 'coach' | 'analyze' | 'interview';
+  game_id?: number | null;
 }
 
 export interface ChatSessionListResponse {
