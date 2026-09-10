@@ -39,6 +39,11 @@ class CreateSessionRequest(BaseModel):
         pattern="^(coach|analyze|interview)$",
         description="Conversation mode: coach | analyze | interview",
     )
+    game_id: Optional[int] = Field(
+        None,
+        ge=1,
+        description="Focus the session on one analyzed game (game chat)",
+    )
 
 
 class ChatMessageResponse(BaseModel):
@@ -188,9 +193,29 @@ async def create_session(
     - Welcome message
     """
     try:
-        # Always create sessions under the authenticated user identity.
+        # Always create sessions under the authenticated user identity. When a
+        # game focus is requested, verify the game belongs to this user.
+        if request.game_id is not None:
+            from ..models import Game
+
+            game_owned = (
+                db.query(Game)
+                .filter(
+                    Game.id == request.game_id,
+                    Game.user_id == current_user.id,
+                )
+                .one_or_none()
+            )
+            if game_owned is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="That game was not found in your account",
+                )
         session = coach.create_session(
-            user_id=current_user.id, db=db, mode=request.mode
+            user_id=current_user.id,
+            db=db,
+            mode=request.mode,
+            game_id=request.game_id,
         )
         
         welcome_message = session.conversation_history[-1].content
@@ -202,6 +227,8 @@ async def create_session(
             "context": session.to_dict()
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Session creation failed: {e}")
         raise HTTPException(

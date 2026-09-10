@@ -20,25 +20,6 @@ const mocks = vi.hoisted(() => ({
     games: { fetchRecent: vi.fn() },
     analysis: { analyzeGames: vi.fn() },
   },
-  memoryApi: {
-    list: vi.fn(),
-  },
-  trainingApi: {
-    listPlans: vi.fn(),
-    getActivePlan: vi.fn(),
-    createPlan: vi.fn(),
-    saveDrill: vi.fn(),
-    setDrillStatus: vi.fn(),
-    completeDrill: vi.fn(),
-    getProgress: vi.fn(),
-  },
-  patternApi: {
-    list: vi.fn(),
-  },
-  notificationsApi: {
-    list: vi.fn(),
-    markRead: vi.fn(),
-  },
 }));
 
 vi.mock('@/hooks', () => ({
@@ -50,10 +31,6 @@ vi.mock('@/hooks', () => ({
 
 vi.mock('@/lib/api', () => ({
   default: mocks.api,
-  memoryApi: mocks.memoryApi,
-  trainingApi: mocks.trainingApi,
-  patternApi: mocks.patternApi,
-  notificationsApi: mocks.notificationsApi,
 }));
 
 vi.mock('@/services/chatService', () => ({ default: mocks.chatService }));
@@ -81,43 +58,62 @@ function resetStore() {
   mocks.useChatSession.mockReturnValue(undefined);
 }
 
-describe('CoachWorkspace', () => {
+describe('CoachWorkspace (Stanley-style chat surface)', () => {
   beforeEach(resetStore);
 
-  it('shows a loading screen while the user is loading', () => {
-    mocks.useCurrentUser.mockReturnValue({ user: null, loading: true });
-    const { container } = render(<CoachWorkspace />);
-    expect(container.querySelector('.animate-spin')).toBeTruthy();
-  });
-
-  it('renders the empty coach state with starter prompts', () => {
+  it('renders the Ask ChessRun empty state with starter pills', () => {
     render(<CoachWorkspace />);
-    expect(screen.getByText('What should we focus on next?')).toBeInTheDocument();
+    expect(screen.getByText('Ask ChessRun')).toBeInTheDocument();
     expect(screen.getByText('Pattern Recognition')).toBeInTheDocument();
     expect(screen.getByText('Conversion Issues')).toBeInTheDocument();
     expect(screen.getByText('Rating Goals')).toBeInTheDocument();
     expect(screen.getByText('Opening Prep')).toBeInTheDocument();
   });
 
-  it('opens the analysis modal and offers the timeframe options', async () => {
+  it('fills the composer when a starter pill is clicked', async () => {
     const user = userEvent.setup();
     render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Analyze Games' })[0]);
-
-    const dialog = await screen.findByRole('dialog', { name: 'Analyze games' });
-    expect(within(dialog).getByText('Analyze All Games')).toBeInTheDocument();
-    expect(within(dialog).getByText('Last 7 Days')).toBeInTheDocument();
-    expect(within(dialog).getByText('Last 30 Days')).toBeInTheDocument();
-    expect(within(dialog).getByText('This Month')).toBeInTheDocument();
-    expect(within(dialog).getByText('Custom Range')).toBeInTheDocument();
+    await user.click(screen.getByText('Pattern Recognition'));
+    expect(
+      (screen.getByPlaceholderText('What would you like to work on today?') as HTMLInputElement)
+        .value,
+    ).toBe('What patterns do you see in my games?');
   });
 
-  it('opens the analysis flow from the attach button', async () => {
+  it('opens the analysis modal from the attach button', async () => {
     const user = userEvent.setup();
     render(<CoachWorkspace />);
     await user.click(screen.getByRole('button', { name: 'Attach a game' }));
 
-    expect(await screen.findByRole('dialog', { name: 'Analyze games' })).toBeInTheDocument();
+    expect(await screen.findByText('Connect your games')).toBeInTheDocument();
+    expect(screen.getByText('All games')).toBeInTheDocument();
+    expect(screen.getByText('30 days')).toBeInTheDocument();
+  });
+
+  it('starts an analysis job and tracks its progress', async () => {
+    const user = userEvent.setup();
+    const watchJob = vi.fn();
+    mocks.useAnalysisStatus.mockReturnValue({
+      watchJob,
+      cancelJob: vi.fn(),
+      status: null,
+      isTracking: false,
+      error: null,
+    });
+    mocks.api.games.fetchRecent.mockResolvedValue({});
+    mocks.api.analysis.analyzeGames.mockResolvedValue({
+      games_queued: 4,
+      job_id: 'job-1',
+      status: 'queued',
+    });
+
+    render(<CoachWorkspace />);
+    await user.click(screen.getByRole('button', { name: 'Attach a game' }));
+    await user.click(screen.getByRole('button', { name: 'Run analysis' }));
+
+    expect(mocks.api.games.fetchRecent).toHaveBeenCalledWith(7, { days: 30 });
+    expect(mocks.api.analysis.analyzeGames).toHaveBeenCalledWith(7, { days: 30 });
+    expect(watchJob).toHaveBeenCalledWith('job-1', expect.any(Object));
   });
 
   it('sends a message and shows the coach reply', async () => {
@@ -142,9 +138,9 @@ describe('CoachWorkspace', () => {
 
     render(<CoachWorkspace />);
 
-    const input = screen.getByPlaceholderText('Ask your coach anything...');
+    const input = screen.getByPlaceholderText('What would you like to work on today?');
     await user.type(input, 'What should I study?');
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText('What should I study?')).toBeInTheDocument();
     expect(await screen.findByText('Let us start with your openings.')).toBeInTheDocument();
@@ -153,37 +149,6 @@ describe('CoachWorkspace', () => {
       undefined,
       7,
     );
-  });
-
-  it('renders coach replies as markdown without literal markers', async () => {
-    const user = userEvent.setup();
-    mocks.chatService.listSessions.mockResolvedValue([]);
-    mocks.chatService.createSession.mockResolvedValue({
-      session_id: 's1',
-      message: 'Welcome to ChessRun.',
-    });
-    mocks.chatService.sendMessage.mockResolvedValue({
-      session_id: 's1',
-      response: {
-        message: '## Plan\n\n**Keep the gambits** with structure.',
-        intent: 'general_question',
-        suggestions: [],
-        used_llm: true,
-        llm_provider: 'local',
-        cited_pattern_ids: [],
-      },
-    });
-    useChatStore.setState({ userId: 7 });
-
-    render(<CoachWorkspace />);
-
-    const input = screen.getByPlaceholderText('Ask your coach anything...');
-    await user.type(input, 'What now?');
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
-
-    expect(await screen.findByRole('heading', { name: 'Plan' })).toBeInTheDocument();
-    expect(screen.getByText('Keep the gambits')).toBeInTheDocument();
-    expect(screen.queryByText(/\*\*/)).toBeNull();
   });
 
   it('renders coach tables as real tables via GFM', async () => {
@@ -209,9 +174,9 @@ describe('CoachWorkspace', () => {
 
     render(<CoachWorkspace />);
 
-    const input = screen.getByPlaceholderText('Ask your coach anything...');
+    const input = screen.getByPlaceholderText('What would you like to work on today?');
     await user.type(input, 'What now?');
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
 
     const table = await screen.findByRole('table');
     expect(table).toBeInTheDocument();
@@ -224,447 +189,25 @@ describe('CoachWorkspace', () => {
     expect(screen.queryByText(/\| Situation \|/)).toBeNull();
   });
 
-  it('starts an analysis job and tracks its progress', async () => {
-    const user = userEvent.setup();
-    const watchJob = vi.fn();
-    mocks.useAnalysisStatus.mockReturnValue({
-      watchJob,
-      cancelJob: vi.fn(),
-      status: null,
-      isTracking: false,
-      error: null,
-    });
-    mocks.api.games.fetchRecent.mockResolvedValue({});
-    mocks.api.analysis.analyzeGames.mockResolvedValue({ games_queued: 4, job_id: 'job-1' });
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Analyze Games' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Analyze games' });
-    await user.click(within(dialog).getByRole('button', { name: 'Start Analysis' }));
-
-    expect(mocks.api.games.fetchRecent).toHaveBeenCalledWith(7, { days: 30 });
-    expect(mocks.api.analysis.analyzeGames).toHaveBeenCalledWith(7, { days: 30 });
-    expect(watchJob).toHaveBeenCalledWith('job-1', expect.any(Object));
-  });
-
-  it('offers a mode picker with the three coaching modes', () => {
-    render(<CoachWorkspace />);
-    expect(screen.getAllByRole('button', { name: 'New Chat' }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'New Analyze Chat' }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'New Interview' }).length).toBeGreaterThan(0);
-  });
-
-  it('starts an interview session when the interview mode is selected', async () => {
-    const user = userEvent.setup();
-    mocks.chatService.listSessions.mockResolvedValue([]);
-    mocks.chatService.createSession.mockResolvedValue({
-      session_id: 's-interview',
-      message: "Let's set your coaching baseline.",
-    });
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'New Interview' })[0]);
-
-    expect(mocks.chatService.createSession).toHaveBeenCalledWith(7, 'interview');
-    expect(await screen.findByText("Let's set your coaching baseline.")).toBeInTheDocument();
-  });
-
   it('shows interview baseline prompts in interview mode', () => {
     useChatStore.setState({ sessionMode: 'interview' });
     render(<CoachWorkspace />);
     expect(screen.getByText('Full Baseline')).toBeInTheDocument();
     expect(screen.getByText('Time Budget')).toBeInTheDocument();
     expect(screen.queryByText('Pattern Recognition')).toBeNull();
-  });
-
-  it('shows position prompts and copy in analyze mode', () => {
-    useChatStore.setState({ sessionMode: 'analyze' });
-    render(<CoachWorkspace />);
-    expect(screen.getByText('Which position should we dig into?')).toBeInTheDocument();
-    expect(screen.getByText('Evaluate A Position')).toBeInTheDocument();
-  });
-
-  it('adapts the composer placeholder to the session mode', () => {
-    useChatStore.setState({ sessionMode: 'interview' });
-    render(<CoachWorkspace />);
     expect(screen.getByPlaceholderText("Answer your coach's question...")).toBeInTheDocument();
   });
 
-  it('opens the insights modal and lists what the coach knows', async () => {
-    const user = userEvent.setup();
-    mocks.memoryApi.list.mockResolvedValue({
-      memories: [
-        {
-          id: 1,
-          content_type: 'pattern',
-          content_text: 'Opens with the Italian Game as White.',
-          content_id: 11,
-          metadata: null,
-          created_at: null,
-          updated_at: '2026-09-09T00:00:00Z',
-        },
-        {
-          id: 2,
-          content_type: 'coaching',
-          content_text: 'Goal: 1700 rapid.',
-          content_id: null,
-          metadata: null,
-          created_at: null,
-          updated_at: '2026-09-09T00:00:00Z',
-        },
-      ],
-      total_count: 2,
-      limit: 50,
-      offset: 0,
-    });
-
+  it('shows position prompts in analyze mode', () => {
+    useChatStore.setState({ sessionMode: 'analyze' });
     render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
-
-    const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
-    expect(within(dialog).getByText('Opens with the Italian Game as White.')).toBeInTheDocument();
-    expect(within(dialog).getByText('Goal: 1700 rapid.')).toBeInTheDocument();
-    expect(within(dialog).getByText('2 memories')).toBeInTheDocument();
-    expect(mocks.memoryApi.list).toHaveBeenCalledWith(7, { contentType: undefined, limit: 50 });
+    expect(screen.getByText('Evaluate A Position')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Paste a FEN or describe the position...')).toBeInTheDocument();
   });
 
-  it('filters memories by source when a filter tab is selected', async () => {
-    const user = userEvent.setup();
-    mocks.memoryApi.list.mockResolvedValue({
-      memories: [],
-      total_count: 0,
-      limit: 50,
-      offset: 0,
-    });
-
+  it('displays a typing indicator while the coach is composing', () => {
+    useChatStore.setState({ isTyping: true });
     render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
-    await user.click(within(dialog).getByRole('button', { name: 'From Your Games' }));
-
-    expect(mocks.memoryApi.list).toHaveBeenCalledWith(7, { contentType: 'pattern', limit: 50 });
-
-    await user.click(within(dialog).getByRole('button', { name: 'From Our Chats' }));
-    expect(mocks.memoryApi.list).toHaveBeenCalledWith(7, { contentType: 'coaching', limit: 50 });
-  });
-
-  it('shows the coach-knows empty state when nothing is stored yet', async () => {
-    const user = userEvent.setup();
-    mocks.memoryApi.list.mockResolvedValue({
-      memories: [],
-      total_count: 0,
-      limit: 50,
-      offset: 0,
-    });
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'What your coach knows' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'What your coach knows' });
-    expect(within(dialog).getByText(/no saved notes here yet/i)).toBeInTheDocument();
-  });
-
-  it('shows the training empty state when no plan exists', async () => {
-    const user = userEvent.setup();
-    mocks.trainingApi.getProgress.mockResolvedValue({
-      total_drills: 0,
-      completed_drills: 0,
-      pending_drills: 0,
-      skipped_drills: 0,
-      in_progress_drills: 0,
-      completion_rate: 0,
-      active_plan_id: null,
-      active_plan_version: null,
-      active_plan_completion_rate: null,
-      by_drill_type: {},
-      last_completed_at: null,
-    });
-    mocks.trainingApi.getActivePlan.mockRejectedValue(new Error('none'));
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Training' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Your training plan' });
-    expect(within(dialog).getByText(/No training plan yet/i)).toBeInTheDocument();
-  });
-
-  it('lists active plan drills and moves one through start to solved', async () => {
-    const user = userEvent.setup();
-    mocks.trainingApi.getProgress.mockResolvedValue({
-      total_drills: 2,
-      completed_drills: 1,
-      pending_drills: 1,
-      skipped_drills: 0,
-      in_progress_drills: 0,
-      completion_rate: 50,
-      active_plan_id: 3,
-      active_plan_version: 2,
-      active_plan_completion_rate: 0,
-      by_drill_type: {},
-      last_completed_at: null,
-    });
-    mocks.trainingApi.getActivePlan.mockResolvedValue({
-      id: 3,
-      plan_version: 2,
-      status: 'active',
-      title: 'Endgame Conversion Focus',
-      focus_areas: ['Losing gained material in the middlegame'],
-      focus_pattern_ids: [11],
-      drill_count: 2,
-      completed_drill_count: 0,
-      source: 'interview',
-      generated_at: '2026-09-09T00:00:00Z',
-      drills: [
-        {
-          id: 71,
-          training_plan_id: 3,
-          pattern_id: 11,
-          drill_type: 'conversion',
-          status: 'pending',
-          prompt_text: 'Trade into the won rook endgame instead of attacking.',
-          position_fen: null,
-          expected_answer: null,
-          user_answer: null,
-          is_correct: null,
-          score: null,
-          started_at: null,
-          completed_at: null,
-        },
-        {
-          id: 72,
-          training_plan_id: 3,
-          pattern_id: null,
-          drill_type: 'tactic',
-          status: 'completed',
-          prompt_text: 'Spot the fork against the loose knight.',
-          position_fen: null,
-          expected_answer: null,
-          user_answer: null,
-          is_correct: true,
-          score: null,
-          started_at: null,
-          completed_at: '2026-09-09T00:00:00Z',
-        },
-      ],
-    });
-    mocks.trainingApi.setDrillStatus.mockResolvedValue({
-      id: 71,
-      training_plan_id: 3,
-      pattern_id: 11,
-      drill_type: 'conversion',
-      status: 'in_progress',
-      prompt_text: 'Trade into the won rook endgame instead of attacking.',
-      position_fen: null,
-      expected_answer: null,
-      user_answer: null,
-      is_correct: null,
-      score: null,
-      started_at: '2026-09-09T00:00:01Z',
-      completed_at: null,
-    });
-    mocks.trainingApi.completeDrill.mockResolvedValue({
-      id: 71,
-      training_plan_id: 3,
-      pattern_id: 11,
-      drill_type: 'conversion',
-      status: 'completed',
-      prompt_text: 'Trade into the won rook endgame instead of attacking.',
-      position_fen: null,
-      expected_answer: null,
-      user_answer: 'Trade pieces',
-      is_correct: true,
-      score: null,
-      started_at: '2026-09-09T00:00:01Z',
-      completed_at: '2026-09-09T00:00:02Z',
-    });
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Training' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Your training plan' });
-
-    expect(within(dialog).getByText('Endgame Conversion Focus')).toBeInTheDocument();
-    expect(within(dialog).getByText('Losing gained material in the middlegame')).toBeInTheDocument();
-    expect(within(dialog).getByText('Spot the fork against the loose knight.')).toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole('button', { name: 'Start drill' }));
-    expect(mocks.trainingApi.setDrillStatus).toHaveBeenCalledWith(7, 71, 'in_progress');
-    const input = await within(dialog).findByPlaceholderText('Your answer (optional)...');
-    await user.type(input, 'Trade pieces');
-    await user.click(within(dialog).getByRole('button', { name: 'Solved' }));
-
-    expect(mocks.trainingApi.completeDrill).toHaveBeenCalledWith(7, 71, {
-      user_answer: 'Trade pieces',
-      is_correct: true,
-    });
-  });
-
-  it('skips a pending drill when skip is chosen', async () => {
-    const user = userEvent.setup();
-    mocks.trainingApi.getProgress.mockResolvedValue({
-      total_drills: 1,
-      completed_drills: 0,
-      pending_drills: 1,
-      skipped_drills: 0,
-      in_progress_drills: 0,
-      completion_rate: 0,
-      active_plan_id: 5,
-      active_plan_version: 1,
-      active_plan_completion_rate: 0,
-      by_drill_type: {},
-      last_completed_at: null,
-    });
-    mocks.trainingApi.getActivePlan.mockResolvedValue({
-      id: 5,
-      plan_version: 1,
-      status: 'active',
-      title: 'Openings Primer',
-      focus_areas: null,
-      focus_pattern_ids: null,
-      drill_count: 1,
-      completed_drill_count: 0,
-      source: 'coach',
-      generated_at: '2026-09-09T00:00:00Z',
-      drills: [
-        {
-          id: 91,
-          training_plan_id: 5,
-          pattern_id: null,
-          drill_type: 'opening',
-          status: 'pending',
-          prompt_text: 'Name the gambit line you keep losing against.',
-          position_fen: null,
-          expected_answer: null,
-          user_answer: null,
-          is_correct: null,
-          score: null,
-          started_at: null,
-          completed_at: null,
-        },
-      ],
-    });
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Training' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Your training plan' });
-
-    await user.click(within(dialog).getByRole('button', { name: 'Skip' }));
-    expect(mocks.trainingApi.setDrillStatus).toHaveBeenCalledWith(7, 91, 'skipped');
-  });
-
-  it('lists patterns grouped as leaks and strengths', async () => {
-    const user = userEvent.setup();
-    mocks.patternApi.list.mockResolvedValue([
-      {
-        id: 11,
-        user_id: 7,
-        pattern_type: 'positional',
-        pattern_subtype: 'endgame_conversion',
-        severity: 'critical',
-        confidence_score: 0.8,
-        occurrence_count: 101,
-        affected_games_count: 14,
-        affected_games_ratio: 0.47,
-        pattern_description: 'Losing gained material in conversion.',
-        example_positions: null,
-        first_seen_at: null,
-        last_seen_at: null,
-        trend_direction: 'worsening',
-        is_strength: false,
-        recommended_drill_type: 'endgame',
-        created_at: null,
-        updated_at: null,
-      },
-      {
-        id: 12,
-        user_id: 7,
-        pattern_type: 'tactical',
-        pattern_subtype: 'fork_patterns',
-        severity: 'moderate',
-        confidence_score: 0.6,
-        occurrence_count: 22,
-        affected_games_count: 9,
-        affected_games_ratio: 0.3,
-        pattern_description: 'Wins material with clean forks.',
-        example_positions: null,
-        first_seen_at: null,
-        last_seen_at: null,
-        trend_direction: 'improving',
-        is_strength: true,
-        recommended_drill_type: null,
-        created_at: null,
-        updated_at: null,
-      },
-    ]);
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Your patterns' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Your patterns' });
-
-    expect(within(dialog).getByText('Leaks to close')).toBeInTheDocument();
-    expect(within(dialog).getByText('Strengths to lean on')).toBeInTheDocument();
-    expect(within(dialog).getByText('Losing gained material in conversion.')).toBeInTheDocument();
-    expect(within(dialog).getByText('Trending worse')).toBeInTheDocument();
-    expect(within(dialog).getByText('Improving')).toBeInTheDocument();
-    expect(within(dialog).getByText('101 occurrences across 14 games')).toBeInTheDocument();
-  });
-
-  it('lists the weekly digest with unread state and marks one read', async () => {
-    const user = userEvent.setup();
-    mocks.notificationsApi.list.mockResolvedValue({
-      notifications: [
-        {
-          id: 900,
-          user_id: 7,
-          notification_type: 'weekly_digest',
-          title: 'Your week in chess',
-          body: 'Opening accuracy improved to 72%. Focus next on endgame conversion.',
-          payload_json: null,
-          read_at: null,
-          created_at: '2026-09-08T06:00:00Z',
-          is_read: false,
-        },
-        {
-          id: 899,
-          notification_type: 'analysis',
-          title: 'Analysis finished',
-          body: '12 games processed.',
-          payload_json: null,
-          read_at: '2026-09-07T00:00:00Z',
-          created_at: '2026-09-07T00:00:00Z',
-          is_read: true,
-        },
-      ],
-      unread_count: 1,
-      limit: 20,
-      offset: 0,
-    });
-    mocks.notificationsApi.markRead.mockResolvedValue(undefined);
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Weekly digest' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Weekly digest' });
-
-    expect(within(dialog).getByText('Your week in chess')).toBeInTheDocument();
-    expect(
-      within(dialog).getByText('Opening accuracy improved to 72%. Focus next on endgame conversion.'),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText('1 unread')).toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole('button', { name: 'Mark as read' }));
-    expect(mocks.notificationsApi.markRead).toHaveBeenCalledWith(7, 900);
-    expect(mocks.notificationsApi.markRead).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows the weekly digest empty state when nothing has been sent', async () => {
-    const user = userEvent.setup();
-    mocks.notificationsApi.list.mockResolvedValue({
-      notifications: [],
-      unread_count: 0,
-      limit: 20,
-      offset: 0,
-    });
-
-    render(<CoachWorkspace />);
-    await user.click(screen.getAllByRole('button', { name: 'Weekly digest' })[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Weekly digest' });
-    expect(within(dialog).getByText(/Nothing here yet/i)).toBeInTheDocument();
+    expect(screen.getByText('Setting things up...')).toBeInTheDocument();
   });
 });

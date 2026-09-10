@@ -82,6 +82,9 @@ class ChatContext:
     # (Goal / Weaknesses / Time budget / Openings). Persisted into the
     # coaching memory slice by the chat-memory task.
     interview_summary: str = ""
+    # When set, the session is scoped to one analyzed game: every coach call
+    # grounds on that game's persisted Stockfish analysis (game chat).
+    game_id: Optional[int] = None
 
     def __post_init__(self):
         if self.conversation_history is None:
@@ -120,6 +123,7 @@ class ChatContext:
             "summary_upto": self.summary_upto,
             "mode": self.mode,
             "interview_summary": self.interview_summary,
+            "game_id": self.game_id,
         }
 
 

@@ -103,6 +103,7 @@ class UserResponse(BaseModel):
     is_chesscom_connected: bool = False
     connection_status: str = "Public Data Only"
     can_access_private_data: bool = False
+    chesscom_avatar: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -133,6 +133,13 @@ class User(Base):
         if self.is_pro:
             return -1  # Unlimited
         return max(0, self.ai_analyses_limit - self.ai_analyses_used)
+
+    @property
+    def chesscom_avatar(self) -> str | None:
+        """Chess.com profile avatar URL, exposed for the sidebar profile chip."""
+        profile = self.chesscom_profile or {}
+        avatar = profile.get("avatar")
+        return avatar if isinstance(avatar, str) and avatar else None
     
     def increment_ai_usage(self):
         """Increment AI analysis usage counter."""

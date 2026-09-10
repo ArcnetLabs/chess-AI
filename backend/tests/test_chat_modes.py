@@ -203,3 +203,62 @@ def test_interview_memory_text_and_unique_ids():
         content_id_for_interview_summary("s2"),
     }
     assert len(ids) == 3
+
+
+async def test_game_scoped_session_creation(db, client):
+    """POST /chat/session?game_id=X creates a game-scoped session; another
+    user's game id is rejected."""
+    from app.__main__ import app
+    from app.middleware.auth_middleware import get_current_user
+    from app.models import User, Game
+
+    user = User(
+        email="gamechat@example.com",
+        supabase_user_id="gamechat-sub",
+        connection_type="username_only",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    game = Game(
+        user_id=user.id,
+        chesscom_game_id="gamechat-1",
+        white_username=user.email,
+        black_username="opponent",
+    )
+    db.add(game)
+    db.commit()
+    db.refresh(game)
+
+    async def override_get_current_user():
+        return user
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    try:
+        response = client.post("/api/v1/chat/session", json={"game_id": game.id})
+        response_other = client.post(
+            "/api/v1/chat/session", json={"game_id": 999999}
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["context"]["game_id"] == game.id
+    assert "game" in body["message"].lower()
+    assert response_other.status_code == 404
+
+
+def test_focused_game_block_short_circuits_without_db():
+    from app.services.chat.chess_coach import ChessCoach
+    from app.services.chat import ChatContext
+
+    coach = ChessCoach()
+    context = ChatContext(session_id="s-game", user_id=7, game_id=5)
+    # Short-circuit happens before any db usage.
+    assert coach._focused_game_block(None, context) is None  # type: ignore[arg-type]
+    assert coach._resolve_focused_game(None, context) is None  # type: ignore[arg-type]
+    # game_id unset -> returns None even with a db-like object.
+    plain = ChatContext(session_id="s-plain", user_id=7)
+    assert coach._focused_game_block(object(), plain) is None
