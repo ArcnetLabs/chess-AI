@@ -84,7 +84,11 @@ export function useAnalysisStatus(userId: number | undefined) {
         } catch (requestError: unknown) {
           if (cancelledRef.current) return;
 
-          const failures = consecutiveFailures + 1;
+          // Permanent rejections are not transient — do not burn retries on them.
+          const statusCode = (requestError as { response?: { status?: number } })?.response?.status;
+          const permanent = statusCode === 401 || statusCode === 403 || statusCode === 404;
+
+          const failures = permanent ? MAX_CONSECUTIVE_FAILURES : consecutiveFailures + 1;
           if (failures < MAX_CONSECUTIVE_FAILURES) {
             // Transient miss — back off and keep polling instead of failing.
             const backoff = Math.min(POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS);
