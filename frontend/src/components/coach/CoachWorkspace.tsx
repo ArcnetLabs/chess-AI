@@ -4,8 +4,12 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowUp,
   ChevronDown,
+  Clipboard,
+  Mic,
   Plus,
   Sparkles,
+  ThumbsDown,
+  ThumbsUp,
   Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -177,17 +181,36 @@ export function CoachWorkspace() {
                   <div className="max-w-none text-[15px] leading-7 text-content [&_a]:underline [&_li]:mt-1 [&_strong]:font-semibold">
                     <ReactMarkdown remarkPlugins={[remarkGfm] as never}>{message.content}</ReactMarkdown>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(message.content);
-                      toast.success('Copied');
-                    }}
-                    className="mt-2 flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs text-content-muted opacity-0 transition-opacity hover:bg-surface-bright/25 hover:text-content focus:opacity-100 group-hover:opacity-100"
-                    aria-label="Copy reply"
-                  >
-                    COPY
-                  </button>
+                  {/* assistant action row (12906): copy / like / dislike */}
+                  <div className="mt-2 flex items-center gap-3 text-content-muted opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(message.content);
+                        toast.success('Copied');
+                      }}
+                      className="rounded-md p-1 transition-colors hover:bg-surface-bright/25 hover:text-content focus:opacity-100"
+                      aria-label="Copy reply"
+                    >
+                      <Clipboard className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toast.success('Thanks — noted')}
+                      className="rounded-md p-1 transition-colors hover:bg-surface-bright/25 hover:text-content"
+                      aria-label="Good reply"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toast('Sorry — tell me what was off and I will adjust')}
+                      className="rounded-md p-1 transition-colors hover:bg-surface-bright/25 hover:text-content"
+                      aria-label="Bad reply"
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ),
             )
@@ -224,13 +247,13 @@ export function CoachWorkspace() {
           onSubmit={handleSend}
           className="pointer-events-auto mx-auto w-full max-w-[720px] px-4 sm:px-0"
         >
-          <div className="flex items-end gap-3 rounded-[24px] border border-surface-bright/40 bg-surface-container px-4 py-3 shadow-brand-ambient">
+          <div className="flex items-center gap-2.5 rounded-full border border-surface-bright/40 bg-surface-container py-2.5 pl-3 pr-2.5 shadow-brand-ambient">
             <button
               type="button"
               aria-label="Attach a game"
               onClick={() => setAnalysisOpen(true)}
               disabled={isTracking}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-surface-bright/40 text-content-muted transition-colors hover:border-brand-primary/50 hover:text-brand-primary disabled:opacity-50"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-bright/30 text-content-muted transition-colors hover:bg-surface-bright/50 hover:text-content disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -240,6 +263,14 @@ export function CoachWorkspace() {
               placeholder={composerPlaceholder}
               className="min-w-0 flex-1 bg-transparent py-2 text-[15px] leading-6 text-content outline-none placeholder:text-content-muted/60"
             />
+            <button
+              type="button"
+              aria-label="Dictate message"
+              onClick={() => toast('Dictation is coming soon')}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-bright/30 text-content-muted transition-colors hover:bg-surface-bright/50 hover:text-content"
+            >
+              <Mic className="h-4 w-4" />
+            </button>
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
