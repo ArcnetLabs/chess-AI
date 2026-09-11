@@ -5,6 +5,7 @@ import {
   Brain,
   ChevronDown,
   ChevronLeft,
+  CreditCard,
   Dumbbell,
   Home,
   Loader2,
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/coach/insights', label: 'Insights', icon: Brain },
   { href: '/coach/patterns', label: 'Patterns', icon: BarChart3 },
   { href: '/coach/training', label: 'Drills', icon: Dumbbell },
+  { href: '/coach/billing', label: 'Billing', icon: CreditCard },
 ] as const;
 
 const MODE_OPTIONS: Array<{ mode: ChatMode; label: string }> = [

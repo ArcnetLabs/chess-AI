@@ -346,7 +346,10 @@ class ChessComAPI:
         
         else:  # count
             # Fetch by count - get recent games until we have enough
-            for archive_url in archives[:6]:  # Check up to 6 months
+            # Scan up to 24 monthly archives: sparse players (e.g. 900-game
+            # histories) may need more than 6 months to reach the requested
+            # count; MAX_GAMES_PER_ANALYSIS still bounds the result downstream.
+            for archive_url in archives[:24]:
                 try:
                     # Extract year and month from archive URL
                     parts = archive_url.split('/')
