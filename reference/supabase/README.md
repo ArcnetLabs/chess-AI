@@ -1,6 +1,6 @@
 # Reference: Supabase
 
-Source references for Supabase auth, SSR cookie handling, and database patterns used in ChessIQ.
+Source references for Supabase auth, SSR cookie handling, and database patterns used in ChessRun.
 
 ## Populate This Directory
 
@@ -10,9 +10,9 @@ cp -r frontend/node_modules/@supabase/ssr reference/supabase/ssr-source
 cp -r frontend/node_modules/@supabase/supabase-js/src reference/supabase/supabase-js-src
 ```
 
-## ChessIQ Auth Architecture
+## ChessRun Auth Architecture
 
-ChessIQ uses Supabase for **authentication only** (current stage). Application data flows through the FastAPI backend, not directly from the frontend to Supabase.
+ChessRun uses Supabase for **authentication only** (current stage). Application data flows through the FastAPI backend, not directly from the frontend to Supabase.
 
 ```
 Browser → FastAPI → Supabase Auth    (via backend service role, future)
@@ -54,7 +54,7 @@ const { data: { session } } = await supabase.auth.getSession()
 
 ### Publishable Key vs. Anon Key
 
-ChessIQ uses the modern publishable key format (`sb_publishable_...`), not the legacy JWT-format anon key. Both are in `.env.local`.
+ChessRun uses the modern publishable key format (`sb_publishable_...`), not the legacy JWT-format anon key. Both are in `.env.local`.
 
 ## Future: RLS Policies
 
@@ -87,13 +87,13 @@ rg "export.*createServerClient\|CookieOptions" reference/supabase/ssr-source/ --
 # Find createBrowserClient
 rg "export.*createBrowserClient" reference/supabase/ssr-source/ --type ts
 
-# Verify existing ChessIQ client setup before touching it
+# Verify existing ChessRun client setup before touching it
 rg "createServerClient\|createBrowserClient\|parseCookieHeader" frontend/src/ --type ts
 ```
 
 ## Reuse Safeguards — Never Duplicate These
 
-| Pattern | Lives in ChessIQ | Never recreate in |
+| Pattern | Lives in ChessRun | Never recreate in |
 |---------|-----------------|-------------------|
 | Browser Supabase client | `frontend/src/lib/supabase/client.ts` | Components, hooks, pages |
 | Server Supabase client | `frontend/src/lib/supabase/server.ts` | `getServerSideProps` (use `withAuth` instead) |

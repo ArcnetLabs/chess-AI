@@ -4,7 +4,7 @@
 
 ---
 
-## ChessIQ Analysis Pipeline (current implementation)
+## ChessRun Analysis Pipeline (current implementation)
 
 ```
 User requests analysis

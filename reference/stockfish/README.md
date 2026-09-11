@@ -1,6 +1,6 @@
 # Reference: Stockfish Integration
 
-Source references for the Stockfish chess engine — UCI protocol, async wrappers, and the ChessIQ engine pool.
+Source references for the Stockfish chess engine — UCI protocol, async wrappers, and the ChessRun engine pool.
 
 ## Populate This Directory
 
@@ -9,7 +9,7 @@ git clone --depth=1 https://github.com/niklasf/python-chess reference/stockfish/
 # Key file: python-chess/chess/engine.py
 ```
 
-## ChessIQ Engine Pool
+## ChessRun Engine Pool
 
 The engine pool lives at `backend/app/services/engine/engine_pool.py`.
 
@@ -36,7 +36,7 @@ Stockfish communicates over UCI (Universal Chess Interface):
 
 The `score cp` value is centipawns (+100 = 1 pawn advantage for white, -100 = 1 pawn advantage for black).
 
-## Evaluation Thresholds (ChessIQ standard)
+## Evaluation Thresholds (ChessRun standard)
 
 | CP delta | Classification |
 |----------|---------------|
@@ -86,7 +86,7 @@ rg "def analyze\|def batch_analyze\|async def" backend/app/services/engine/ --ty
 
 ## Reuse Safeguards — Never Duplicate These
 
-| Pattern | Lives in ChessIQ | Never recreate in |
+| Pattern | Lives in ChessRun | Never recreate in |
 |---------|-----------------|-------------------|
 | Engine process management | `engine_pool.py` | Routes, tasks, or any other service |
 | CP evaluation thresholds | `engine_pool.py` / `unified_analyzer.py` | Hardcoded values anywhere else |

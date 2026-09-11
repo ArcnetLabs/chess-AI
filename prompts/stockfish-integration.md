@@ -21,7 +21,7 @@ rg "SimpleEngine\|popen_uci\|chess\.engine\." backend/app/ --type py
 ## Template
 
 ```
-We are adding Stockfish-based analysis to ChessIQ.
+We are adding Stockfish-based analysis to ChessRun.
 
 Feature: <describe what analysis is needed — e.g. "endgame position scoring", "opening deviation detection">
 

@@ -1,6 +1,6 @@
-# ChessIQ — System Audit (2026-05-26)
+# ChessRun — System Audit (2026-05-26)
 
-This directory contains a complete, evidence-based audit of the ChessIQ repository conducted before any further feature development. All documents in this folder are **read-only deliverables** — they describe the system's current state, divergences from the FRD, and the remediation plan.
+This directory contains a complete, evidence-based audit of the ChessRun repository conducted before any further feature development. All documents in this folder are **read-only deliverables** — they describe the system's current state, divergences from the FRD, and the remediation plan.
 
 **Audited by:** Principal-engineer audit pass (read-only mapping, no code changes).  
 **Audit date:** 2026-05-26  

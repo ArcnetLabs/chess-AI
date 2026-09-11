@@ -8,7 +8,7 @@
 
 ## Executive summary
 
-ChessIQ’s backend had parallel implementations of the AI client, game analyzer, and analysis API, plus thin re-export shims that obscured canonical import paths. This pass **deletes dead code**, **routes all consumers to canonical services**, and **extracts analysis persistence into a single service** used by Celery tasks.
+ChessRun’s backend had parallel implementations of the AI client, game analyzer, and analysis API, plus thin re-export shims that obscured canonical import paths. This pass **deletes dead code**, **routes all consumers to canonical services**, and **extracts analysis persistence into a single service** used by Celery tasks.
 
 Analysis behaviour, API routes registered in `__main__.py`, Celery queue integration, and Stockfish engine pool usage are **unchanged** from a caller perspective.
 

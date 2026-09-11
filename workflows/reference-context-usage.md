@@ -1,12 +1,12 @@
 # Reference-Context Usage Workflow
 
-The master policy for how AI agents consume reference source code in ChessIQ. This document defines the reference-first implementation mandate, inspection protocols, and anti-duplication safeguards.
+The master policy for how AI agents consume reference source code in ChessRun. This document defines the reference-first implementation mandate, inspection protocols, and anti-duplication safeguards.
 
 ---
 
 ## Why This Exists
 
-AI agents trained on public data will confidently generate code using APIs that are outdated, renamed, or simply hallucinated. For ChessIQ's core dependencies — `@supabase/ssr`, `python-chess`, Ollama, Celery — the gap between training data and current source is wide enough to cause runtime failures.
+AI agents trained on public data will confidently generate code using APIs that are outdated, renamed, or simply hallucinated. For ChessRun's core dependencies — `@supabase/ssr`, `python-chess`, Ollama, Celery — the gap between training data and current source is wide enough to cause runtime failures.
 
 The `reference/` directory solves this by giving agents the actual source on disk. But having the source available is only half the solution — agents must be *instructed* to search it before coding. This document provides that instruction.
 
@@ -51,9 +51,9 @@ Always search for:
 - The class you intend to instantiate
 - The options/config shape expected
 
-### Step 3 — Check the ChessIQ implementation layer
+### Step 3 — Check the ChessRun implementation layer
 
-Before writing anything new, check whether ChessIQ already has a service function for this:
+Before writing anything new, check whether ChessRun already has a service function for this:
 
 ```bash
 # Backend service layer
@@ -66,7 +66,7 @@ rg "export.*<functionName>\|export.*<hookName>" frontend/src/lib/ frontend/src/h
 ### Step 4 — Decision gate
 
 ```
-Does a ChessIQ service function already do this?
+Does a ChessRun service function already do this?
   YES → Use it or extend it. Stop here.
   NO  → Does the reference source show the correct API shape?
           YES → Implement using the source-confirmed API.
@@ -77,7 +77,7 @@ Does a ChessIQ service function already do this?
 
 In the implementation summary (PR description or inline comment), state:
 - Which reference files you searched: `reference/supabase/ssr-source/src/...`
-- Which ChessIQ service you extended or created
+- Which ChessRun service you extended or created
 - Why a new service/function was necessary rather than extending existing
 
 ---
@@ -171,7 +171,7 @@ function useMyAnalysis(userId: string) {
 
 ## Reference Population Priority
 
-Populate reference folders in this order (most impactful to ChessIQ first):
+Populate reference folders in this order (most impactful to ChessRun first):
 
 1. **`reference/supabase/`** — `@supabase/ssr` cookie API changes frequently; always check before auth work
 2. **`reference/stockfish/`** — `python-chess` engine API is the foundation of all analysis
@@ -190,7 +190,7 @@ Add this to any implementation prompt when working with external libraries:
 ```
 Before writing any code:
 1. Search reference/<domain>/ for the current API. Report what you found.
-2. Search backend/app/services/ or frontend/src/lib/ for existing ChessIQ implementations.
+2. Search backend/app/services/ or frontend/src/lib/ for existing ChessRun implementations.
 3. If an existing implementation covers this need, extend it — do not create a parallel one.
 4. Only after both checks, implement the minimal change needed.
 5. In your summary, cite: which reference files you used, and which existing services you extended or verified.
@@ -201,7 +201,7 @@ Before writing any code:
 ## Verification Checklist (run after every implementation)
 
 - [ ] Reference folder was searched before writing (or is documented as empty with a note).
-- [ ] Existing ChessIQ service layer was checked with `rg`.
+- [ ] Existing ChessRun service layer was checked with `rg`.
 - [ ] No new duplicate service function was created.
 - [ ] The 8 anti-duplication grep checks pass (see section above).
 - [ ] Implementation summary cites reference source files.

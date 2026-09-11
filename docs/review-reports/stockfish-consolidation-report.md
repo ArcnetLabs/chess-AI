@@ -8,7 +8,7 @@
 
 ## Executive summary
 
-ChessIQ had **10+ separate Stockfish access paths** including route-layer engine construction, three legacy duplicate wrappers, and a chat singleton that bypassed the engine pool. Consolidation routes **all production engine access through `engine_pool.py`**, removes duplicate services, and preserves existing analysis behaviour (`UnifiedChessAnalyzer`, `MoveRecommender`, Celery tasks).
+ChessRun had **10+ separate Stockfish access paths** including route-layer engine construction, three legacy duplicate wrappers, and a chat singleton that bypassed the engine pool. Consolidation routes **all production engine access through `engine_pool.py`**, removes duplicate services, and preserves existing analysis behaviour (`UnifiedChessAnalyzer`, `MoveRecommender`, Celery tasks).
 
 ---
 

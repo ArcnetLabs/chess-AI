@@ -1,4 +1,4 @@
-# ChessIQ — System State Audit
+# ChessRun — System State Audit
 
 **Audit date:** 2026-05-26  
 **Audit scope:** Full repository — backend, frontend, infrastructure, documentation  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-ChessIQ is **not production-ready**. The repository contains a partially working backend with a functional Chess.com → Stockfish → analysis pipeline, but **suffers from severe architectural drift, security gaps, and divergence from the FRD vision**. The frontend is a single oversized dashboard page with two parallel, unintegrated auth systems. Deployment configurations contain incorrect entry points that will fail on a fresh deploy.
+ChessRun is **not production-ready**. The repository contains a partially working backend with a functional Chess.com → Stockfish → analysis pipeline, but **suffers from severe architectural drift, security gaps, and divergence from the FRD vision**. The frontend is a single oversized dashboard page with two parallel, unintegrated auth systems. Deployment configurations contain incorrect entry points that will fail on a fresh deploy.
 
 The grep-loop review system that was recently added correctly classifies the codebase as **BLOCKED** on multiple A-series (architecture) and D-series (security) checks.
 

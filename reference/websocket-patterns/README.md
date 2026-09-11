@@ -1,10 +1,10 @@
 # Reference: WebSocket / Real-Time Patterns
 
-Source references for real-time features in ChessIQ — live analysis streaming, move-by-move coaching updates, and board state synchronization.
+Source references for real-time features in ChessRun — live analysis streaming, move-by-move coaching updates, and board state synchronization.
 
 ## Current Status
 
-WebSocket features are **not yet implemented** in ChessIQ. This directory is a placeholder for when real-time analysis streaming is added.
+WebSocket features are **not yet implemented** in ChessRun. This directory is a placeholder for when real-time analysis streaming is added.
 
 ## Planned Use Cases
 

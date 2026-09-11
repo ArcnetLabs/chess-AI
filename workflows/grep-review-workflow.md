@@ -1,6 +1,6 @@
 # Grep Review Workflow
 
-Systematic grep-based code inspection for ChessIQ — run before every merge to catch architecture violations, duplicate logic, and security issues automatically.
+Systematic grep-based code inspection for ChessRun — run before every merge to catch architecture violations, duplicate logic, and security issues automatically.
 
 This workflow is also available as a skill at `skills/grep-loop-review.md` which contains the full grep suite. This document explains the workflow rationale and execution strategy.
 

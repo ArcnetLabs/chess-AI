@@ -1,6 +1,6 @@
 # Reference Context
 
-This directory holds source code, architecture examples, and implementation references that AI agents use as ground truth when working on ChessIQ.
+This directory holds source code, architecture examples, and implementation references that AI agents use as ground truth when working on ChessRun.
 
 **Why this exists:** Docs get stale. Source code does not. Agents that read the actual source of a library before implementing against it hallucinate far less than agents relying on training data alone.
 
@@ -67,7 +67,7 @@ git clone --depth=1 https://github.com/celery/celery reference/queue-workers/cel
 **Before writing any code that touches a library or external system:**
 
 1. Check `reference/<domain>/` for the current API shape.
-2. Check `backend/app/services/` or `frontend/src/lib/` for existing ChessIQ implementations.
+2. Check `backend/app/services/` or `frontend/src/lib/` for existing ChessRun implementations.
 3. Extend what exists — do not create parallel implementations.
 4. If the reference folder is empty, clone the source first (setup commands above).
 

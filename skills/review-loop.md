@@ -38,7 +38,7 @@ Review feedback:
 
 ---
 
-## ChessIQ Review Checklist (run at each loop iteration)
+## ChessRun Review Checklist (run at each loop iteration)
 
 ### Type checks
 ```bash

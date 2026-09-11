@@ -1,6 +1,6 @@
 # Skill: Backend Implementation
 
-**When to use:** When implementing a new FastAPI endpoint, Celery task, or service function in the ChessIQ backend.
+**When to use:** When implementing a new FastAPI endpoint, Celery task, or service function in the ChessRun backend.
 
 ---
 
