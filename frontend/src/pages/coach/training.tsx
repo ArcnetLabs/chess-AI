@@ -9,7 +9,7 @@ import type { TrainingDrill } from '@/lib/api';
 const EXTERNAL_PARTNERS = [
   {
     name: 'ChessReps',
-    description: 'Spaced-repetition repetoire drilling â€” lock in your openings move by move.',
+    description: 'Spaced-repetition repetoire drilling — lock in your openings move by move.',
     enabled: false,
   },
   {
@@ -40,7 +40,7 @@ function TrainingBody() {
         const activePlan = await api.training.getActivePlan(user.id);
         if (active) setDrills(activePlan.drills ?? []);
       } catch {
-        // No active plan yet â€” that's a normal empty state, not an error.
+        // No active plan yet — that's a normal empty state, not an error.
         if (active) setDrills([]);
       } finally {
         if (active) setDrillsLoading(false);
@@ -81,7 +81,7 @@ function TrainingBody() {
         </div>
       ) : drills.length === 0 ? (
         <p className="mt-10 rounded-2xl border border-[#262626] bg-[#141414] px-6 py-10 text-center text-sm text-[#bbcabf]">
-          No drills yet â€” they appear after analysis runs and patterns are detected.
+          No drills yet — they appear after analysis runs and patterns are detected.
         </p>
       ) : (
         <div className="mt-8 space-y-10">
