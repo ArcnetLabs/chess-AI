@@ -32,14 +32,14 @@ function gameMeta(game: Game, username: string | undefined): { opponent: string;
 }
 
 function gameResult(game: Game, color: 'White' | 'Black' | '?'): { won: boolean | null; label: string } {
-  if (color === '?' || !game.winner) return { won: null, label: game.winner ?? 'Ã¢â‚¬â€' };
+  if (color === '?' || !game.winner) return { won: null, label: game.winner ?? '—' };
   const won = (game.winner === 'white' && color === 'White') || (game.winner === 'black' && color === 'Black');
   return { won, label: won ? 'Win' : 'Loss' };
 }
 
 function gameAccuracy(game: Game): string {
   const acc = game.analysis?.accuracy_percentage;
-  return acc != null ? `${Math.round(acc)}%` : 'Ã¢â‚¬â€';
+  return acc != null ? `${Math.round(acc)}%` : '—';
 }
 
 export default function InsightsPage() {
@@ -136,7 +136,7 @@ function InsightsBody() {
           <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
             <StatTile label="Games analyzed" value={profile.games_analyzed_count} />
             <StatTile label="Patterns found" value={profile.patterns_detected_count} />
-            <StatTile label="Archetype" value={profile.archetype ?? 'Ã¢â‚¬â€'} />
+            <StatTile label="Archetype" value={profile.archetype ?? '—'} />
           </div>
         )}
         {summary && (
@@ -162,7 +162,7 @@ function InsightsBody() {
             </div>
           ) : games.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-[#bbcabf]">
-              No games yet Ã¢â‚¬â€ run an analysis pass from the chat to get started.
+              No games yet — run an analysis pass from the chat to get started.
             </p>
           ) : (
             <ul className="divide-y divide-[#222]">
@@ -195,7 +195,7 @@ function InsightsBody() {
                         </div>
                         <p className="mt-0.5 truncate text-xs text-[#bbcabf]">
                           {game.end_time ? new Date(game.end_time).toLocaleDateString() : 'Date unknown'}
-                          {' Ã‚Â· '}
+                          {' · '}
                           {game.analysis?.opening_name ?? game.time_class ?? ''}
                         </p>
                       </div>

@@ -81,7 +81,7 @@ function AnalyzeOnboardingBody() {
     return (
       <Shell>
         <div className="space-y-6">
-          <h1 className="font-display text-3xl font-bold">Your profile is ready ðŸŽ‰</h1>
+          <h1 className="font-display text-3xl font-bold">Your profile is ready 🎉</h1>
           <p className="text-base leading-7 text-[#bbcabf]">
             {profile?.profile_summary ??
               'Every game has been analyzed. Your coach is ready with grounded facts.'}
@@ -91,7 +91,7 @@ function AnalyzeOnboardingBody() {
             onClick={() => void router.push('/coach')}
             className="w-full rounded-xl bg-brand-primary px-6 py-3.5 text-base font-semibold text-[#0b351f] transition-opacity hover:opacity-90"
           >
-            Chat with your coach â†’
+            Chat with your coach →
           </button>
         </div>
       </Shell>
@@ -133,7 +133,7 @@ function AnalyzeOnboardingBody() {
             />
           </div>
           <p className="text-xs text-[#bbcabf]">
-            Analyzing every game so your coach sees your real tendencies â€” this takes a minute or
+            Analyzing every game so your coach sees your real tendencies — this takes a minute or
             two.
           </p>
         </div>
@@ -149,7 +149,7 @@ function AnalyzeOnboardingBody() {
           Let&apos;s analyze your games
         </h1>
         <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-[#bbcabf]">
-          We&apos;ll pull your full game history from Chess.com and run analysis on all of it â€”
+          We&apos;ll pull your full game history from Chess.com and run analysis on all of it —
           that&apos;s how your coach builds a profile of how you actually play, not guesswork.
         </p>
       </div>
@@ -161,7 +161,7 @@ function AnalyzeOnboardingBody() {
         <Sparkles className="h-5 w-5" /> Analyze my games
       </button>
       <p className="mt-3 text-center text-xs text-[#bbcabf]/60">
-        Full history Â· Engine eval on every move Â· Takes 1â€“2 minutes
+        Full history · Engine eval on every move · Takes 1–2 minutes
       </p>
     </Shell>
   );
