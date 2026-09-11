@@ -3,6 +3,10 @@ import api from '@/lib/api';
 import type { AnalysisJobStatus } from '@/types/analysis.types';
 
 const POLL_INTERVAL_MS = 2_500;
+// Transient failures (deploy bounce, proxy blip, cold cache) must not kill a
+// legitimately long-running job — tolerate a run of misses before surfacing.
+const MAX_CONSECUTIVE_FAILURES = 6;
+const MAX_BACKOFF_MS = 10_000;
 
 export interface WatchAnalysisJobOptions {
   onProgress?: (status: AnalysisJobStatus) => void;
@@ -52,7 +56,7 @@ export function useAnalysisStatus(userId: number | undefined) {
       setError(null);
       setIsTracking(true);
 
-      const poll = async () => {
+      const poll = async (consecutiveFailures = 0) => {
         try {
           const nextStatus = await api.analysis.getJobStatus(userId, jobId);
           if (cancelledRef.current) return;
@@ -61,7 +65,7 @@ export function useAnalysisStatus(userId: number | undefined) {
           options?.onProgress?.(nextStatus);
 
           if (!isTerminal(nextStatus.status)) {
-            timerRef.current = setTimeout(() => void poll(), POLL_INTERVAL_MS);
+            timerRef.current = setTimeout(() => void poll(0), POLL_INTERVAL_MS);
             return;
           }
 
@@ -79,6 +83,15 @@ export function useAnalysisStatus(userId: number | undefined) {
           options?.onComplete?.(nextStatus);
         } catch (requestError: unknown) {
           if (cancelledRef.current) return;
+
+          const failures = consecutiveFailures + 1;
+          if (failures < MAX_CONSECUTIVE_FAILURES) {
+            // Transient miss — back off and keep polling instead of failing.
+            const backoff = Math.min(POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS);
+            timerRef.current = setTimeout(() => void poll(failures), backoff);
+            return;
+          }
+
           const detail = (requestError as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
           const nextError = new Error(
             typeof detail === 'string'
