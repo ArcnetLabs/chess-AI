@@ -75,7 +75,7 @@ describe('CoachWorkspace (Stanley-style chat surface)', () => {
     render(<CoachWorkspace />);
     await user.click(screen.getByText('Pattern Recognition'));
     expect(
-      (screen.getByPlaceholderText('What would you like to work on today?') as HTMLInputElement)
+      (screen.getByPlaceholderText('What are we working on today?') as HTMLInputElement)
         .value,
     ).toBe('What patterns do you see in my games?');
   });
@@ -138,7 +138,7 @@ describe('CoachWorkspace (Stanley-style chat surface)', () => {
 
     render(<CoachWorkspace />);
 
-    const input = screen.getByPlaceholderText('What would you like to work on today?');
+    const input = screen.getByPlaceholderText('What are we working on today?');
     await user.type(input, 'What should I study?');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -174,7 +174,7 @@ describe('CoachWorkspace (Stanley-style chat surface)', () => {
 
     render(<CoachWorkspace />);
 
-    const input = screen.getByPlaceholderText('What would you like to work on today?');
+    const input = screen.getByPlaceholderText('What are we working on today?');
     await user.type(input, 'What now?');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 

@@ -111,7 +111,7 @@ describe('AppShell sidebar', () => {
       </AppShell>,
     );
     const sidebar = screen.getByRole('complementary');
-    await user.click(within(sidebar).getByText('New Chat'));
+    await user.click(within(sidebar).getByText('Ask ChessRun'));
     expect(mocks.chatService.createSession).toHaveBeenCalledWith(7, 'coach');
     expect(push).toHaveBeenCalledWith('/coach');
   });
