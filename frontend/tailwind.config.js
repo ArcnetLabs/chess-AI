@@ -45,8 +45,10 @@ module.exports = {
         mono: ['JetBrains Mono', 'monospace'],
       },
       borderRadius: {
-        chess: '0.125rem',
-        'chess-md': '0.375rem',
+        chess: '0.5rem',
+        'chess-md': '0.75rem',
+        'chess-lg': '1rem',
+        'chess-xl': '1.25rem',
       },
       boxShadow: {
         'brand-glow': '0 0 20px rgba(132, 255, 0, 0.3)',
