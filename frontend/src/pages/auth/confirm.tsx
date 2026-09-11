@@ -8,12 +8,14 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { useQueryClient } from '@tanstack/react-query'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { userApi } from '@/lib/api'
 
 export default function AuthConfirmPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     if (!router.isReady) return
@@ -42,20 +44,25 @@ export default function AuthConfirmPage() {
         }
 
         const chesscom = data.user?.user_metadata?.chesscom_username
-        if (typeof chesscom === 'string' && chesscom.trim()) {
-          try {
-            await userApi.linkChesscom(chesscom.trim().toLowerCase())
-          } catch (linkError) {
-            console.warn('[auth/confirm] Chess.com link deferred:', linkError)
-          }
-        }
-
         const requestedNext =
-          typeof router.query.next === 'string' ? router.query.next : '/coach'
+          typeof router.query.next === 'string' ? router.query.next : ''
         const next =
           requestedNext.startsWith('/') && !requestedNext.startsWith('//')
             ? requestedNext
-            : '/coach'
+            : '/onboarding/analyze'
+        if (typeof chesscom === 'string' && chesscom.trim()) {
+          try {
+            await userApi.linkChesscom(chesscom.trim().toLowerCase())
+            await queryClient.invalidateQueries({ queryKey: ['me'] })
+          } catch (linkError) {
+            console.warn('[auth/confirm] Chess.com link deferred:', linkError)
+            router.replace('/onboarding/link-chesscom')
+            return
+          }
+        } else if (!requestedNext) {
+          router.replace('/onboarding/link-chesscom')
+          return
+        }
         router.replace(next)
       },
     )

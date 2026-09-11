@@ -51,7 +51,14 @@ export function useCurrentUser() {
     }
 
     if (!query.data.chesscom_username) {
-      if (!onboardingRedirected.current) {
+      // Redirect only from app surfaces — never bounce the user back and
+      // forth between /onboarding pages (the double-source-of-truth
+      // ping-pong: one page's fresh fetch says linked, this hook's stale
+      // cache says not).
+      const onOnboarding =
+        router.pathname.startsWith('/onboarding') ||
+        router.pathname.startsWith('/auth');
+      if (!onOnboarding && !onboardingRedirected.current) {
         onboardingRedirected.current = true;
         void router.replace('/onboarding/link-chesscom');
       }

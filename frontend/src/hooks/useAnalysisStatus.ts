@@ -6,6 +6,7 @@ const POLL_INTERVAL_MS = 2_500;
 // Transient failures (deploy bounce, proxy blip, cold cache) must not kill a
 // legitimately long-running job — tolerate a run of misses before surfacing.
 const MAX_CONSECUTIVE_FAILURES = 6;
+const MAX_404_BUDGET = 10; // job-store lag right after queuing: ~10 misses
 const MAX_BACKOFF_MS = 10_000;
 
 export interface WatchAnalysisJobOptions {
@@ -84,12 +85,18 @@ export function useAnalysisStatus(userId: number | undefined) {
         } catch (requestError: unknown) {
           if (cancelledRef.current) return;
 
-          // Permanent rejections are not transient — do not burn retries on them.
+          // 401/403 are permanent (bad session / wrong owner) — fail fast.
+          // 404 is ambiguous: right after queuing, the job store can lag one
+          // poll, so treat it as transient with a tighter budget.
           const statusCode = (requestError as { response?: { status?: number } })?.response?.status;
-          const permanent = statusCode === 401 || statusCode === 403 || statusCode === 404;
+          const authPermanent = statusCode === 401 || statusCode === 403;
+          const is404 = statusCode === 404;
 
-          const failures = permanent ? MAX_CONSECUTIVE_FAILURES : consecutiveFailures + 1;
-          if (failures < MAX_CONSECUTIVE_FAILURES) {
+          const failures = authPermanent
+            ? MAX_CONSECUTIVE_FAILURES
+            : consecutiveFailures + 1;
+          const failureBudget = is404 ? MAX_404_BUDGET : MAX_CONSECUTIVE_FAILURES;
+          if (failures < failureBudget) {
             // Transient miss — back off and keep polling instead of failing.
             const backoff = Math.min(POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS);
             timerRef.current = setTimeout(() => void poll(failures), backoff);
@@ -100,7 +107,9 @@ export function useAnalysisStatus(userId: number | undefined) {
           const nextError = new Error(
             typeof detail === 'string'
               ? detail
-              : 'Could not retrieve analysis progress. The job may still be running.',
+              : is404 && failures >= failureBudget
+                ? 'The analysis job could not be found — it may have been dropped while the server was restarting. Try again.'
+                : 'Could not retrieve analysis progress. The job may still be running.',
           );
           setError(nextError);
           setIsTracking(false);
