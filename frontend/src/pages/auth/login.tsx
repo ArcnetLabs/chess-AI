@@ -5,7 +5,7 @@
  * Sends a Supabase magic link; session is established in /auth/callback.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@/lib/supabase/client';
 import { getAuthCallbackUrl } from '@/lib/auth/site-url';
@@ -39,9 +39,30 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   const queryError =
     typeof router.query.error === 'string' ? router.query.error : null;
+
+  // A returning user whose session is still valid should not see this
+  // form at all — land them in the app immediately (the analyze gate
+  // points them at onboarding if their link state is incomplete).
+  useEffect(() => {
+    if (!router.isReady) return;
+    let active = true;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!active) return;
+      if (user) {
+        router.replace('/onboarding/analyze');
+        return;
+      }
+      setSessionChecked(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [router.isReady, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -49,7 +70,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const username = normalizeChesscomUsername(chesscomUsername);
-    if (username.length < 3) {
+    if (username.length > 0 && username.length < 3) {
       setError('Chess.com username must be at least 3 characters.');
       setLoading(false);
       return;
@@ -63,9 +84,9 @@ export default function LoginPage() {
       options: {
         shouldCreateUser: true,
         emailRedirectTo: redirectTo,
-        data: {
-          chesscom_username: username,
-        },
+        data: username
+          ? { chesscom_username: username }
+          : undefined,
       },
     });
 
@@ -173,13 +194,15 @@ export default function LoginPage() {
                     htmlFor="chesscom_username"
                     className="chessrun-label ml-1 flex items-center gap-2"
                   >
-                    Chess.com username
+                    Chess.com username{' '}
+                    <span className="font-normal text-content-muted">
+                      (optional — for returning users)
+                    </span>
                   </label>
                   <input
                     id="chesscom_username"
                     type="text"
                     autoComplete="username"
-                    required
                     minLength={3}
                     value={chesscomUsername}
                     onChange={(e) => setChesscomUsername(e.target.value)}
