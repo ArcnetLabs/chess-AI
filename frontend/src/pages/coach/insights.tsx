@@ -67,11 +67,16 @@ function InsightsBody() {
   const openSession = useChatStore((state) => state.openSession);
   const [games, setGames] = useState<Game[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [range, setRange] = useState<7 | 30 | 90 | 'all'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [openingSession, setOpeningSession] = useState<number | null>(null);
   const [digestOpen, setDigestOpen] = useState(true);
+  const PAGE_SIZE = 25;
 
-  const analyzedGames = games.filter((game) => game.is_analyzed);
+  // Range filter + pagination run on the full fetched list so the table can
+  // always reach the remaining games (no clipped views).
+  const [allGames, setAllGames] = useState<Game[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -79,11 +84,11 @@ function InsightsBody() {
     void (async () => {
       try {
         const [gameList, notificationList] = await Promise.all([
-          api.games.getForUser(user.id, { limit: 25 }),
+          api.games.getForUser(user.id, { limit: 100 }),
           api.notifications.list(user.id, { limit: 5 }).catch(() => null),
         ]);
         if (!active) return;
-        setGames(
+        setAllGames(
           [...gameList].sort((a, b) => {
             const aTime = a.end_time ? Date.parse(a.end_time) : 0;
             const bTime = b.end_time ? Date.parse(b.end_time) : 0;
@@ -99,6 +104,27 @@ function InsightsBody() {
       active = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    setGames(allGames.slice(0, PAGE_SIZE));
+  }, [allGames, range]);
+
+  const rangeStart = range === 'all' ? 0 : Date.now() - range * 86_400_000;
+  const inRange = allGames.filter((game) => {
+    if (range === 'all') return true;
+    const t = game.end_time ? Date.parse(game.end_time) : 0;
+    return t >= rangeStart;
+  });
+  const analyzedGames = inRange.filter((game) => game.is_analyzed);
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    window.setTimeout(() => {
+      const nextCount = Math.min(games.length + PAGE_SIZE, inRange.length);
+      setGames(inRange.slice(0, nextCount));
+      setLoadingMore(false);
+    }, 250);
+  };
 
   const openGameChat = async (gameId: number) => {
     if (!user || openingSession !== null) return;
@@ -170,6 +196,23 @@ function InsightsBody() {
           </div>
 
           <div className="mt-8">
+            {/* time-range segmented control (12900) */}
+            <div className="mb-6 inline-flex rounded-xl border border-surface-bright/40 bg-surface-low/60 p-1">
+              {([7, 30, 90, 'all'] as const).map((option) => (
+                <button
+                  key={String(option)}
+                  type="button"
+                  onClick={() => setRange(option)}
+                  className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                    range === option
+                      ? 'bg-brand-primary/15 text-brand-primary'
+                      : 'text-content-muted hover:text-content'
+                  }`}
+                >
+                  {option === 'all' ? 'All' : `${option}d`}
+                </button>
+              ))}
+            </div>
             {gamesLoading ? (
               <div className="flex items-center justify-center py-12 text-content-muted">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand-primary" /> Loading games...
@@ -247,6 +290,20 @@ function InsightsBody() {
                     );
                   })}
                 </ul>
+                {inRange.length > games.length && (
+                  <div className="flex justify-center pt-6">
+                    <button
+                      type="button"
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                      className="rounded-xl bg-surface-low/70 px-6 py-3 text-sm font-medium text-content transition-colors hover:bg-surface-bright/40 disabled:opacity-60"
+                    >
+                      {loadingMore
+                        ? 'Loading...'
+                        : `Load more (${inRange.length - games.length} remaining)`}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
