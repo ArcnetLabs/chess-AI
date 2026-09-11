@@ -1,6 +1,6 @@
 # Skill: Feature Planning
 
-**When to use:** Before implementing any non-trivial feature in ChessIQ. Forces scoped, architecture-aware planning before code is written.
+**When to use:** Before implementing any non-trivial feature in ChessRun. Forces scoped, architecture-aware planning before code is written.
 
 ---
 
@@ -51,7 +51,7 @@ Answer these questions before writing a single line of code:
 
 ### Step 4 — Define the PR split
 
-ChessIQ features typically split into:
+ChessRun features typically split into:
 1. **DB migration PR** (if needed) — Alembic migration only
 2. **Backend service PR** — service layer + Celery task
 3. **Backend route PR** — FastAPI endpoint wiring
@@ -85,7 +85,7 @@ Each PR should be independently reviewable and mergeable.
 
 ---
 
-## ChessIQ Service Map (quick reference)
+## ChessRun Service Map (quick reference)
 
 | Domain | Service | Location |
 |--------|---------|----------|

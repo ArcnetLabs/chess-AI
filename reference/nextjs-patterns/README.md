@@ -1,6 +1,6 @@
 # Reference: Next.js Pages Router Patterns
 
-Source references and patterns for the ChessIQ frontend (Next.js 14, Pages Router).
+Source references and patterns for the ChessRun frontend (Next.js 14, Pages Router).
 
 ## Important: This Project Uses Pages Router
 
@@ -20,7 +20,7 @@ cd reference/nextjs-patterns/nextjs-repo
 git sparse-checkout set examples/with-supabase-auth-and-ssr examples/with-middleware
 ```
 
-## Pages Router Patterns in ChessIQ
+## Pages Router Patterns in ChessRun
 
 ### Data Fetching Decision Tree
 
@@ -92,14 +92,14 @@ rg "getServerSideProps\|getStaticProps" reference/nextjs-patterns/ --type ts -l
 # Find middleware examples
 rg "export.*middleware\|NextResponse" reference/nextjs-patterns/ --type ts
 
-# Check existing ChessIQ patterns before adding new ones
+# Check existing ChessRun patterns before adding new ones
 rg "getServerSideProps" frontend/src/pages/ --type ts -l
 rg "export const config" frontend/src/ --type ts
 ```
 
 ## Reuse Safeguards — Never Duplicate These
 
-| Pattern | Lives in ChessIQ | Never recreate in |
+| Pattern | Lives in ChessRun | Never recreate in |
 |---------|-----------------|-------------------|
 | Auth-protected page HOC | `withAuth` in `src/lib/auth/withAuth.ts` | Per-page manual redirect logic |
 | Middleware route protection | `src/middleware.ts` | `getServerSideProps` in individual pages |

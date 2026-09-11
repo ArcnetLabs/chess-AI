@@ -1,4 +1,4 @@
-# ChessIQ — Architecture Divergence Report
+# ChessRun — Architecture Divergence Report
 
 **Date:** 2026-05-26  
 **Comparison axis:** `docs/product/FRD_PRODUCT.md` + `docs/requirements/FRD_TECHNICAL.md` **vs** the actual repository implementation.

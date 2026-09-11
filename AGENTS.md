@@ -14,7 +14,7 @@ This file encodes conventions that are not (or cannot be) enforced by branch pro
 - `docker-compose.yml` — Local dev stack (postgres, redis, backend, frontend, celery worker).
 - `docker-compose.production.yml`, `render.yaml`, `netlify.toml` — Production deployment configs.
 - `.cursor/rules/` — Persistent Cursor rules applied to every session in this repo (see below).
-- `skills/` — Reusable agent workflow guides for ChessIQ-specific tasks.
+- `skills/` — Reusable agent workflow guides for ChessRun-specific tasks.
 - `workflows/` — Engineering workflow documentation (backend, frontend, review, multi-agent).
 - `reference/` — Source code references for libraries; agents search here before guessing APIs.
 

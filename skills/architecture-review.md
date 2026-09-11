@@ -190,7 +190,7 @@ Get-ChildItem frontend/src/components/ -Recurse -Filter *.tsx | ForEach-Object {
 After running all steps, produce a structured report:
 
 ```markdown
-## Architecture Review — ChessIQ — <date>
+## Architecture Review — ChessRun — <date>
 
 ### Scores
 

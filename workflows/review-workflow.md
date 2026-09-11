@@ -1,6 +1,6 @@
 # Review Workflow
 
-How ChessIQ PRs are reviewed and merged — covering automated checks, architecture review, and the cleanup cycle.
+How ChessRun PRs are reviewed and merged — covering automated checks, architecture review, and the cleanup cycle.
 
 ---
 

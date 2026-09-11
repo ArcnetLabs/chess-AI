@@ -1,4 +1,4 @@
-# ChessIQ — Backend Audit
+# ChessRun — Backend Audit
 
 **Scope:** `backend/` directory — FastAPI application, services, tasks, models, infrastructure.  
 **Date:** 2026-05-26  

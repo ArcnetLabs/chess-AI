@@ -1,6 +1,6 @@
 # Prompts
 
-Copy-paste implementation prompt templates for common ChessIQ engineering tasks.
+Copy-paste implementation prompt templates for common ChessRun engineering tasks.
 
 Every prompt enforces the **reference-first policy** — agents are instructed to inspect existing source before writing new code.
 

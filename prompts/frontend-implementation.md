@@ -7,7 +7,7 @@ Use when adding a Next.js page, React hook, API client function, or component.
 ## Template
 
 ```
-We are adding a frontend feature to ChessIQ (Next.js Pages Router, TypeScript, Tailwind).
+We are adding a frontend feature to ChessRun (Next.js Pages Router, TypeScript, Tailwind).
 
 Feature: <describe the feature in one sentence>
 
@@ -25,7 +25,7 @@ STEP 2 — Inspect the reference source for any library this touches:
 
 For Supabase auth:
   rg "parseCookieHeader\|createServerClient\|createBrowserClient" reference/supabase/ --type ts
-  Then verify the existing ChessIQ clients:
+  Then verify the existing ChessRun clients:
   frontend/src/lib/supabase/client.ts
   frontend/src/lib/supabase/server.ts
 

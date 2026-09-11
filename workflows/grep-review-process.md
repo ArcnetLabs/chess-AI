@@ -1,4 +1,4 @@
-# ChessIQ Engineering Process — Grep-Review Loop
+# ChessRun Engineering Process — Grep-Review Loop
 
 The end-to-end engineering cycle for every feature, fix, or refactor in this repository.
 Every task follows this loop — no exceptions.

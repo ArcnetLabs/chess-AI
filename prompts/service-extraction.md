@@ -7,7 +7,7 @@ Use when a feature is working but its logic is scattered across routes, tasks, o
 ## Template
 
 ```
-Extract duplicated logic into a ChessIQ service module.
+Extract duplicated logic into a ChessRun service module.
 
 Duplication to address: <describe the duplicated logic — e.g. "PGN parsing appears in 3 files">
 
@@ -78,7 +78,7 @@ STEP 5 — Verify the extraction:
 
 ---
 
-## ChessIQ-Specific Extraction Patterns
+## ChessRun-Specific Extraction Patterns
 
 ### Scattered game fetching → `chesscom_api.py`
 

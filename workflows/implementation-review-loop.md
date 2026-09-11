@@ -1,7 +1,7 @@
 # Implementation Review Loop
 
 > The PR-scoped review cycle. Use this every time you (human or agent)
-> ship code into ChessIQ. It governs the journey from "I have a task"
+> ship code into ChessRun. It governs the journey from "I have a task"
 > to "this PR is ready to merge".
 
 ## Purpose

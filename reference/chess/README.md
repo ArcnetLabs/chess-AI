@@ -16,14 +16,14 @@ git clone --depth=1 https://github.com/niklasf/python-chess reference/chess/pyth
 
 ## Key Concepts
 
-| Class/Function | Purpose | ChessIQ usage |
+| Class/Function | Purpose | ChessRun usage |
 |---------------|---------|---------------|
 | `chess.Board` | Represents a position | Position analysis input to Stockfish |
 | `chess.pgn.read_game()` | Parse PGN string | Game import from Chess.com API |
 | `chess.pgn.Game.mainline_moves()` | Iterate moves | Board walk for analysis |
 | `chess.engine.AnalysisResult` | Stockfish output | CP score, best move, depth |
 
-## ChessIQ PGN Pipeline
+## ChessRun PGN Pipeline
 
 ```python
 # Pattern used in unified_analyzer.py
@@ -53,13 +53,13 @@ rg "def read_game|class GameNode|mainline_moves" reference/chess/python-chess/ch
 # Find FEN handling
 rg "def.*fen|fen.*str" reference/chess/python-chess/chess/__init__.py --type py
 
-# Check existing ChessIQ usage before adding chess logic
+# Check existing ChessRun usage before adding chess logic
 rg "import chess|from chess" backend/app/ --type py -l
 ```
 
 ## Reuse Safeguards — Never Duplicate These
 
-| Pattern | Where it lives in ChessIQ | Never recreate in |
+| Pattern | Where it lives in ChessRun | Never recreate in |
 |---------|--------------------------|-------------------|
 | PGN parsing | `unified_analyzer.py` via `chess.pgn.read_game()` | Routes, tasks, or other services |
 | Board walk (position iteration) | `unified_analyzer.py` | Any other analyzer |

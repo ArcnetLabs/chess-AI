@@ -1,6 +1,6 @@
 # Backend Operational Scripts
 
-This directory holds **standalone diagnostic / smoke-test scripts** for the ChessIQ backend.
+This directory holds **standalone diagnostic / smoke-test scripts** for the ChessRun backend.
 
 These are **not** part of the automated test suite — `pytest.ini` declares `testpaths = tests`, so pytest will not pick up anything in this folder. Each script is intended to be run manually (e.g. `python backend/scripts/test_db_connection.py`) to verify that an external dependency is reachable from the current environment.
 

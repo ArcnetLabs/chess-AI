@@ -1,6 +1,6 @@
 # Reference: AI Chat / LLM Integration
 
-Source references for LLM provider SDKs, streaming patterns, and the ChessIQ AI coaching service.
+Source references for LLM provider SDKs, streaming patterns, and the ChessRun AI coaching service.
 
 ---
 
@@ -28,7 +28,7 @@ git clone --depth=1 https://github.com/openai/openai-python reference/ai-chat/op
 
 ---
 
-## ChessIQ AI Architecture
+## ChessRun AI Architecture
 
 All LLM calls route through a single service — `backend/app/services/chat/chess_coach.py`.
 
@@ -64,7 +64,7 @@ rg "stream=True|async.*stream\|yield" reference/ai-chat/ollama-source/ --type py
 # Find context/message formatting
 rg "messages.*list\|role.*content\|system.*prompt" reference/ai-chat/ --type py
 
-# Check existing ChessIQ implementation before adding anything
+# Check existing ChessRun implementation before adding anything
 rg "def.*generate\|def.*stream\|def.*chat" backend/app/services/chat/ --type py
 ```
 
@@ -89,7 +89,7 @@ If more than `chess_coach.py` (and its imports) appears, there is a duplication 
 
 ---
 
-## Token Budget (ChessIQ standard)
+## Token Budget (ChessRun standard)
 
 ```
 System prompt:            ~300 tokens

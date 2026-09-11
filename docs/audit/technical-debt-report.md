@@ -1,4 +1,4 @@
-# ChessIQ — Technical Debt Report
+# ChessRun — Technical Debt Report
 
 **Date:** 2026-05-26  
 **Format:** Every debt item is tagged with severity, location (file:line), and a recommended action. Items are grouped by category and sorted by severity.
