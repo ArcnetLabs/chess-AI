@@ -1,6 +1,6 @@
 # Frontend Engineering Workflow
 
-How to implement frontend features in ChessIQ — Next.js Pages Router, React Query, and Supabase auth.
+How to implement frontend features in ChessRun — Next.js Pages Router, React Query, and Supabase auth.
 
 ---
 

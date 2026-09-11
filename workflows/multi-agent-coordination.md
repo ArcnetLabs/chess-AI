@@ -1,6 +1,6 @@
 # Multi-Agent Coordination
 
-How to orchestrate multiple AI agents working in parallel on ChessIQ without creating conflicts, duplication, or broken merges.
+How to orchestrate multiple AI agents working in parallel on ChessRun without creating conflicts, duplication, or broken merges.
 
 ---
 

@@ -38,7 +38,7 @@ Process:
 
 ---
 
-## ChessIQ-Specific Duplication Patterns to Look For
+## ChessRun-Specific Duplication Patterns to Look For
 
 ### Backend
 

@@ -1,6 +1,6 @@
 # `scripts/review-loops/`
 
-Automated grep-loop review suite for ChessIQ. These scripts enforce the
+Automated grep-loop review suite for ChessRun. These scripts enforce the
 architectural invariants declared in
 [`docs/architecture/repository-invariants.md`](../../docs/architecture/repository-invariants.md).
 

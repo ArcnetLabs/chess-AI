@@ -1,6 +1,6 @@
 # Skill — Frontend Review
 
-> Reusable agent procedure for reviewing the ChessIQ Next.js (Pages
+> Reusable agent procedure for reviewing the ChessRun Next.js (Pages
 > Router) + TypeScript + Tailwind + Supabase frontend. Optimised for
 > Opus-class models doing UI-heavy work, but works for any agent.
 

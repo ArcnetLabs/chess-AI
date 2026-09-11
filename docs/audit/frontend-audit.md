@@ -1,4 +1,4 @@
-# ChessIQ — Frontend Audit
+# ChessRun — Frontend Audit
 
 **Scope:** `frontend/src/` — Next.js Pages Router + TypeScript + Tailwind + React Query + Supabase scaffold.  
 **Date:** 2026-05-26  

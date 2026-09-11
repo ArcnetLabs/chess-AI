@@ -1,10 +1,10 @@
 # Reference: Queue Workers / Celery Patterns
 
-Source references for background task processing in ChessIQ — Celery + Redis.
+Source references for background task processing in ChessRun — Celery + Redis.
 
 ## Current Implementation
 
-ChessIQ uses Celery with Redis as the message broker for:
+ChessRun uses Celery with Redis as the message broker for:
 - Game analysis jobs (CPU-heavy, Stockfish-intensive)
 - Chess.com game fetching (network I/O, rate-limited)
 - Pattern recognition passes (iterates over many games)
@@ -16,7 +16,7 @@ git clone --depth=1 https://github.com/celery/celery reference/queue-workers/cel
 # Key docs: celery-source/docs/userguide/tasks.rst
 ```
 
-## ChessIQ Celery Architecture
+## ChessRun Celery Architecture
 
 ```
 Redis (broker + backend)
@@ -126,14 +126,14 @@ rg "self\.retry\|max_retries\|countdown" reference/queue-workers/celery-source/ 
 # Find chain/chord/group patterns
 rg "chain\|chord\|group\|canvas" reference/queue-workers/celery-source/celery/ --type py -l
 
-# Verify existing ChessIQ tasks before adding new ones
+# Verify existing ChessRun tasks before adding new ones
 rg "@celery_app.task\|@app.task" backend/app/tasks/ --type py
 rg "\.delay\(\|\.apply_async\(" backend/app/ --type py -l
 ```
 
 ## Reuse Safeguards — Never Duplicate These
 
-| Pattern | Lives in ChessIQ | Never recreate in |
+| Pattern | Lives in ChessRun | Never recreate in |
 |---------|-----------------|-------------------|
 | Task definitions | `backend/app/tasks/analysis_tasks.py` | New task files per feature |
 | Celery app configuration | `backend/app/celery_app.py` | Route files or service files |

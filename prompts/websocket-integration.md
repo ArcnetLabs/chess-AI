@@ -1,6 +1,6 @@
 # Prompt: WebSocket / Real-Time Integration
 
-Use when adding streaming analysis, live coaching responses, or real-time board updates to ChessIQ.
+Use when adding streaming analysis, live coaching responses, or real-time board updates to ChessRun.
 
 ---
 
@@ -28,7 +28,7 @@ Use when adding streaming analysis, live coaching responses, or real-time board 
 ## Template
 
 ```
-We are adding real-time/streaming capability to ChessIQ.
+We are adding real-time/streaming capability to ChessRun.
 
 Feature: <describe what needs to be streamed or sent in real-time>
 Transport choice and justification: <SSE / WebSocket / polling — and why>
@@ -79,7 +79,7 @@ and why polling was insufficient for this use case.
 
 ---
 
-## ChessIQ Streaming Architecture Guidelines
+## ChessRun Streaming Architecture Guidelines
 
 ### LLM Response Streaming (SSE)
 

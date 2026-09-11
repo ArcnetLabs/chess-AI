@@ -1,13 +1,13 @@
 # Prompt: Backend Implementation
 
-Use when adding a FastAPI route, service function, or Celery task to ChessIQ.
+Use when adding a FastAPI route, service function, or Celery task to ChessRun.
 
 ---
 
 ## Template
 
 ```
-We are adding a backend feature to ChessIQ.
+We are adding a backend feature to ChessRun.
 
 Feature: <describe the feature in one sentence>
 

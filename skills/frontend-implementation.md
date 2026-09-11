@@ -1,6 +1,6 @@
 # Skill: Frontend Implementation
 
-**When to use:** When adding a new page, component, or data-fetching flow to the ChessIQ frontend.
+**When to use:** When adding a new page, component, or data-fetching flow to the ChessRun frontend.
 
 ---
 

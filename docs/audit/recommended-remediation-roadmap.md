@@ -1,4 +1,4 @@
-# ChessIQ — Recommended Remediation Roadmap
+# ChessRun — Recommended Remediation Roadmap
 
 **Date:** 2026-05-26  
 **Strategy:** Path C (hybrid) — fix critical breakage first, consolidate architecture, then build new features.  

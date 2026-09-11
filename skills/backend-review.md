@@ -1,6 +1,6 @@
 # Skill — Backend Review
 
-> Reusable agent procedure for reviewing the ChessIQ FastAPI / Celery /
+> Reusable agent procedure for reviewing the ChessRun FastAPI / Celery /
 > Stockfish / Supabase backend. Use this before merging any backend PR
 > or as a standalone agentic-review pass.
 

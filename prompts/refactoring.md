@@ -7,7 +7,7 @@ Use when cleaning up existing code without changing user-facing behaviour. Alway
 ## Template
 
 ```
-Run a focused refactoring pass on ChessIQ.
+Run a focused refactoring pass on ChessRun.
 
 Target area: <describe what to clean up — e.g. "game analysis service", "auth flow pages">
 
@@ -71,7 +71,7 @@ If you catch yourself doing any of the above, stop and open a separate PR.
 
 ---
 
-## Common ChessIQ Refactoring Targets
+## Common ChessRun Refactoring Targets
 
 | Target | Typical finding | Correct resolution |
 |--------|----------------|-------------------|

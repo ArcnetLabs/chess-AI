@@ -58,7 +58,7 @@ Do not guess API names. If you cannot find the API in the reference source, stop
 
 ---
 
-## ChessIQ-Specific Reference Usage
+## ChessRun-Specific Reference Usage
 
 ### Stockfish engine pool
 ```

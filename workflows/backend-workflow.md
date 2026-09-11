@@ -1,6 +1,6 @@
 # Backend Engineering Workflow
 
-How to implement backend features in ChessIQ reliably, with clean service-layer separation and deterministic outputs.
+How to implement backend features in ChessRun reliably, with clean service-layer separation and deterministic outputs.
 
 ---
 
