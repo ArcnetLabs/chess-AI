@@ -140,10 +140,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     setMobileMenuOpen(false);
                     void router.push('/coach');
                   }}
-                  className={`w-full rounded-xl px-4 py-2.5 text-left text-sm leading-5 transition-colors ${
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm leading-5 transition-colors ${
                     session.session_id === sessionId
                       ? 'bg-surface-bright/25 text-content'
-                      : 'text-content-muted hover:bg-surface-bright/20 hover:text-content'
+                      : 'bg-surface-low/50 text-content-muted hover:bg-surface-bright/30 hover:text-content'
                   }`}
                 >
                   <span className="line-clamp-2">{session.preview}</span>
