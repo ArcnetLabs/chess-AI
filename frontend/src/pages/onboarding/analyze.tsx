@@ -72,13 +72,15 @@ function AnalyzeOnboardingBody() {
     try {
       await api.games.fetchRecent(user.id, { count: 200 });
       const response = await api.analysis.analyzeGames(user.id, { days: undefined });
-      const queued =
-        response && typeof response === 'object' && 'status' in response
-          ? (response as { status?: string }).status
+      const queuedCount =
+        response && typeof response === 'object'
+          ? (response as { games_queued?: number }).games_queued
           : undefined;
       const jobId =
         response && typeof response === 'object' ? (response as { job_id?: string }).job_id : undefined;
-      if (queued === 'queued' && jobId) {
+      if (typeof jobId === 'string' && jobId) {
+        // The response carries jobs_queued/job_id but no status field — poll
+        // on job_id presence.
         watchJob(jobId, {
           onComplete: async () => {
             setProgress(100);
@@ -88,9 +90,16 @@ function AnalyzeOnboardingBody() {
           },
           onError: () => setPhase('error'),
         });
-      } else {
-        await loadResults();
+        return;
       }
+      if (queuedCount === 0) {
+        // Nothing left to analyze — already done by the auto-queue. Pull
+        // live results directly.
+        await loadResults();
+        return;
+      }
+      // No job id and games were pending? Something raced — re-check.
+      await loadResults();
     } catch {
       setPhase('error');
     }
@@ -128,6 +137,30 @@ function AnalyzeOnboardingBody() {
         <div className="flex items-center justify-center py-24 text-content-muted">
           <Loader2 className="mr-2 h-5 w-5 animate-spin text-brand-primary" /> Preparing your
           analysis...
+        </div>
+      </Page>
+    );
+  }
+
+  // Signed in but the chess.com link never landed — don't even try to
+  // analyze; the fetch would fail server-side anyway.
+  if (user && !user.chesscom_username) {
+    return (
+      <Page>
+        <div className="space-y-6 py-24 text-center">
+          <Search className="mx-auto h-10 w-10 text-content-muted" />
+          <h1 className="text-2xl font-bold tracking-tight text-content">Link your Chess.com account first</h1>
+          <p className="mx-auto max-w-[38rem] text-sm leading-6 text-content-muted">
+            We couldn&apos;t finish linking your Chess.com username — it takes
+            one line to fix, then analysis continues automatically.
+          </p>
+          <button
+            type="button"
+            onClick={() => void router.push('/onboarding/link-chesscom')}
+            className="w-full rounded-full bg-brand-primary px-6 py-4 text-[17px] font-semibold text-brand-on-primary transition-opacity hover:opacity-90"
+          >
+            Link Chess.com account
+          </button>
         </div>
       </Page>
     );

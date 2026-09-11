@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/router';
+import { useQueryClient } from '@tanstack/react-query';
 import type { GetServerSideProps } from 'next';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { withAuth } from '@/lib/auth/withAuth';
@@ -70,6 +71,7 @@ function extractRatingChips(ratings: Record<string, unknown> | undefined): Ratin
 
 export default function LinkChesscomPage(_props: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -114,6 +116,9 @@ export default function LinkChesscomPage(_props: Props) {
     try {
       const linked = await userApi.linkChesscom(trimmed);
       setConnectedUser(linked);
+      // Kill the stale "me" cache so the next page trusts the fresh state
+      // instead of bouncing us back for the missing username.
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
       // Reveal moment: your coach now has your games. Auto-advance so the
       // flow stays quick; the background games fetch keeps running.
       advanceTimer.current = setTimeout(() => {
