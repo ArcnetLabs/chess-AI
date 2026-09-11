@@ -261,7 +261,6 @@ function gameAnalysisChip(game: Game): string {
   return 'Not analyzed';
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function StatTile({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-[#242424] bg-[#111] px-4 py-3">
