@@ -194,10 +194,7 @@ export default function LoginPage() {
                     htmlFor="chesscom_username"
                     className="chessrun-label ml-1 flex items-center gap-2"
                   >
-                    Chess.com username{' '}
-                    <span className="font-normal text-content-muted">
-                      (optional — for returning users)
-                    </span>
+                    Chess.com username
                   </label>
                   <input
                     id="chesscom_username"
