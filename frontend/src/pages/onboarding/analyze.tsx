@@ -146,8 +146,8 @@ function AnalyzeOnboardingBody() {
             />
           </div>
           <p className="text-sm text-content-muted">
-            Analyzing every game so your coach sees your real tendencies — this takes a minute or
-            two.
+            Analyzing every game so your coach sees your real tendencies — larger game libraries
+            can take several minutes.
           </p>
         </div>
       </Page>
