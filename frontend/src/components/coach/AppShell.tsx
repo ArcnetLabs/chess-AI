@@ -9,11 +9,13 @@ import {
   Dumbbell,
   Home,
   Loader2,
+  LogOut,
   PenLine,
   Search,
 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
+import { createClient } from '@/lib/supabase/client';
 import { KnightGlyph } from '@/components/brand/ChessRunMark';
 import type { ChatMode } from './chatMode';
 
@@ -182,6 +184,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <span className="flex h-7 w-7 items-center justify-center rounded-full text-content-muted transition-colors hover:bg-surface-bright/40 hover:text-content">
           <PenLine className="h-3.5 w-3.5" />
         </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await createClient().auth.signOut();
+          } finally {
+            setMobileMenuOpen(false);
+            void router.push('/auth/login');
+          }
+        }}
+        className="mt-3 flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-medium text-content-muted transition-colors hover:bg-surface-bright/30 hover:text-content"
+        aria-label="Log out"
+      >
+        <LogOut className="h-4 w-4" />
+        Log out
       </button>
     </nav>
   );
