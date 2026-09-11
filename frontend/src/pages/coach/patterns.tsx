@@ -79,7 +79,7 @@ function PatternsBody() {
           </p>
           <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">Your patterns</h1>
           <p className="mt-2 text-sm text-[#bbcabf]">
-            Repeated behaviors extracted from every analyzed game ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â your strengths to keep, and
+            Repeated behaviors extracted from every analyzed game — your strengths to keep, and
             your leaks to fix.
           </p>
         </div>
@@ -105,8 +105,8 @@ function PatternsBody() {
         </p>
       ) : (
         <div className="mt-8 space-y-10">
-          <PatternSection title="ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â¥ Your superpowers" subtitle="Strengths showing up across your games" list={strengths} />
-          <PatternSection title="ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‹â€  Your opportunities" subtitle="The leaks costing you the most" list={weaknesses} />
+          <PatternSection title="🔥 Your superpowers" subtitle="Strengths showing up across your games" list={strengths} />
+          <PatternSection title="📈 Your opportunities" subtitle="The leaks costing you the most" list={weaknesses} />
         </div>
       )}
     </div>
@@ -142,7 +142,7 @@ function PatternSection({
                 }`}
               >
                 {pattern.pattern_type}
-                {pattern.pattern_subtype ? ` Ãƒâ€šÃ‚Â· ${pattern.pattern_subtype}` : ''}
+                {pattern.pattern_subtype ? ` · ${pattern.pattern_subtype}` : ''}
               </span>
               <span className="rounded-full bg-[#242424] px-2 py-0.5 text-[11px] text-[#bbcabf]">
                 {pattern.affected_games_count} games

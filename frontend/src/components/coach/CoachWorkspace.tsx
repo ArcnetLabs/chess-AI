@@ -222,7 +222,7 @@ export function CoachWorkspace() {
         <div className="mx-auto max-w-3xl">
           {!hasUserMessage && (
             <p className="hidden pb-2 text-center text-xs text-[#bbcabf]/50 sm:block">
-              ChessRun can make mistakes Ã¢â‚¬â€ every claim is grounded in your analyzed games.
+              ChessRun can make mistakes — every claim is grounded in your analyzed games.
             </p>
           )}
           <div className="flex items-end gap-2 rounded-2xl border border-[#262626] bg-[#161616] px-3 py-2 shadow-xl">
