@@ -3,17 +3,18 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowUp,
-  Copy,
-  Loader2,
+  ChevronDown,
   Plus,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { KnightGlyph } from '@/components/brand/ChessRunMark';
 import { AnalysisModal } from './AnalysisModal';
-import { useAnalysisStatus, useChatSession, useCurrentUser, usePlayerProfile } from '@/hooks';
+import { useAnalysisStatus, useChatSession, useCurrentUser } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
-import type { AnalysisRange, ChatMode } from './chatMode';
+import type { AnalysisRange } from './chatMode';
 
 const STARTERS = [
   { title: 'Pattern Recognition', prompt: 'What patterns do you see in my games?' },
@@ -36,40 +37,9 @@ const ANALYZE_STARTERS = [
   { title: 'Understand The Idea', prompt: 'Explain the key idea in this position: ' },
 ];
 
-function ChatMessage({ role, content }: { role: 'user' | 'assistant'; content: string }) {
-  if (role === 'user') {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-3xl bg-[#262626] px-5 py-3 text-[15px] leading-7 text-[#e5e2e1]">
-          {content}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="group flex flex-col">
-      <div className="max-w-none text-[15px] leading-7 text-[#e5e2e1] [&_a]:text-brand-primary [&_a]:underline [&_li]:mt-1 [&_strong]:font-semibold">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(content);
-          toast.success('Copied');
-        }}
-        className="mt-1.5 flex h-7 w-7 items-center justify-center rounded-md text-[#bbcabf] opacity-0 transition-opacity hover:bg-[#1c1c1c] hover:text-[#e5e2e1] focus:opacity-100 group-hover:opacity-100"
-        aria-label="Copy reply"
-      >
-        <Copy className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
 export function CoachWorkspace() {
-  const { user, loading, refetchUser } = useCurrentUser();
-  const { data: profile, refetch: refetchProfile } = usePlayerProfile(user?.id);
-  const { watchJob, status, isTracking, error: analysisError } = useAnalysisStatus(user?.id);
+  const { user, loading } = useCurrentUser();
+  const { watchJob, isTracking, error: analysisError } = useAnalysisStatus(user?.id);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const messages = useChatStore((state) => state.messages);
   const isTyping = useChatStore((state) => state.isTyping);
@@ -83,36 +53,28 @@ export function CoachWorkspace() {
   const [customDays, setCustomDays] = useState(14);
   const [startingAnalysis, setStartingAnalysis] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [showScrollChip, setShowScrollChip] = useState(false);
 
   useChatSession(user?.id);
 
-  useEffect(() => {
-    if (status?.status !== 'completed' && status?.status !== 'partial') return;
-    void refetchProfile();
-    void refetchUser();
-  }, [status?.status, refetchProfile, refetchUser]);
-
-  const subtitle = useMemo(
-    () =>
-      sessionMode === 'interview'
-        ? 'Start with a quick baseline interview.'
-        : 'Your AI Chess Advisor',
-    [sessionMode],
+  const visibleMessages = useMemo(
+    () => messages.filter((message) => message.role !== 'system'),
+    [messages],
   );
 
-  const sessionsStarters =
+  const starters =
     sessionMode === 'interview' ? INTERVIEW_STARTERS
       : sessionMode === 'analyze' ? ANALYZE_STARTERS
         : STARTERS;
   const composerPlaceholder =
     sessionMode === 'interview' ? "Answer your coach's question..."
       : sessionMode === 'analyze' ? 'Paste a FEN or describe the position...'
-        : 'What would you like to work on today?';
+        : 'What are we working on today?';
 
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [messages.length, isTyping]);
+  }, [visibleMessages.length, isTyping]);
 
   const handleSend = (e: FormEvent) => {
     e.preventDefault();
@@ -138,14 +100,19 @@ export function CoachWorkspace() {
       const response = await api.analysis.analyzeGames(user.id, {
         days: daysForRange(selectedRange, customDays),
       });
-      if (response.status === 'queued' && response.job_id) {
-        watchJob(response.job_id, {
+      if (
+        response &&
+        typeof response === 'object' &&
+        'status' in response &&
+        (response as { status?: string }).status === 'queued' &&
+        (response as { job_id?: string }).job_id
+      ) {
+        watchJob((response as { job_id: string }).job_id, {
           onComplete: () => toast.success('Analysis complete'),
           onError: () => toast.error('Analysis failed'),
         });
       }
       setAnalysisOpen(false);
-      void refetchUser();
     } catch (err) {
       console.error(err);
     } finally {
@@ -153,105 +120,140 @@ export function CoachWorkspace() {
     }
   };
 
-  if (isRestoringSession && messages.length === 0) {
+  if (isRestoringSession && visibleMessages.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0d0d0d] text-[#bbcabf]">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-brand-primary" /> Restoring your
-        conversation...
+      <div className="flex min-h-screen items-center justify-center bg-surface text-content-muted">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-brand-primary" /> Setting things
+        up...
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#0d0d0d] text-[#e5e2e1]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-64 bg-gradient-to-b from-[#0f1411] to-transparent" />
-
+    <div className="relative flex min-h-screen flex-col bg-surface">
+      {/* thread scroll area */}
       <div
         ref={scrollRef}
-        className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4 pb-6 pt-6 sm:px-6"
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+          setShowScrollChip(gap > 160);
+        }}
+        className="flex-1 overflow-y-auto px-4 pb-4 pt-8 sm:px-8"
       >
-        <div className="mx-auto w-full max-w-3xl space-y-8">
-          {messages.length === 0 && (
-            <div className="pt-[12vh] text-center">
-              <KnightGlyph className="mx-auto mb-5 h-14 w-14 text-brand-primary" />
-              <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+        <div className="mx-auto w-full max-w-[760px] space-y-7 pb-40">
+          {visibleMessages.length === 0 ? (
+            <div className="flex flex-col items-center pt-[16vh] text-center">
+              <KnightGlyph className="mb-6 h-16 w-16 text-brand-primary" />
+              <h1 className="text-2xl font-bold tracking-tight text-content sm:text-[28px]">
                 Ask ChessRun
               </h1>
-              <p className="mt-3 text-base text-[#bbcabf]">{subtitle}</p>
-              {sessionMode !== 'coach' && (
-                <p className="mt-2 font-mono text-xs uppercase tracking-wider text-brand-primary">
-                  {sessionMode === 'interview' ? 'Baseline interview' : 'Position analysis'}
-                </p>
-              )}
+              <p className="mt-2 text-[15px] text-content-muted">
+                Your AI Chess Advisor — grounded in every game you&apos;ve played.
+              </p>
+              <div className="mt-8 flex max-w-[560px] flex-wrap justify-center gap-2.5">
+                {starters.map((starter) => (
+                  <button
+                    key={starter.title}
+                    type="button"
+                    onClick={() => setInput(starter.prompt)}
+                    className="rounded-xl border border-surface-bright/40 bg-surface-container/60 px-4 py-2.5 text-sm text-content transition-colors hover:border-brand-primary/40 hover:bg-surface-bright/30"
+                  >
+                    {starter.title}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-          {messages.map((message) =>
-            message.role === 'system' ? null : (
-              <ChatMessage key={message.id} role={message.role} content={message.content} />
-            ),
+          ) : (
+            visibleMessages.map((message) =>
+              message.role === 'user' ? (
+                <div key={message.id} className="flex justify-end">
+                  <div className="max-w-[85%] rounded-[22px] rounded-br-lg bg-surface-container-high px-5 py-3.5 text-[15px] leading-7 text-content">
+                    {message.content}
+                  </div>
+                </div>
+              ) : (
+                <div key={message.id} className="group flex flex-col">
+                  <div className="max-w-none text-[15px] leading-7 text-content [&_a]:underline [&_li]:mt-1 [&_strong]:font-semibold">
+                    <ReactMarkdown remarkPlugins={[remarkGfm] as never}>{message.content}</ReactMarkdown>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(message.content);
+                      toast.success('Copied');
+                    }}
+                    className="mt-2 flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs text-content-muted opacity-0 transition-opacity hover:bg-surface-bright/25 hover:text-content focus:opacity-100 group-hover:opacity-100"
+                    aria-label="Copy reply"
+                  >
+                    COPY
+                  </button>
+                </div>
+              ),
+            )
           )}
           {isTyping && (
-            <div className="flex items-center gap-2 text-[15px] text-[#bbcabf]">
-              <KnightGlyph className="h-5 w-5 text-brand-primary" />
+            <div className="flex items-center gap-2.5 text-[15px] text-content-muted">
+              <Sparkles className="h-4 w-4 text-brand-primary" />
               <span>Setting things up...</span>
             </div>
           )}
-          {error && <p className="text-sm text-brand-error">{String(error)}</p>}
-          {analysisError && <p className="text-sm text-brand-error">{String(analysisError)}</p>}
-          {!hasUserMessage && (
-            <div className="flex flex-wrap justify-center gap-2 pt-2">
-              {sessionsStarters.map((starter) => (
-                <button
-                  key={starter.title}
-                  type="button"
-                  onClick={() => setInput(starter.prompt)}
-                  className="rounded-full border border-[#262626] bg-[#141414] px-4 py-2 text-sm text-[#bbcabf] transition-colors hover:border-brand-primary/50 hover:text-[#e5e2e1]"
-                >
-                  {starter.title}
-                </button>
-              ))}
-            </div>
-          )}
+          {error ? <p className="text-sm text-brand-error">{String(error)}</p> : null}
+          {analysisError ? <p className="text-sm text-brand-error">{String(analysisError)}</p> : null}
         </div>
       </div>
 
-      <form
-        onSubmit={handleSend}
-        className="sticky bottom-0 z-10 bg-gradient-to-t from-[#0d0d0d] via-[#0d0d0d] to-transparent px-4 pb-5 pt-2 sm:px-6"
-      >
-        <div className="mx-auto max-w-3xl">
-          {!hasUserMessage && (
-            <p className="hidden pb-2 text-center text-xs text-[#bbcabf]/50 sm:block">
-              ChessRun can make mistakes — every claim is grounded in your analyzed games.
-            </p>
-          )}
-          <div className="flex items-end gap-2 rounded-2xl border border-[#262626] bg-[#161616] px-3 py-2 shadow-xl">
+      {/* floating scroll-to-bottom chip */}
+      {showScrollChip && (
+        <button
+          type="button"
+          aria-label="Scroll to bottom"
+          onClick={() => {
+            const node = scrollRef.current;
+            if (node) node.scrollTop = node.scrollHeight;
+          }}
+          className="absolute bottom-[150px] left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-surface-bright/60 bg-surface-container text-content shadow-xl"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      )}
+
+      {/* composer */}
+      <div className="pointer-events-none sticky bottom-0 z-10 bg-gradient-to-t from-surface via-surface/95 to-transparent pb-5 pt-6">
+        <form
+          onSubmit={handleSend}
+          className="pointer-events-auto mx-auto w-full max-w-[720px] px-4 sm:px-0"
+        >
+          <div className="flex items-end gap-3 rounded-[24px] border border-surface-bright/40 bg-surface-container px-4 py-3 shadow-brand-ambient">
             <button
               type="button"
               aria-label="Attach a game"
               onClick={() => setAnalysisOpen(true)}
               disabled={isTracking}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#bbcabf] transition-colors hover:bg-[#242424] hover:text-[#e5e2e1] disabled:opacity-50"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-surface-bright/40 text-content-muted transition-colors hover:border-brand-primary/50 hover:text-brand-primary disabled:opacity-50"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
             </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={composerPlaceholder}
-              className="min-w-0 flex-1 bg-transparent py-2 text-[15px] leading-6 text-[#e5e2e1] outline-none placeholder:text-[#5d6a63]"
+              className="min-w-0 flex-1 bg-transparent py-2 text-[15px] leading-6 text-content outline-none placeholder:text-content-muted/60"
             />
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
               aria-label="Send"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-[#0b351f] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-25"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-brand-on-primary shadow-brand-glow transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-25 disabled:shadow-none"
             >
-              <ArrowUp className="h-5 w-5" />
+              <ArrowUp className="h-4 w-4" />
             </button>
           </div>
-        </div>
-      </form>
+          <p className="mt-2.5 text-center text-xs text-content-muted/50">
+            ChessRun can make mistakes — every claim is grounded in your analyzed games.
+          </p>
+        </form>
+      </div>
 
       {analysisOpen && (
         <AnalysisModal

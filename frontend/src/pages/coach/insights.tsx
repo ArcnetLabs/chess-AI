@@ -1,13 +1,14 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import {
-  Brain,
-  ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Loader2,
   Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AppShell } from '@/components/coach/AppShell';
+import { KnightGlyph } from '@/components/brand/ChessRunMark';
 import api from '@/lib/api';
 import { chatService } from '@/services/chatService';
 import { useCurrentUser, usePlayerProfile } from '@/hooks';
@@ -15,9 +16,10 @@ import { useChatStore } from '@/store/chatStore';
 import type { Game } from '@/types';
 import type { NotificationItem } from '@/lib/api';
 
-function gameMeta(game: Game, username: string | undefined): { opponent: string; color: 'White' | 'Black' | '?' } {
-  // Color: the user's display name / chess.com username is compared against
-  // both player names recorded on the game.
+function gameMeta(game: Game, username: string | undefined): {
+  opponent: string;
+  color: 'White' | 'Black' | '?';
+} {
   const me = username?.toLowerCase();
   if (me) {
     if (game.white_username?.toLowerCase() === me) {
@@ -32,14 +34,10 @@ function gameMeta(game: Game, username: string | undefined): { opponent: string;
 }
 
 function gameResult(game: Game, color: 'White' | 'Black' | '?'): { won: boolean | null; label: string } {
-  if (color === '?' || !game.winner) return { won: null, label: game.winner ?? '—' };
-  const won = (game.winner === 'white' && color === 'White') || (game.winner === 'black' && color === 'Black');
+  if (color === '?' || !game.winner) return { won: null, label: game.winner ?? '-' };
+  const won =
+    (game.winner === 'white' && color === 'White') || (game.winner === 'black' && color === 'Black');
   return { won, label: won ? 'Win' : 'Loss' };
-}
-
-function gameAccuracy(game: Game): string {
-  const acc = game.analysis?.accuracy_percentage;
-  return acc != null ? `${Math.round(acc)}%` : '—';
 }
 
 export default function InsightsPage() {
@@ -47,6 +45,18 @@ export default function InsightsPage() {
     <AppShell>
       <InsightsBody />
     </AppShell>
+  );
+}
+
+function statHeading(label: string, value: string | number, suffix?: string) {
+  return (
+    <div>
+      <p className="text-[17px] font-semibold text-content">{label}</p>
+      <p className="mt-1 flex items-baseline gap-2">
+        <span className="text-[40px] font-bold leading-none tracking-tight text-content">{value}</span>
+        {suffix && <span className="text-sm text-content-muted">{suffix}</span>}
+      </p>
+    </div>
   );
 }
 
@@ -59,6 +69,9 @@ function InsightsBody() {
   const [gamesLoading, setGamesLoading] = useState(true);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [openingSession, setOpeningSession] = useState<number | null>(null);
+  const [digestOpen, setDigestOpen] = useState(true);
+
+  const analyzedGames = games.filter((game) => game.is_analyzed);
 
   useEffect(() => {
     if (!user) return;
@@ -71,15 +84,13 @@ function InsightsBody() {
         ]);
         if (!active) return;
         setGames(
-          gameList.slice().sort((a, b) => {
+          [...gameList].sort((a, b) => {
             const aTime = a.end_time ? Date.parse(a.end_time) : 0;
             const bTime = b.end_time ? Date.parse(b.end_time) : 0;
             return bTime - aTime;
           }),
         );
-        if (notificationList) {
-          setNotifications(notificationList.notifications ?? []);
-        }
+        if (notificationList) setNotifications(notificationList.notifications ?? []);
       } finally {
         if (active) setGamesLoading(false);
       }
@@ -105,7 +116,7 @@ function InsightsBody() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-[#bbcabf]">
+      <div className="flex min-h-screen items-center justify-center bg-surface text-content-muted">
         <Loader2 className="mr-2 h-5 w-5 animate-spin text-brand-primary" /> Loading insights...
       </div>
     );
@@ -114,167 +125,190 @@ function InsightsBody() {
   const summary = profile?.profile_summary;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-8">
-      <header>
-        <p className="font-mono text-xs uppercase tracking-wider text-brand-primary">Insights</p>
-        <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">
-          What your play is telling us
-        </h1>
-        <p className="mt-2 text-sm text-[#bbcabf]">
-          A rolling read of your analyzed games, patterns and progress.
-        </p>
-      </header>
+    <div className="min-h-screen bg-surface">
+      <div className="mx-auto max-w-[1100px] px-5 pb-20 pt-6 sm:px-10">
+        <header className="mb-6">
+          <p className="text-[15px] font-medium text-content">Insights</p>
+        </header>
 
-      <section className="mt-8 rounded-2xl border border-[#262626] bg-[#141414] p-6">
-        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-brand-primary">
-          <Brain className="h-4 w-4" /> Coach summary
-        </div>
-        <p className="mt-3 text-[15px] leading-7 text-[#e5e2e1]">
-          {summary ?? 'Run an analysis pass and your coach summary will appear here.'}
-        </p>
-        {profile && (
-          <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-            <StatTile label="Games analyzed" value={profile.games_analyzed_count} />
-            <StatTile label="Patterns found" value={profile.patterns_detected_count} />
-            <StatTile label="Archetype" value={profile.archetype ?? '—'} />
-          </div>
-        )}
-        {summary && (
-          <button
-            type="button"
-            onClick={() => void router.push('/coach')}
-            className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:underline"
-          >
-            Let&apos;s dive in <ChevronRight className="h-4 w-4" />
-          </button>
-        )}
-      </section>
-
-      <section className="mt-8">
-        <h2 className="font-display text-xl font-semibold">Games breakdown</h2>
-        <p className="mt-1 text-sm text-[#bbcabf]">
-          Every analyzed game, newest first. Click one to open a chat focused on it.
-        </p>
-        <div className="mt-4 overflow-hidden rounded-2xl border border-[#262626]">
-          {gamesLoading ? (
-            <div className="flex items-center justify-center py-10 text-[#bbcabf]">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand-primary" /> Loading games...
+        {/* coach summary card */}
+        <section className="rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:pb-10 sm:pt-4">
+          <div className="-mt-8 mb-5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-surface-bright/40 bg-surface shadow-brand-ambient">
+              <KnightGlyph className="h-7 w-7 text-brand-primary" />
             </div>
-          ) : games.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-[#bbcabf]">
-              No games yet — run an analysis pass from the chat to get started.
-            </p>
-          ) : (
-            <ul className="divide-y divide-[#222]">
-              {games.map((game) => {
-                const meta = gameMeta(game, user?.chesscom_username ?? undefined);
-                const result = gameResult(game, meta.color);
-                return (
-                  <li key={game.id}>
-                    <button
-                      type="button"
-                      onClick={() => void openGameChat(game.id)}
-                      disabled={openingSession !== null}
-                      className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-[#181818]"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-[15px] font-medium text-[#e5e2e1]">
-                            {meta.color !== '?' ? `${meta.color} vs ` : 'vs '}
-                            {meta.opponent}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              game.analysis?.accuracy_percentage != null
-                                ? 'bg-brand-primary/10 text-brand-primary'
-                                : 'bg-[#242424] text-[#bbcabf]'
-                            }`}
-                          >
-                            {gameAnalysisChip(game)}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 truncate text-xs text-[#bbcabf]">
-                          {game.end_time ? new Date(game.end_time).toLocaleDateString() : 'Date unknown'}
-                          {' · '}
-                          {game.analysis?.opening_name ?? game.time_class ?? ''}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-3 text-xs text-[#bbcabf]">
-                        <ResultChip won={result.won} label={result.label} />
-                        {openingSession === game.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-brand-primary" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+          </div>
+          <p className="text-2xl font-semibold tracking-tight text-content sm:text-[27px] sm:leading-[1.35]">
+            {summary ? summary : 'Run an analysis pass and your coach summary will appear here.'}
+          </p>
+          {summary && (
+            <button
+              type="button"
+              onClick={() => void router.push('/coach')}
+              className="mt-5 inline-flex items-center gap-1.5 text-[15px] font-semibold text-brand-primary transition-opacity hover:opacity-80"
+            >
+              Let&apos;s dive in
+              <span aria-hidden="true">&rarr;</span>
+            </button>
           )}
-        </div>
-      </section>
+          {profile && (
+            <div className="mt-8 grid gap-6 sm:grid-cols-2">
+              <StatCard label="Games analyzed" value={profile.games_analyzed_count} />
+              <StatCard
+                label="Patterns found"
+                value={profile.patterns_detected_count}
+                note={profile.archetype ?? undefined}
+              />
+            </div>
+          )}
+        </section>
 
-      {notifications.length > 0 && (
-        <section className="mt-8">
-          <h2 className="font-display text-xl font-semibold">Weekly digest</h2>
-          <div className="mt-4 space-y-3">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className="flex items-start gap-3 rounded-xl border border-[#262626] bg-[#141414] p-4"
-              >
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-[#e5e2e1]">{notification.title}</p>
-                  <p className="mt-0.5 text-sm leading-6 text-[#bbcabf]">{notification.body}</p>
-                </div>
-                {!notification.is_read && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!user) return;
-                      void api.notifications.markRead(user.id, notification.id);
-                      setNotifications((list) =>
-                        list.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)),
-                      );
-                    }}
-                    className="ml-auto shrink-0 text-xs text-brand-primary hover:underline"
-                  >
-                    Mark read
-                  </button>
-                )}
+        {/* games breakdown card */}
+        <section className="mt-8 rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:py-10">
+          <div className="flex items-start justify-between">
+            {statHeading('Games Breakdown', analyzedGames.length, analyzedGames.length === 1 ? 'game' : 'games')}
+          </div>
+
+          <div className="mt-8">
+            {gamesLoading ? (
+              <div className="flex items-center justify-center py-12 text-content-muted">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand-primary" /> Loading games...
               </div>
-            ))}
+            ) : games.length === 0 ? (
+              <p className="py-10 text-center text-[15px] text-content-muted">
+                No games yet — run an analysis pass from the chat to get started.
+              </p>
+            ) : (
+              <div>
+                <div className="flex items-center gap-4 border-b border-surface-bright/30 pb-3 text-[13px] text-content-muted">
+                  <span className="w-28 shrink-0">Date</span>
+                  <span className="flex-1">Game</span>
+                  <span className="w-28 shrink-0 text-right">Accuracy</span>
+                </div>
+                <ul>
+                  {games.map((game) => {
+                    const meta = gameMeta(game, user?.chesscom_username ?? undefined);
+                    const result = gameResult(game, meta.color);
+                    const acc = game.analysis?.accuracy_percentage;
+                    return (
+                      <li key={game.id}>
+                        <button
+                          type="button"
+                          onClick={() => void openGameChat(game.id)}
+                          disabled={openingSession !== null}
+                          className="group flex w-full items-center gap-4 border-b border-surface-bright/20 py-4 text-left transition-colors hover:bg-surface-bright/15"
+                        >
+                          <span className="w-28 shrink-0 text-sm text-content-muted">
+                            {game.end_time
+                              ? new Date(game.end_time).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : '-'}
+                          </span>
+                          <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                            <span
+                              className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+                                result.won === true
+                                  ? 'bg-brand-primary/15 text-brand-primary'
+                                  : result.won === false
+                                    ? 'bg-red-500/15 text-red-300'
+                                    : 'bg-surface-bright/40 text-content-muted'
+                              }`}
+                            >
+                              {result.label}
+                            </span>
+                            <span className="truncate text-[15px] font-semibold text-content group-hover:text-brand-primary">
+                              {meta.color !== '?' ? `${meta.color} vs ` : 'vs '}
+                              {meta.opponent}
+                            </span>
+                            <span className="hidden truncate text-[13px] text-content-muted sm:block">
+                              {game.analysis?.opening_name ?? ''}
+                            </span>
+                          </span>
+                          <span className="w-28 shrink-0 text-right">
+                            <span
+                              className={`inline-flex items-center gap-1 text-sm font-semibold ${
+                                acc != null ? 'text-brand-primary' : 'text-content-muted'
+                              }`}
+                            >
+                              {acc != null
+                                ? `${Math.round(acc)}%`
+                                : game.is_analyzed
+                                  ? 'Analyzed'
+                                  : '-'}
+                              {openingSession === game.id && (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-primary" />
+                              )}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
-      )}
+
+        {notifications.length > 0 && (
+          <section className="mt-8">
+            <button
+              type="button"
+              onClick={() => setDigestOpen((open) => !open)}
+              className="flex w-full items-center justify-between rounded-t-2xl border border-surface-bright/30 bg-surface-container/70 px-8 py-5 text-left sm:px-10"
+            >
+              <span className="text-[17px] font-semibold text-content">Weekly digest</span>
+              {digestOpen ? (
+                <ChevronUp className="h-4 w-4 text-content-muted" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-content-muted" />
+              )}
+            </button>
+            {digestOpen && (
+              <div className="space-y-3 rounded-b-2xl border border-t-0 border-surface-bright/30 bg-surface-container/70 p-6 sm:p-8">
+                {notifications.map((notification) => (
+                  <div key={notification.id} className="flex items-start gap-4">
+                    <Sparkles className="mt-1 h-4 w-4 shrink-0 text-brand-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-semibold text-content">{notification.title}</p>
+                      <p className="mt-0.5 text-sm leading-6 text-content-muted">
+                        {notification.body ?? ''}
+                      </p>
+                    </div>
+                    {!notification.is_read && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!user) return;
+                          void api.notifications.markRead(user.id, notification.id);
+                          setNotifications((list) =>
+                            list.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)),
+                          );
+                        }}
+                        className="shrink-0 text-sm text-brand-primary hover:underline"
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   );
 }
 
-function gameAnalysisChip(game: Game): string {
-  const acc = game.analysis?.accuracy_percentage;
-  if (acc != null) return `${Math.round(acc)}% acc`;
-  if (game.is_analyzed) return 'Analyzed';
-  return 'Not analyzed';
-}
-
-function StatTile({ label, value }: { label: string; value: string | number }) {
+function StatCard({ label, value, note }: { label: string; value: string | number; note?: string }) {
   return (
-    <div className="rounded-xl border border-[#242424] bg-[#111] px-4 py-3">
-      <p className="text-lg font-semibold text-[#e5e2e1]">{value}</p>
-      <p className="mt-0.5 text-xs text-[#bbcabf]">{label}</p>
+    <div className="rounded-xl border border-surface-bright/25 bg-surface-low/60 px-7 py-6">
+      <p className="text-[15px] text-content-muted">{label}</p>
+      <p className="mt-1 text-[34px] font-bold leading-none tracking-tight text-content">{value}</p>
+      {note && <p className="mt-2 text-sm text-content-muted">{note}</p>}
     </div>
   );
-}
-
-function ResultChip({ won, label }: { won: boolean | null; label: string }) {
-  const cls = won === true
-    ? 'bg-brand-primary/10 text-brand-primary'
-    : won === false
-      ? 'bg-red-500/10 text-red-400'
-      : 'bg-[#242424] text-[#bbcabf]';
-  return <span className={`rounded-full px-2 py-0.5 font-medium ${cls}`}>{label}</span>;
 }
