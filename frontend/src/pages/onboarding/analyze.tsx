@@ -64,6 +64,48 @@ function AnalyzeOnboardingBody() {
     return () => window.clearInterval(timer);
   }, [phase]);
 
+
+  // Recovery: before ever showing the error page, look at what the backend
+  // is actually doing. If an analysis job is running, reattach polling to
+  // it; if games already carry analyses, show the reveal.
+  const recoverAnalysis = async () => {
+    if (!user) {
+      setPhase('error');
+      return;
+    }
+    try {
+      const active = await api.analysis.getActiveJobStatus(user.id);
+      const activeStatus = active?.status;
+      if (active && active.job_id && !['completed', 'partial', 'failed', 'cancelled'].includes(activeStatus)) {
+        setPhase('analyzing');
+        setProgress(30);
+        watchJob(active.job_id, { onComplete: handleComplete, onError: recoverAnalysis });
+        return;
+      }
+      // No active job — check whether results exist already.
+      const list = await api.games.getForUser(user.id, { limit: 100 });
+      const analyzed = list.filter(
+        (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
+      );
+      if (analyzed.length > 0) {
+        setGames(analyzed);
+        setPhase('done');
+        return;
+      }
+    } catch {
+      /* fall through to the error page */
+    }
+    setPhase('error');
+  };
+
+
+  const handleComplete = async () => {
+    setProgress(100);
+    setStageIndex(STAGES.length - 1);
+    void refetchProfile();
+    await loadResults();
+  };
+
   const startAnalysis = async () => {
     if (!user) return;
     setPhase('analyzing');
@@ -81,33 +123,7 @@ function AnalyzeOnboardingBody() {
       if (typeof jobId === 'string' && jobId) {
         // The response carries job_id but no status field — poll on
         // job_id presence.
-        watchJob(jobId, {
-          onComplete: async () => {
-            setProgress(100);
-            setStageIndex(STAGES.length - 1);
-            void refetchProfile();
-            await loadResults();
-          },
-          onError: async () => {
-            // Before failing outright, check whether the worker kept going
-            // anyway (proxy blip / redeploy during a long run).
-            try {
-              if (!user) return setPhase('error');
-              const list = await api.games.getForUser(user.id, { limit: 100 });
-              const analyzed = list.filter(
-                (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
-              );
-              if (analyzed.length > 0) {
-                setGames(analyzed);
-                setPhase('done');
-                return;
-              }
-            } catch {
-              /* show the error page */
-            }
-            setPhase('error');
-          },
-        });
+        watchJob(jobId, { onComplete: handleComplete, onError: recoverAnalysis });
         return;
       }
       if (queuedCount === 0) {
@@ -118,26 +134,10 @@ function AnalyzeOnboardingBody() {
       }
       // No job id and games were pending? Something raced — re-check.
       await loadResults();
-    } catch (startError: unknown) {
-      // "Self-heal": the worker may have kept going even though a request
-      // failed (proxy timeout, redeploy blip). Before showing an error, check
-      // the real state once more.
-      try {
-        if (user) {
-          const list = await api.games.getForUser(user.id, { limit: 100 });
-          const analyzed = list.filter(
-            (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
-          );
-          if (analyzed.length > 0) {
-            setGames(analyzed);
-            setPhase('done');
-            return;
-          }
-        }
-      } catch {
-        /* fall through to the error page */
-      }
-      setPhase('error');
+    } catch {
+      // The request chain slipped (proxy timeout, redeploy blip) — the
+      // worker may still be running. Reattach to the active job.
+      await recoverAnalysis();
     }
   };
 
