@@ -7,6 +7,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/router';
+import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
 import { getAuthCallbackUrl } from '@/lib/auth/site-url';
 
@@ -34,29 +35,30 @@ function LoginBackdrop() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [chesscomUsername, setChesscomUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [existingEmail, setExistingEmail] = useState<string | null>(null);
 
   const queryError =
     typeof router.query.error === 'string' ? router.query.error : null;
 
-  // A returning user whose session is still valid should not see this
-  // form at all — land them in the app immediately. /coach is safe for
-  // registered users (straight to chat) and the client guard redirects
-  // unlinked users to the single onboarding step.
+  // If a valid session already exists, never silently drop the user into
+  // that account — an ambiguous shared browser could mislead them about
+  // which account they're in. Offer "Continue as X" or an explicit
+  // sign-out to the sign-in form instead.
   useEffect(() => {
     if (!router.isReady) return;
     let active = true;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!active) return;
-      if (user) {
-        router.replace('/coach');
-        return;
+      if (user?.email) {
+        setExistingEmail(user.email);
       }
       setSessionChecked(true);
     });
@@ -64,6 +66,17 @@ export default function LoginPage() {
       active = false;
     };
   }, [router.isReady, router]);
+
+  async function handleContinueAsExisting() {
+    await queryClient.invalidateQueries({ queryKey: ['me'] });
+    router.replace('/coach');
+  }
+
+  async function handleUseDifferentAccount() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setExistingEmail(null);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -127,6 +140,43 @@ export default function LoginPage() {
               </strong>{' '}
               will be linked when you continue.
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionChecked && existingEmail) {
+    return (
+      <div className="chessrun-page-bg relative min-h-screen">
+        <LoginBackdrop />
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md space-y-6 text-center animate-fade-in">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-chess-md bg-brand-primary/15">
+              <span className="text-2xl text-brand-primary" aria-hidden>
+                ♜
+              </span>
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-content">
+              You&apos;re signed in as
+            </h1>
+            <p className="text-lg text-content-muted">
+              <strong className="text-content">{existingEmail}</strong>
+            </p>
+            <button
+              type="button"
+              onClick={handleContinueAsExisting}
+              className="chessrun-btn-primary flex h-12 w-full items-center justify-center text-base"
+            >
+              Continue as {existingEmail}
+            </button>
+            <button
+              type="button"
+              onClick={handleUseDifferentAccount}
+              className="chessrun-btn-ghost flex h-12 w-full items-center justify-center text-base text-content-muted"
+            >
+              Sign in as someone else
+            </button>
           </div>
         </div>
       </div>
