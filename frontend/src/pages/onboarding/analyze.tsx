@@ -79,8 +79,8 @@ function AnalyzeOnboardingBody() {
       const jobId =
         response && typeof response === 'object' ? (response as { job_id?: string }).job_id : undefined;
       if (typeof jobId === 'string' && jobId) {
-        // The response carries jobs_queued/job_id but no status field — poll
-        // on job_id presence.
+        // The response carries job_id but no status field — poll on
+        // job_id presence.
         watchJob(jobId, {
           onComplete: async () => {
             setProgress(100);
@@ -88,7 +88,25 @@ function AnalyzeOnboardingBody() {
             void refetchProfile();
             await loadResults();
           },
-          onError: () => setPhase('error'),
+          onError: async () => {
+            // Before failing outright, check whether the worker kept going
+            // anyway (proxy blip / redeploy during a long run).
+            try {
+              if (!user) return setPhase('error');
+              const list = await api.games.getForUser(user.id, { limit: 100 });
+              const analyzed = list.filter(
+                (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
+              );
+              if (analyzed.length > 0) {
+                setGames(analyzed);
+                setPhase('done');
+                return;
+              }
+            } catch {
+              /* show the error page */
+            }
+            setPhase('error');
+          },
         });
         return;
       }
@@ -100,7 +118,25 @@ function AnalyzeOnboardingBody() {
       }
       // No job id and games were pending? Something raced — re-check.
       await loadResults();
-    } catch {
+    } catch (startError: unknown) {
+      // "Self-heal": the worker may have kept going even though a request
+      // failed (proxy timeout, redeploy blip). Before showing an error, check
+      // the real state once more.
+      try {
+        if (user) {
+          const list = await api.games.getForUser(user.id, { limit: 100 });
+          const analyzed = list.filter(
+            (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
+          );
+          if (analyzed.length > 0) {
+            setGames(analyzed);
+            setPhase('done');
+            return;
+          }
+        }
+      } catch {
+        /* fall through to the error page */
+      }
       setPhase('error');
     }
   };
@@ -127,10 +163,25 @@ function AnalyzeOnboardingBody() {
       setPhase('done');
       toast.success('Your games are analyzed');
     } catch {
+      // "Self-heal": the worker may have kept going even though a request
+      // failed (proxy timeout, redeploy blip). Before showing an error, check
+      // the real state once more.
+      try {
+        const list = await api.games.getForUser(user.id, { limit: 100 });
+        const analyzed = list.filter(
+          (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
+        );
+        if (analyzed.length > 0) {
+          setGames(analyzed);
+          setPhase('done');
+          return;
+        }
+      } catch {
+        /* fall through to the real error page */
+      }
       setPhase('error');
     }
   };
-
   if (loading) {
     return (
       <Page>
@@ -197,7 +248,7 @@ function AnalyzeOnboardingBody() {
               ? jobError
               : jobError instanceof Error
                 ? jobError.message
-                : 'We could not finish the analysis. Please try again.'}
+                : 'We could not finish the analysis. The engine worker may still be running in the background — hit Retry in a minute.'}
           </p>
           <button
             type="button"
