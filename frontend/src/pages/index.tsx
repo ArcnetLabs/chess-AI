@@ -6,28 +6,49 @@
  * model was retired when Supabase Auth became the canonical identity
  * layer (see `docs/architecture/auth-system.md`).
  *
- * The page is now a thin SSR redirect:
- *   - Authenticated users → /coach
- *   - Unauthenticated users → /auth/login
+ * Two routes out of this page:
  *
- * Keeping the redirect server-side means the user never sees a flash of
- * the wrong page and search engines don't index an empty client shell.
+ *   - Authenticated (cookie session readable server-side) → /coach
+ *     via SSR redirect.
+ *   - Unauthenticated → a tiny client shim that checks the URL FRAGMENT
+ *     before going anywhere. Supabase's default magic-link template links
+ *     to the site root with the tokens in the fragment (#access_token=...).
+ *     Fragments are invisible to the server and destroyed by SSR redirects,
+ *     so previously this page 302'd straight to /auth/login and the tokens
+ *     were lost — bouncing EVERY magic link to login in every browser.
+ *     Now: if the fragment carries a session, forward it (fragment intact)
+ *     to /auth/callback, which handles it; otherwise → /auth/login.
  */
 
+import { useEffect } from 'react';
 import type { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
 import { getServerUser } from '@/lib/auth/session';
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const user = await getServerUser(context.req, context.res);
-  return {
-    redirect: {
-      destination: user ? '/coach' : '/auth/login',
-      permanent: false,
-    },
-  };
+  if (user) {
+    return {
+      redirect: { destination: '/coach', permanent: false },
+    };
+  }
+  // Unauthenticated: render the client shim (hash may still hold tokens).
+  return { props: {} };
 };
 
 export default function HomePage() {
-  // Never rendered — the SSR redirect above runs first.
+  const router = useRouter();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      // Full browser navigation — preserves the fragment the server
+      // never saw. /auth/callback owns implicit-flow session pickup.
+      window.location.replace(`/auth/callback${hash}`);
+      return;
+    }
+    router.replace('/auth/login');
+  }, [router]);
+
   return null;
 }
