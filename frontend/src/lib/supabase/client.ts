@@ -21,5 +21,17 @@ export function createClient() {
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      auth: {
+        // Implict flow: the emailed link carries tokens in the URL fragment
+        // (#access_token=...), so it verifies without any pre-seeded PKCE
+        // verifier. Required because Supabase's default magic-link email
+        // template uses {{ .ConfirmationURL }} which does not carry the
+        // PKCE verifier — PKCE links therefore bounced to login every time
+        // (same browser or not). Implicit works in any browser.
+        flowType: 'implicit',
+        detectSessionInUrl: true,
+      },
+    },
   )
 }
