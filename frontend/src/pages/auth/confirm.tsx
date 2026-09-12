@@ -43,6 +43,19 @@ export default function AuthConfirmPage() {
           return
         }
 
+        // Registered already? → straight to the chat for existing users.
+        // Only true newcomers run the link-once → analyze flow.
+        try {
+          const me = await userApi.me()
+          if (me?.chesscom_username) {
+            await queryClient.invalidateQueries({ queryKey: ['me'] })
+            router.replace('/coach')
+            return
+          }
+        } catch {
+          /* users/me failed — treat as newcomer below */
+        }
+
         const chesscom = data.user?.user_metadata?.chesscom_username
         const requestedNext =
           typeof router.query.next === 'string' ? router.query.next : ''

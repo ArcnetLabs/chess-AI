@@ -45,8 +45,9 @@ export default function LoginPage() {
     typeof router.query.error === 'string' ? router.query.error : null;
 
   // A returning user whose session is still valid should not see this
-  // form at all — land them in the app immediately (the analyze gate
-  // points them at onboarding if their link state is incomplete).
+  // form at all — land them in the app immediately. /coach is safe for
+  // registered users (straight to chat) and the client guard redirects
+  // unlinked users to the single onboarding step.
   useEffect(() => {
     if (!router.isReady) return;
     let active = true;
@@ -54,7 +55,7 @@ export default function LoginPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!active) return;
       if (user) {
-        router.replace('/onboarding/analyze');
+        router.replace('/coach');
         return;
       }
       setSessionChecked(true);
