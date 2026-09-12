@@ -24,9 +24,22 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    const continueToApp = async () => {
-      // After session establishment, mirror the landing-form link (metadata
-      // chesscom_username → app rows) then route onward.
+      const continueToApp = async () => {
+      // Registered already? (local row has a Chess.com username) → straight
+      // to the chat. Only true newcomers run the link-once → analyze flow.
+      try {
+        const me = await userApi.me()
+        if (me?.chesscom_username) {
+          await queryClient.invalidateQueries({ queryKey: ['me'] })
+          router.replace('/coach')
+          return
+        }
+      } catch {
+        // users/me failed — auto-provision may still be in flight; fall
+        // through to the newcomer path below.
+      }
+
+      // Newcomer (or exists-but-unlinked): link via landing metadata if present.
       const { data } = await supabase.auth.getUser()
       const chesscom = data.user?.user_metadata?.chesscom_username
 
