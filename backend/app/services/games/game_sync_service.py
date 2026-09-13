@@ -152,6 +152,18 @@ async def import_chesscom_games(
     user.total_games = db.query(Game).filter(Game.user_id == user.id).count()
     db.commit()
 
+    # Refresh cached Chess.com ratings on every sync — a returning player's
+    # rapid/blitz/bullet numbers drift between signups, and stale ratings
+    # showed wrong values on the onboarding reveal.
+    try:
+        stats_data = await chesscom_api.get_player_stats(user.chesscom_username)
+        if stats_data:
+            user.current_ratings = stats_data
+            db.commit()
+    except Exception as e:  # noqa: BLE001 — ratings refresh is best-effort
+        db.rollback()
+        logger.warning(f"Could not refresh ratings for user={user.id}: {e}")
+
     analysis_queue = queue_new_games_for_analysis(
         db,
         user,
