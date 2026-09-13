@@ -7,6 +7,8 @@ import pytest
 from app.tasks.pattern_tasks import detect_patterns_task
 from app.tasks.profile_tasks import (
     PROFILE_BUILD_DEBOUNCE_KEY_PREFIX,
+
+    PROFILE_BUILD_DEBOUNCE_TTL_SECONDS,
     build_profile_task,
     schedule_profile_build_for_user,
 )
@@ -40,7 +42,7 @@ class TestScheduleProfileBuild:
             f"{PROFILE_BUILD_DEBOUNCE_KEY_PREFIX}:7",
             "1",
             nx=True,
-            ex=120,
+            ex=PROFILE_BUILD_DEBOUNCE_TTL_SECONDS,
         )
         mock_apply.assert_not_called()
 
@@ -77,7 +79,7 @@ class TestBuildProfileTask:
         ) as mock_build:
             result = build_profile_task.run(99)
 
-        mock_build.assert_called_once_with(mock_db, 99)
+        mock_build.assert_called_once_with(mock_db, 99, force=False)
         mock_db.close.assert_called_once()
         assert result["status"] == "success"
         assert result["profile_id"] == 101
@@ -96,7 +98,7 @@ class TestBuildProfileTask:
         ) as mock_build:
             result = build_profile_task.run(5)
 
-        mock_build.assert_called_once_with(mock_db, 5)
+        mock_build.assert_called_once_with(mock_db, 5, force=False)
         assert result["status"] == "skipped"
         assert result["profile_id"] is None
 

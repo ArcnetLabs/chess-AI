@@ -17,7 +17,10 @@ from app.core.database import SessionLocal, redis_client
 from app.services.profiles.profile_builder import build_player_profile
 
 PROFILE_BUILD_DEBOUNCE_KEY_PREFIX = "profile_build_scheduled"
-PROFILE_BUILD_DEBOUNCE_TTL_SECONDS = 120
+# Longer than the pattern-run window it follows: profile builds are cheap
+# (~2.5s) but arrive one per detection run, and the builder itself now skips
+# snapshots whose inputs did not change.
+PROFILE_BUILD_DEBOUNCE_TTL_SECONDS = 900
 PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS = 60
 
 
@@ -66,17 +69,19 @@ def schedule_profile_build_for_user(
     retry_jitter=True,
     name="app.tasks.profile_tasks.build_profile_task",
 )
-def build_profile_task(self, user_id: int):
+def build_profile_task(self, user_id: int, force: bool = False):
     """
     Celery task: build and persist an append-only PlayerProfile snapshot.
 
     Idempotent — safe to retry; versioning prevents duplicate snapshot rows
-    for the same logical build (each run creates a new version).
+    for the same logical build (each run creates a new version). The builder
+    skips inputs that have not changed; ``force=True`` (explicit rebuilds)
+    bypasses that guard.
     """
     db = SessionLocal()
     try:
         logger.info(f"Starting profile build for user_id={user_id}")
-        profile = build_player_profile(db, user_id)
+        profile = build_player_profile(db, user_id, force=force)
         if profile is None:
             logger.info(
                 f"Profile build skipped for user_id={user_id} "

@@ -112,7 +112,9 @@ async def trigger_profile_build(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    task = build_profile_task.delay(user_id)
+    # Explicit rebuilds always snapshot: the user asked for it, and this is how
+    # an older profile (built before summaries existed) gets refreshed.
+    task = build_profile_task.delay(user_id, True)
     return ProfileBuildResponse(
         task_id=task.id,
         message="Profile build queued",
