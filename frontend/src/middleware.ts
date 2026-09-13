@@ -96,14 +96,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Authenticated user landing on auth pages → send to dashboard.
-  // Prevents the confusing "back button to login" experience.
-  if (user && isAuthPath(pathname)) {
-    const coachUrl = request.nextUrl.clone()
-    coachUrl.pathname = '/coach'
-    coachUrl.searchParams.delete('next')
-    return NextResponse.redirect(coachUrl)
-  }
+  // NOTE: authenticated users are NOT bounced off auth pages here. A
+  // lingering session must surface as the client-side "You're signed in
+  // as X" card on /auth/login (explicit Continue vs. sign-in-as-someone-
+  // else), not as a silent cross-account redirect into /coach. Redirecting
+  // here also dragged failed-magic-link error params onto the coach URL.
 
   return supabaseResponse
 }
