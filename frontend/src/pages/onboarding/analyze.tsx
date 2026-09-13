@@ -44,26 +44,43 @@ function AnalyzeOnboardingBody() {
   const router = useRouter();
   const { user, loading } = useCurrentUser();
   const { data: profile, refetch: refetchProfile } = usePlayerProfile(user?.id);
-  const { watchJob, error: jobError } = useAnalysisStatus(user?.id);
+  const {
+    watchJob,
+    error: jobError,
+    status: jobStatus,
+  } = useAnalysisStatus(user?.id);
   const [phase, setPhase] = useState<'ready' | 'analyzing' | 'done' | 'error' | 'empty'>('ready');
   const [stageIndex, setStageIndex] = useState(0);
   const [progress, setProgress] = useState(6);
   const [games, setGames] = useState<Game[]>([]);
   const [patterns, setPatterns] = useState<PlayerPattern[]>([]);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
+  const [liveCounts, setLiveCounts] = useState<{ completed: number; total: number } | null>(null);
 
+  // Real progress only: the backend reports completed_games / total_games on
+  // every poll. No simulated creep — the bar reaches the end when the job
+  // genuinely finishes (handleComplete sets 100).
   useEffect(() => {
     if (phase !== 'analyzing') return;
-    const timer = window.setInterval(() => {
-      setProgress((current) => {
-        const next = current + (98 - current) * 0.06;
-        return Math.min(next, 97);
-      });
-      setStageIndex((current) => Math.min(current + (Math.random() > 0.6 ? 1 : 0), STAGES.length - 1));
-    }, 700);
-    return () => window.clearInterval(timer);
-  }, [phase]);
+    if (!liveCounts || liveCounts.total <= 0) return;
+    const fraction = liveCounts.completed / liveCounts.total;
+    setProgress(5 + Math.min(fraction, 1) * 90);
+    setStageIndex(fraction >= 0.99 ? 3 : fraction >= 0.75 ? 2 : 1);
+  }, [phase, liveCounts]);
 
+
+  useEffect(() => {
+    if (
+      jobStatus &&
+      typeof jobStatus.completed_games === 'number' &&
+      typeof jobStatus.total_games === 'number'
+    ) {
+      setLiveCounts({
+        completed: jobStatus.completed_games,
+        total: jobStatus.total_games,
+      });
+    }
+  }, [jobStatus]);
 
   // Recovery: before ever showing the error page, look at what the backend
   // is actually doing. If an analysis job is running, reattach polling to
@@ -111,6 +128,7 @@ function AnalyzeOnboardingBody() {
     setPhase('analyzing');
     setProgress(6);
     setStageIndex(0);
+    setLiveCounts(null);
     try {
       await api.games.fetchRecent(user.id, { count: 200 });
       const response = await api.analysis.analyzeGames(user.id, { days: undefined });
@@ -218,6 +236,14 @@ function AnalyzeOnboardingBody() {
   }
 
   if (phase === 'analyzing') {
+    const counts =
+      liveCounts && liveCounts.total > 0
+        ? `${Math.min(liveCounts.completed, liveCounts.total)} of ${liveCounts.total} games analyzed`
+        : 'Starting engine analysis…';
+    const remaining =
+      liveCounts && liveCounts.total > 0
+        ? Math.max(liveCounts.total - liveCounts.completed, 0)
+        : null;
     return (
       <Page>
         <div className="space-y-8 py-24 text-center">
@@ -229,9 +255,13 @@ function AnalyzeOnboardingBody() {
               style={{ width: `${Math.round(progress)}%` }}
             />
           </div>
+          <p className="text-sm font-semibold text-content" aria-live="polite">
+            {counts}
+            {remaining != null && remaining > 0 ? ` · about ${remaining} to go` : ''}
+          </p>
           <p className="text-sm text-content-muted">
-            Analyzing every game so your coach sees your real tendencies — larger game libraries
-            can take several minutes.
+            Deeper libraries take longer — the engine evaluates every move, so a 200-game run
+            can take up to ~20 minutes. You can leave this page; progress is saved.
           </p>
         </div>
       </Page>
@@ -308,7 +338,7 @@ function AnalyzeOnboardingBody() {
           <Sparkles className="h-5 w-5" /> Analyze my games
         </button>
         <p className="mt-4 text-center text-xs text-content-muted/60">
-          Last 200 games · Engine eval on every move · Takes 1–2 minutes
+          Last 200 games · Engine eval on every move · 5–20 minutes depending on library size
         </p>
       </div>
     </Page>
