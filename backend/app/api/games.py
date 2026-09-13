@@ -258,7 +258,7 @@ async def filter_games(
 
     
 
-    logger.info(f"🔍 Filtering games for user {user.chesscom_username} - Time controls: {filter_request.time_controls}, Rated: {filter_request.rated_only}, Date range: {filter_request.start_date} to {filter_request.end_date}, Limit: {filter_request.limit}")
+    logger.info(f"ðŸ” Filtering games for user {user.chesscom_username} - Time controls: {filter_request.time_controls}, Rated: {filter_request.rated_only}, Date range: {filter_request.start_date} to {filter_request.end_date}, Limit: {filter_request.limit}")
 
     
 
@@ -310,7 +310,7 @@ async def filter_games(
 
     
 
-    logger.info(f"✅ Found {len(games)} games out of {total_count} total matching games (limited to {filter_request.limit})")
+    logger.info(f"âœ… Found {len(games)} games out of {total_count} total matching games (limited to {filter_request.limit})")
 
     
 
@@ -350,7 +350,7 @@ async def filter_games(
 
         response["statistics"] = stats
 
-        logger.info(f"📊 Statistics - Total matching: {stats['total_games']}, Returned: {len(games)}, Win rate: {stats['win_rate']:.1f}%")
+        logger.info(f"ðŸ“Š Statistics - Total matching: {stats['total_games']}, Returned: {len(games)}, Win rate: {stats['win_rate']:.1f}%")
 
     
 
@@ -533,7 +533,7 @@ async def get_user_games(
 
     games = query.order_by(Game.end_time.desc()).offset(skip).limit(limit).all()
 
-    
+    logger.info(f"GET games user={user_id} returned={len(games)} analyzed_true={sum(1 for gg in games if gg.is_analyzed)}")
 
     return games
 
