@@ -138,7 +138,13 @@ class TestBuildPlayerProfileSnapshot:
         assert profile.patterns_detected_count == 1
         assert profile.profile_summary is not None
         assert f"{MIN_GAMES_FOR_PROFILE} analyzed games" in profile.profile_summary
-        assert "No dominant strength" in profile.profile_summary or "Strongest area" in profile.profile_summary
+        assert (
+            "Strongest area" in profile.profile_summary
+            or "Main leak" in profile.profile_summary
+            or "No dominant" in profile.profile_summary
+        )
+        # Card-scale copy: the insights card renders this as its headline.
+        assert len(profile.profile_summary) < 400
         assert profile.first_game_date is not None
         assert profile.period_start is not None
         assert profile.period_end is not None
