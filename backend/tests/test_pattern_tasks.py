@@ -7,6 +7,8 @@ import pytest
 from app.tasks.analysis_tasks import analyze_game_task
 from app.tasks.pattern_tasks import (
     PATTERN_DEBOUNCE_KEY_PREFIX,
+
+    PATTERN_DEBOUNCE_TTL_SECONDS,
     detect_patterns_task,
     schedule_pattern_detection_for_user,
 )
@@ -40,7 +42,7 @@ class TestSchedulePatternDetection:
             f"{PATTERN_DEBOUNCE_KEY_PREFIX}:7",
             "1",
             nx=True,
-            ex=120,
+            ex=PATTERN_DEBOUNCE_TTL_SECONDS,
         )
         mock_apply.assert_not_called()
 
