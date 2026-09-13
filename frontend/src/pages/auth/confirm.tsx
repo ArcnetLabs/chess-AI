@@ -43,11 +43,13 @@ export default function AuthConfirmPage() {
           return
         }
 
-        // Registered already? → straight to the chat for existing users.
-        // Only true newcomers run the link-once → analyze flow.
+        // "Registered" = completed the analyze flow before (analyzed_games
+        // > 0). Username presence alone is NOT enough: the backend
+        // auto-provisions new users with chesscom_username pre-seeded from
+        // the signup metadata, which misfiles newcomers as registered.
         try {
           const me = await userApi.me()
-          if (me?.chesscom_username) {
+          if (me?.chesscom_username && (me.analyzed_games ?? 0) > 0) {
             await queryClient.invalidateQueries({ queryKey: ['me'] })
             router.replace('/coach')
             return
