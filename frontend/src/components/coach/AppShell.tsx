@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ))}
       </div>
 
-      <div className="mt-8 min-h-0 flex-1 overflow-y-auto">
+      <div className="mt-8 min-h-0">
         <button
           type="button"
           onClick={() => setRecentOpen((open) => !open)}
@@ -133,7 +133,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
         </button>
         {recentOpen && (
-          <div className="space-y-1">
+          <div className="max-h-[260px] space-y-1 overflow-y-auto pr-1">
             {recentSessions.length ? (
               recentSessions.slice(0, 6).map((session) => (
                 <button
@@ -162,6 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
+      <div className="mt-auto space-y-2 [&>*+*]:mt-0">
       {user?.analyzed_games === 0 && !loading && (
         <button
           type="button"
@@ -196,12 +197,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             void router.push('/auth/login');
           }
         }}
-        className="mt-3 flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-medium text-content-muted transition-colors hover:bg-surface-bright/30 hover:text-content"
+        className="mt-2 flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-[14px] font-medium text-content-muted transition-colors hover:bg-surface-bright/30 hover:text-content"
         aria-label="Log out"
       >
         <LogOut className="h-4 w-4" />
         Log out
       </button>
+      </div>
     </nav>
   );
 
