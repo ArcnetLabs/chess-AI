@@ -25,21 +25,23 @@ export default function AuthCallbackPage() {
     const supabase = createClient()
 
       const continueToApp = async () => {
-      // Registered already? (local row has a Chess.com username) → straight
-      // to the chat. Only true newcomers run the link-once → analyze flow.
+      // "Registered" means the user completed the analyze flow before
+      // (analyzed_games > 0) — not merely that a chess.com username is
+      // present: the backend auto-provisions NEW users with the signup
+      // metadata's chesscom_username pre-seeded, so username presence
+      // alone cannot separate newcomers from returning users. Newcomers
+      // (even freshly pre-seeded ones) always run the analyze gate.
       try {
         const me = await userApi.me()
-        if (me?.chesscom_username) {
+        if (me?.chesscom_username && (me.analyzed_games ?? 0) > 0) {
           await queryClient.invalidateQueries({ queryKey: ['me'] })
           router.replace('/coach')
           return
         }
       } catch {
-        // users/me failed — auto-provision may still be in flight; fall
-        // through to the newcomer path below.
+        // users/me failed — treat as newcomer below.
       }
 
-      // Newcomer (or exists-but-unlinked): link via landing metadata if present.
       const { data } = await supabase.auth.getUser()
       const chesscom = data.user?.user_metadata?.chesscom_username
 
