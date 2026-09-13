@@ -84,7 +84,7 @@ function InsightsBody() {
     void (async () => {
       try {
         const [gameList, notificationList] = await Promise.all([
-          api.games.getForUser(user.id, { limit: 100 }),
+          api.games.getForUser(user.id, { limit: 250 }),
           api.notifications.list(user.id, { limit: 5 }).catch(() => null),
         ]);
         if (!active) return;
