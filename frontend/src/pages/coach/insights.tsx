@@ -67,6 +67,7 @@ function InsightsBody() {
   const openSession = useChatStore((state) => state.openSession);
   const [games, setGames] = useState<Game[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [range, setRange] = useState<7 | 30 | 90 | 'all'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -88,6 +89,9 @@ function InsightsBody() {
           api.notifications.list(user.id, { limit: 5 }).catch(() => null),
         ]);
         if (!active) return;
+        if (process.env.NODE_ENV === 'development') {
+          console.info('[insights] games fetched:', Array.isArray(gameList) ? gameList.length : 'non-array');
+        }
         setAllGames(
           [...gameList].sort((a, b) => {
             const aTime = a.end_time ? Date.parse(a.end_time) : 0;
@@ -96,6 +100,16 @@ function InsightsBody() {
           }),
         );
         if (notificationList) setNotifications(notificationList.notifications ?? []);
+      } catch (loadError: unknown) {
+        // Never silently degrade to "no games" — say what happened.
+        console.error('[insights] failed to load games:', loadError);
+        if (active) {
+          setLoadError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Could not load your games. Check your connection and reload.',
+          );
+        }
       } finally {
         if (active) setGamesLoading(false);
       }
@@ -216,6 +230,22 @@ function InsightsBody() {
             {gamesLoading ? (
               <div className="flex items-center justify-center py-12 text-content-muted">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand-primary" /> Loading games...
+              </div>
+            ) : loadError ? (
+              <div className="py-10 text-center">
+                <p className="text-[15px] text-brand-error">{loadError}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGamesLoading(true);
+                    setLoadError(null);
+                    // Full reload re-runs the loading effect cleanly.
+                    window.location.reload();
+                  }}
+                  className="mt-4 rounded-xl bg-brand-primary/15 px-5 py-2.5 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary/25"
+                >
+                  Retry
+                </button>
               </div>
             ) : games.length === 0 ? (
               <p className="py-10 text-center text-[15px] text-content-muted">
