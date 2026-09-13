@@ -196,7 +196,10 @@ def _compose_profile_summary(
 
     No LLM call: the summary is derived from the same numbers the snapshot
     stores, so it is always available the moment a profile is built (the
-    insights page and the coach context both read this field).
+    insights page renders it as the card headline and the coach context
+    includes it). Kept to card scale: the full weakness text, phase
+    performance and style indicators reach the coach through their own fields,
+    so the summary states the top finding once, briefly.
     """
     games_label = f"{games_analyzed_count} analyzed game" + (
         "" if games_analyzed_count == 1 else "s"
@@ -209,15 +212,14 @@ def _compose_profile_summary(
     ]
 
     if primary_strengths:
-        sentences.append(f"Strongest area: {primary_strengths[0]}")
-    else:
+        sentences.append(f"Strongest area: {_first_sentence(primary_strengths[0])}")
+    elif not primary_weaknesses:
         sentences.append(
-            "No dominant strength has cleared the detection threshold yet, so the "
-            "focus is shoring up recurring weaknesses."
+            "No dominant strength or weakness has cleared the detection threshold yet."
         )
 
     if primary_weaknesses:
-        sentences.append(f"Main leak: {primary_weaknesses[0]}")
+        sentences.append(f"Main leak: {_first_sentence(primary_weaknesses[0])}")
 
     themes = tactical_themes or {}
     blunders = themes.get("blunders")
@@ -225,21 +227,20 @@ def _compose_profile_summary(
     inaccuracies = themes.get("inaccuracies")
     if any(isinstance(value, int) for value in (blunders, mistakes, inaccuracies)):
         sentences.append(
-            "Move quality so far: "
+            "Move quality: "
             f"{int(blunders or 0)} blunders, {int(mistakes or 0)} mistakes, "
             f"{int(inaccuracies or 0)} inaccuracies."
         )
 
-    style = style_indicators or {}
-    tactical = style.get("tactical")
-    positional = style.get("positional")
-    if isinstance(tactical, (int, float)) and isinstance(positional, (int, float)):
-        sentences.append(
-            f"Style reads {round(float(tactical) * 100)}% tactical and "
-            f"{round(float(positional) * 100)}% positional."
-        )
-
     return " ".join(sentence.strip() for sentence in sentences if sentence)
+
+
+def _first_sentence(text: Optional[str]) -> str:
+    """Leading sentence of a verbose derived finding, for card-scale copy."""
+    if not text:
+        return ""
+    head = text.strip().split(". ", 1)[0].strip()
+    return head if head.endswith(".") else f"{head}."
 
 
 def _next_profile_version(db: Session, user_id: int) -> int:
