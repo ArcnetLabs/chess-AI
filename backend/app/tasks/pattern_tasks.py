@@ -19,7 +19,11 @@ from app.tasks.profile_tasks import schedule_profile_build_for_user
 from app.tasks.embedding_tasks import schedule_pattern_embedding_for_user
 
 PATTERN_DEBOUNCE_KEY_PREFIX = "pattern_detection_scheduled"
-PATTERN_DEBOUNCE_TTL_SECONDS = 120
+# The debounce key must outlive the work it guards. A 200-game detection run
+# measured 267s on the production worker, so a 120s TTL expired mid-run and let
+# every later per-game trigger queue another full-history run (ten of them in
+# one import). 900s covers a run plus queue wait.
+PATTERN_DEBOUNCE_TTL_SECONDS = 900
 PATTERN_DEBOUNCE_COUNTDOWN_SECONDS = 60
 
 

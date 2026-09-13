@@ -136,7 +136,9 @@ class TestBuildPlayerProfileSnapshot:
         assert profile.profile_version == 1
         assert profile.games_analyzed_count == MIN_GAMES_FOR_PROFILE
         assert profile.patterns_detected_count == 1
-        assert profile.profile_summary is None
+        assert profile.profile_summary is not None
+        assert f"{MIN_GAMES_FOR_PROFILE} analyzed games" in profile.profile_summary
+        assert "No dominant strength" in profile.profile_summary or "Strongest area" in profile.profile_summary
         assert profile.first_game_date is not None
         assert profile.period_start is not None
         assert profile.period_end is not None
@@ -147,6 +149,16 @@ class TestBuildPlayerProfileSnapshot:
         _seed_games(db, user, MIN_GAMES_FOR_PROFILE)
 
         first = build_player_profile(db, user.id)
+        # An unchanged rebuild must NOT append a duplicate snapshot — analysis
+        # batches fire one build per detection run, which previously produced a
+        # dozen identical 200-game aggregations per import.
+        repeated = build_player_profile(db, user.id)
+        assert repeated is not None
+        assert repeated.profile_version == first.profile_version
+        assert db.query(PlayerProfile).filter(PlayerProfile.user_id == user.id).count() == 1
+
+        # A real change (more analyzed games) appends the next version.
+        _create_analyzed_game(db, user, game_index=9001)
         second = build_player_profile(db, user.id)
 
         assert first is not None
