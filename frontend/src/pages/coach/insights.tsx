@@ -11,7 +11,7 @@ import { AppShell } from '@/components/coach/AppShell';
 import { KnightGlyph } from '@/components/brand/ChessRunMark';
 import api from '@/lib/api';
 import { chatService } from '@/services/chatService';
-import { useCurrentUser, usePlayerProfile } from '@/hooks';
+import { useCurrentUser, usePlayerProfile, useUserGames } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
 import type { Game } from '@/types';
 import type { NotificationItem } from '@/lib/api';
@@ -66,8 +66,6 @@ function InsightsBody() {
   const { data: profile } = usePlayerProfile(user?.id);
   const openSession = useChatStore((state) => state.openSession);
   const [games, setGames] = useState<Game[]>([]);
-  const [gamesLoading, setGamesLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [range, setRange] = useState<7 | 30 | 90 | 'all'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -75,43 +73,39 @@ function InsightsBody() {
   const [digestOpen, setDigestOpen] = useState(true);
   const PAGE_SIZE = 25;
 
-  // Range filter + pagination run on the full fetched list so the table can
-  // always reach the remaining games (no clipped views).
-  const [allGames, setAllGames] = useState<Game[]>([]);
+  // Games come from a retrying query (React Query): a single transient miss
+  // previously left this list stranded empty — showing "No games yet" — even
+  // though the API had answered 200. The query retries, caches and refetches
+  // on focus, so the table self-heals without a manual reload.
+  const {
+    data: allGames = [],
+    isPending: gamesQueryPending,
+    isFetching: gamesFetching,
+    error: gamesQueryError,
+    refetch: refetchGames,
+  } = useUserGames(user?.id, 250);
+
+  const gamesLoading = gamesQueryPending || gamesFetching;
+  const loadError =
+    gamesQueryError instanceof Error
+      ? gamesQueryError.message
+      : gamesQueryError
+        ? 'Could not load your games. Check your connection and retry.'
+        : null;
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     void (async () => {
       try {
-        const [gameList, notificationList] = await Promise.all([
-          api.games.getForUser(user.id, { limit: 250 }),
-          api.notifications.list(user.id, { limit: 5 }).catch(() => null),
-        ]);
-        if (!active) return;
-        if (process.env.NODE_ENV === 'development') {
-          console.info('[insights] games fetched:', Array.isArray(gameList) ? gameList.length : 'non-array');
+        const notificationList = await api.notifications
+          .list(user.id, { limit: 5 })
+          .catch(() => null);
+        if (active && notificationList) {
+          setNotifications(notificationList.notifications ?? []);
         }
-        setAllGames(
-          [...gameList].sort((a, b) => {
-            const aTime = a.end_time ? Date.parse(a.end_time) : 0;
-            const bTime = b.end_time ? Date.parse(b.end_time) : 0;
-            return bTime - aTime;
-          }),
-        );
-        if (notificationList) setNotifications(notificationList.notifications ?? []);
-      } catch (loadError: unknown) {
-        // Never silently degrade to "no games" — say what happened.
-        console.error('[insights] failed to load games:', loadError);
-        if (active) {
-          setLoadError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'Could not load your games. Check your connection and reload.',
-          );
-        }
-      } finally {
-        if (active) setGamesLoading(false);
+      } catch {
+        /* notifications are decorative — never block the page */
       }
     })();
     return () => {
@@ -237,10 +231,7 @@ function InsightsBody() {
                 <button
                   type="button"
                   onClick={() => {
-                    setGamesLoading(true);
-                    setLoadError(null);
-                    // Full reload re-runs the loading effect cleanly.
-                    window.location.reload();
+                    void refetchGames();
                   }}
                   className="mt-4 rounded-xl bg-brand-primary/15 px-5 py-2.5 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary/25"
                 >
