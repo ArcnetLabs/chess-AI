@@ -28,6 +28,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from loguru import logger
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
@@ -45,6 +46,14 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
 
     The provisioned row carries the email from the JWT but no Chess.com
     link — that's set later through ``POST /users/me/link-chesscom``.
+
+    When no row matches the ``sub`` but one already exists for the same email,
+    that row is **rebound** to the current Supabase identity instead of a new
+    row being inserted. Supabase issues a fresh identity when an account is
+    deleted and re-created, and a stale access token can outlive its own
+    deletion and provision a row keyed to the dead identity — after which the
+    live identity's first request collided with the existing row on the unique
+    email and failed with a 500. Rebinding by email keeps one row per human.
     """
     supabase_user_id = claims.get("sub")
     if not supabase_user_id:
@@ -60,7 +69,6 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
     if user is not None:
         return user
 
-    # First contact for this Supabase user — create the local row.
     email = claims.get("email")
     user_meta = claims.get("user_metadata") or {}
     chesscom_from_jwt = user_meta.get("chesscom_username")
@@ -68,6 +76,30 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
         chesscom_from_jwt = chesscom_from_jwt.strip().lower() or None
     else:
         chesscom_from_jwt = None
+
+    if email:
+        existing = db.query(User).filter(User.email == email).first()
+        if existing is not None:
+            existing.supabase_user_id = supabase_user_id
+            if chesscom_from_jwt and not existing.chesscom_username:
+                existing.chesscom_username = chesscom_from_jwt
+                existing.is_chesscom_connected = True
+            try:
+                db.commit()
+                db.refresh(existing)
+            except Exception as exc:  # noqa: BLE001
+                db.rollback()
+                logger.error(
+                    f"Failed to rebind local user id={existing.id} to "
+                    f"sub={supabase_user_id}: {exc}"
+                )
+                raise HTTPException(
+                    status_code=500, detail="Failed to provision local user"
+                ) from exc
+            logger.info(
+                f"Rebound local user id={existing.id} to supabase_user_id={supabase_user_id}"
+            )
+            return existing
 
     new_user = User(
         supabase_user_id=supabase_user_id,
@@ -80,7 +112,21 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-    except Exception as exc:  # noqa: BLE001 — surface as 401, never leak DB errors
+    except IntegrityError:
+        # Lost a race with a concurrent first request for the same identity —
+        # the row now exists, so resolve it again rather than failing.
+        db.rollback()
+        raced = (
+            db.query(User)
+            .filter(User.supabase_user_id == supabase_user_id)
+            .first()
+        )
+        if raced is not None:
+            return raced
+        raise HTTPException(
+            status_code=500, detail="Failed to provision local user"
+        )
+    except Exception as exc:  # noqa: BLE001 — surface as 500, never leak DB errors
         db.rollback()
         logger.error(
             f"Failed to auto-provision user for sub={supabase_user_id}: {exc}"

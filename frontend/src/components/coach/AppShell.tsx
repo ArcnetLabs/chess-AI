@@ -72,7 +72,7 @@ export function ProfileChip() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = router.pathname;
-  const { user, loading } = useCurrentUser();
+  const { user, loading, profileError, refetchUser } = useCurrentUser();
   const initializeSession = useChatStore((state) => state.initializeSession);
   const openSession = useChatStore((state) => state.openSession);
   const sessionId = useChatStore((state) => state.sessionId);
@@ -268,8 +268,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             your workspace...
           </div>
         ) : !user ? (
-          <div className="flex min-h-screen items-center justify-center px-6 text-center text-content-muted">
-            Your coaching workspace could not be loaded.
+          <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+            <p className="text-content-muted">Your coaching workspace could not be loaded.</p>
+            {profileError ? (
+              <p className="max-w-[38rem] text-sm text-content-muted/70">
+                {profileError instanceof Error
+                  ? profileError.message
+                  : 'The API rejected this session.'}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => void refetchUser()}
+                className="rounded-full bg-brand-primary px-5 py-3 text-sm font-semibold text-brand-on-primary transition-opacity hover:opacity-90"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => void router.push('/onboarding/link-chesscom')}
+                className="rounded-full bg-surface-low px-5 py-3 text-sm font-medium text-content transition-colors hover:bg-surface-bright/40"
+              >
+                Finish setup
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await createClient().auth.signOut();
+                  void router.push('/auth/login');
+                }}
+                className="rounded-full px-5 py-3 text-sm font-medium text-content-muted transition-colors hover:text-content"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
         ) : (
           children

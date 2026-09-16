@@ -9,6 +9,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/router';
 import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
+import { userApi } from '@/lib/api';
 import { getAuthCallbackUrl } from '@/lib/auth/site-url';
 
 function normalizeChesscomUsername(raw: string): string {
@@ -43,6 +44,8 @@ export default function LoginPage() {
   const [linkSent, setLinkSent] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [existingEmail, setExistingEmail] = useState<string | null>(null);
+  const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   const queryError =
     typeof router.query.error === 'string' ? router.query.error : null;
@@ -67,9 +70,37 @@ export default function LoginPage() {
     };
   }, [router.isReady, router]);
 
+  // Resuming a stored session must land where that user actually belongs: an
+  // account with no Chess.com link or no analyzed games belongs in onboarding,
+  // and a session the API refuses (deleted/re-created account) must not drop
+  // the user into a workspace that cannot load.
   async function handleContinueAsExisting() {
-    await queryClient.invalidateQueries({ queryKey: ['me'] });
-    router.replace('/coach');
+    if (resuming) return;
+    setResuming(true);
+    setResumeError(null);
+    const supabase = createClient();
+    try {
+      const me = await userApi.me();
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
+
+      if (!me?.chesscom_username) {
+        router.replace('/onboarding/link-chesscom');
+        return;
+      }
+      if ((me.analyzed_games ?? 0) === 0) {
+        router.replace('/onboarding/analyze');
+        return;
+      }
+      router.replace('/coach');
+    } catch {
+      await supabase.auth.signOut().catch(() => undefined);
+      setExistingEmail(null);
+      setResumeError(
+        'That session is no longer valid — sign in again to continue where you left off.',
+      );
+    } finally {
+      setResuming(false);
+    }
   }
 
   async function handleUseDifferentAccount() {
@@ -166,9 +197,10 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={handleContinueAsExisting}
-              className="chessrun-btn-primary flex h-12 w-full items-center justify-center text-base"
+              disabled={resuming}
+              className="chessrun-btn-primary flex h-12 w-full items-center justify-center text-base disabled:opacity-60"
             >
-              Continue as {existingEmail}
+              {resuming ? 'Resuming…' : `Continue as ${existingEmail}`}
             </button>
             <button
               type="button"
@@ -177,6 +209,11 @@ export default function LoginPage() {
             >
               Sign in as someone else
             </button>
+            {resumeError && (
+              <p className="text-sm text-brand-error" role="alert">
+                {resumeError}
+              </p>
+            )}
           </div>
         </div>
       </div>
