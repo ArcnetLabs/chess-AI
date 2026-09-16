@@ -13,7 +13,9 @@ import api from '@/lib/api';
 import { chatService } from '@/services/chatService';
 import { useCurrentUser, usePlayerProfile, useUserGames } from '@/hooks';
 import { useChatStore } from '@/store/chatStore';
+import { AnalysisInsights } from '@/components/insights/AnalysisInsights';
 import type { Game } from '@/types';
+import type { PlayerPattern } from '@/types/pattern.types';
 import type { NotificationItem } from '@/lib/api';
 
 function gameMeta(game: Game, username: string | undefined): {
@@ -66,6 +68,7 @@ function InsightsBody() {
   const { data: profile } = usePlayerProfile(user?.id);
   const openSession = useChatStore((state) => state.openSession);
   const [games, setGames] = useState<Game[]>([]);
+  const [patterns, setPatterns] = useState<PlayerPattern[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [range, setRange] = useState<7 | 30 | 90 | 'all'>('all');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -98,14 +101,17 @@ function InsightsBody() {
     let active = true;
     void (async () => {
       try {
-        const notificationList = await api.notifications
-          .list(user.id, { limit: 5 })
-          .catch(() => null);
-        if (active && notificationList) {
+        const [notificationList, patternList] = await Promise.all([
+          api.notifications.list(user.id, { limit: 5 }).catch(() => null),
+          api.patterns.list(user.id, { limit: 20 }).catch(() => [] as PlayerPattern[]),
+        ]);
+        if (!active) return;
+        if (notificationList) {
           setNotifications(notificationList.notifications ?? []);
         }
+        setPatterns(patternList);
       } catch {
-        /* notifications are decorative — never block the page */
+        /* notifications and patterns are decorative — never block the page */
       }
     })();
     return () => {
@@ -158,44 +164,58 @@ function InsightsBody() {
 
   const summary = profile?.profile_summary;
 
+  // The analyze route's insights are computed over the analyzed games, so the
+  // Insights page derives them from the same set (range control stays scoped to
+  // the games list below, as it was).
+  const analyzedForInsights = allGames.filter(
+    (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
+  );
+
   return (
     <div className="min-h-screen bg-surface">
       <div className="mx-auto max-w-[1100px] px-5 pb-20 pt-6 sm:px-10">
-        <header className="mb-6">
+        <header className="mb-6 flex items-baseline justify-between gap-4">
           <p className="text-[15px] font-medium text-content">Insights</p>
-        </header>
-
-        {/* coach summary card */}
-        <section className="rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:pb-10 sm:pt-4">
-          <div className="-mt-8 mb-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-surface-bright/40 bg-surface shadow-brand-ambient">
-              <KnightGlyph className="h-7 w-7 text-brand-primary" />
-            </div>
-          </div>
-          <p className="text-2xl font-semibold tracking-tight text-content sm:text-[27px] sm:leading-[1.35]">
-            {summary ? summary : 'Run an analysis pass and your coach summary will appear here.'}
-          </p>
           {summary && (
             <button
               type="button"
               onClick={() => void router.push('/coach')}
-              className="mt-5 inline-flex items-center gap-1.5 text-[15px] font-semibold text-brand-primary transition-opacity hover:opacity-80"
+              className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-brand-primary transition-opacity hover:opacity-80"
             >
-              Let&apos;s dive in
+              Ask your coach about this
               <span aria-hidden="true">&rarr;</span>
             </button>
           )}
-          {profile && (
-            <div className="mt-8 grid gap-6 sm:grid-cols-2">
-              <StatCard label="Games analyzed" value={profile.games_analyzed_count} />
-              <StatCard
-                label="Patterns found"
-                value={profile.patterns_detected_count}
-                note={profile.archetype ?? undefined}
-              />
+        </header>
+
+        {/* the analyze route's insight blocks — same component, same numbers */}
+        {analyzedForInsights.length > 0 ? (
+          <AnalysisInsights
+            games={analyzedForInsights}
+            profile={profile}
+            patterns={patterns}
+            user={user ?? undefined}
+          />
+        ) : (
+          <section className="rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:pb-10 sm:pt-4">
+            <div className="-mt-8 mb-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-surface-bright/40 bg-surface shadow-brand-ambient">
+                <KnightGlyph className="h-7 w-7 text-brand-primary" />
+              </div>
             </div>
-          )}
-        </section>
+            <p className="text-2xl font-semibold tracking-tight text-content sm:text-[27px] sm:leading-[1.35]">
+              Run an analysis pass and your insights will appear here.
+            </p>
+            <button
+              type="button"
+              onClick={() => void router.push('/onboarding/analyze')}
+              className="mt-5 rounded-full bg-brand-primary px-5 py-3 text-[15px] font-semibold text-brand-on-primary transition-opacity hover:opacity-90"
+            >
+              Analyze my games
+            </button>
+          </section>
+        )}
+
 
         {/* games breakdown card */}
         <section className="mt-8 rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:py-10">
@@ -381,12 +401,3 @@ function InsightsBody() {
   );
 }
 
-function StatCard({ label, value, note }: { label: string; value: string | number; note?: string }) {
-  return (
-    <div className="rounded-xl border border-surface-bright/25 bg-surface-low/60 px-7 py-6">
-      <p className="text-[15px] text-content-muted">{label}</p>
-      <p className="mt-1 text-[34px] font-bold leading-none tracking-tight text-content">{value}</p>
-      {note && <p className="mt-2 text-sm text-content-muted">{note}</p>}
-    </div>
-  );
-}
