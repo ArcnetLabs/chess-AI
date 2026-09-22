@@ -20,6 +20,9 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 MAX_SUMMARY_CHARS = 460
+# The card renders this as a headline paragraph. The prompt asks for 2-3
+# sentences and a live run returned five, so the count is enforced here too.
+MAX_SENTENCES = 3
 
 _SYSTEM_PROMPT = (
     "You are a chess coach writing a short profile summary for one of your students. "
@@ -139,6 +142,7 @@ def _clean(text: str) -> str:
     shipped "...spending some structured study time on." to the profile headline.
     """
     cleaned = " ".join(text.strip().strip('"').strip().split())
+    cleaned = _cap_sentences(cleaned)
     if len(cleaned) <= MAX_SUMMARY_CHARS:
         return cleaned
 
@@ -150,6 +154,17 @@ def _clean(text: str) -> str:
     # a word in half.
     words = window.rsplit(" ", 1)[0].rstrip(" ,;:")
     return f"{words}."
+
+
+def _cap_sentences(text: str) -> str:
+    """Keep at most ``MAX_SENTENCES`` whole sentences."""
+    if not text:
+        return text
+    parts = text.split(". ")
+    if len(parts) <= MAX_SENTENCES:
+        return text
+    kept = ". ".join(parts[:MAX_SENTENCES]).rstrip(" ,;:")
+    return kept if kept.endswith(".") else f"{kept}."
 
 
 # Metric names and symbols the summary must never carry: the whole point of this
