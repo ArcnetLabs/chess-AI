@@ -152,6 +152,33 @@ def _clean(text: str) -> str:
     return f"{words}."
 
 
+# Metric names and symbols the summary must never carry: the whole point of this
+# composer is that the profile headline reads as coaching, not as an engine
+# report. The prompt asks for this, and a model can still slip — one live run
+# produced "...as evidenced by your average ACPL score in this phase" — so the
+# output is checked rather than trusted.
+_BANNED_TERMS = (
+    "acpl",
+    "centipawn",
+    "threshold",
+    "severity",
+    "phase score",
+    "accuracy percentage",
+    "evaluation score",
+)
+
+
+def style_violation(text: str) -> Optional[str]:
+    """The banned term or symbol the text carries, if any."""
+    low = text.lower()
+    for term in _BANNED_TERMS:
+        if term in low:
+            return term
+    if "%" in text:
+        return "percent sign"
+    return None
+
+
 def build_coach_summary(
     *,
     fallback: str,
@@ -187,36 +214,42 @@ def build_coach_summary(
         rating_trends=rating_trends,
     )
 
-    async def _call() -> str:
+    async def _call(correction: Optional[str] = None) -> str:
         from ..integration.ai_client import AIClient
 
         client = AIClient()
+        user_content = "Player data:\n" f"{facts}\n\n" "Write the summary now."
+        if correction:
+            user_content += (
+                f"\n\nYour previous attempt used the forbidden term '{correction}'. "
+                "Rewrite it without any metric names, scores or percentages."
+            )
         result = await client.chat_completion(
             [
                 {"role": "system", "content": _SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        "Player data:\n"
-                        f"{facts}\n\n"
-                        "Write the summary now."
-                    ),
-                },
+                {"role": "user", "content": user_content},
             ],
             temperature=0.4,
             max_tokens=220,
         )
         return str(result.get("content") or "")
 
-    try:
-        text = asyncio.run(_call())
-    except Exception as exc:  # noqa: BLE001 — the profile must still build
-        logger.warning(f"Coach summary LLM failed, using deterministic text: {exc}")
-        return fallback
+    for attempt in (1, 2):
+        try:
+            text = asyncio.run(_call(None if attempt == 1 else violation))
+        except Exception as exc:  # noqa: BLE001 — the profile must still build
+            logger.warning(f"Coach summary LLM failed, using deterministic text: {exc}")
+            return fallback
 
-    cleaned = _clean(text)
-    if len(cleaned) < 40:
-        logger.warning("Coach summary LLM returned too little text; using deterministic text")
-        return fallback
-    logger.info(f"Coach summary generated via LLM ({len(cleaned)} chars)")
-    return cleaned
+        cleaned = _clean(text)
+        violation = style_violation(cleaned)
+        if len(cleaned) < 40:
+            logger.warning("Coach summary LLM returned too little text; using deterministic text")
+            return fallback
+        if violation is None:
+            logger.info(f"Coach summary generated via LLM ({len(cleaned)} chars)")
+            return cleaned
+        logger.warning(f"Coach summary used banned term '{violation}' (attempt {attempt})")
+
+    logger.warning("Coach summary kept leaking jargon; using deterministic text")
+    return fallback
