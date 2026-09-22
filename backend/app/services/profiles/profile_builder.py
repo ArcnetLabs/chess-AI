@@ -23,6 +23,7 @@ from app.services.patterns.constants import (
 )
 from app.services.patterns.pattern_data import load_pattern_aggregation_input
 from app.services.patterns.pattern_service import list_user_patterns
+from app.services.profiles.summary_composer import build_coach_summary, phase_findings
 
 MIN_GAMES_FOR_PROFILE = 10
 TOP_PATTERN_REF_LIMIT = 10
@@ -123,7 +124,7 @@ def build_player_profile(
         games_analyzed_count=aggregation.total_analyzed_games,
         patterns_detected_count=len(patterns),
         first_game_date=first_game_date,
-        profile_summary=_compose_profile_summary(
+        profile_summary=_build_summary(
             archetype=archetype,
             games_analyzed_count=aggregation.total_analyzed_games,
             patterns_detected_count=len(patterns),
@@ -131,6 +132,8 @@ def build_player_profile(
             primary_weaknesses=primary_weaknesses,
             style_indicators=style_indicators,
             tactical_themes=tactical_themes,
+            phase_performance=phase_performance,
+            rating_trends=rating_trends,
         ),
         generated_at=snapshot_at,
     )
@@ -181,6 +184,49 @@ def _ratings_signature(rating_trends: Optional[Dict[str, Any]]) -> str:
         return str(current)
 
 
+def _build_summary(
+    *,
+    archetype: Optional[str],
+    games_analyzed_count: int,
+    patterns_detected_count: int,
+    primary_strengths: Optional[List[str]],
+    primary_weaknesses: Optional[List[str]],
+    style_indicators: Optional[Dict[str, Any]],
+    tactical_themes: Optional[Dict[str, Any]],
+    phase_performance: Optional[Dict[str, Any]] = None,
+    rating_trends: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Coach-voice summary for the profile headline.
+
+    The deterministic phrasing is the ground truth written first, then handed to
+    the LLM composer as its fallback — so a provider outage costs prose quality,
+    never the summary itself.
+    """
+    deterministic = _compose_profile_summary(
+        archetype=archetype,
+        games_analyzed_count=games_analyzed_count,
+        patterns_detected_count=patterns_detected_count,
+        primary_strengths=primary_strengths,
+        primary_weaknesses=primary_weaknesses,
+        style_indicators=style_indicators,
+        tactical_themes=tactical_themes,
+        phase_performance=phase_performance,
+    )
+    return build_coach_summary(
+        fallback=deterministic,
+        archetype=archetype,
+        games_analyzed_count=games_analyzed_count,
+        patterns_detected_count=patterns_detected_count,
+        primary_strengths=primary_strengths,
+        primary_weaknesses=primary_weaknesses,
+        phase_performance=phase_performance,
+        tactical_themes=tactical_themes,
+        style_indicators=style_indicators,
+        rating_trends=rating_trends,
+    )
+
+
 def _compose_profile_summary(
     *,
     archetype: Optional[str],
@@ -190,16 +236,21 @@ def _compose_profile_summary(
     primary_weaknesses: Optional[List[str]],
     style_indicators: Optional[Dict[str, Any]],
     tactical_themes: Optional[Dict[str, Any]],
+    phase_performance: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Deterministic coach summary from the snapshot's own aggregates.
 
     No LLM call: the summary is derived from the same numbers the snapshot
-    stores, so it is always available the moment a profile is built (the
-    insights page renders it as the card headline and the coach context
-    includes it). Kept to card scale: the full weakness text, phase
-    performance and style indicators reach the coach through their own fields,
-    so the summary states the top finding once, briefly.
+    stores, so it is always available the moment a profile is built (the insights
+    page renders it as the card headline and the coach context includes it). Kept
+    to card scale: the full weakness text, phase performance and style indicators
+    reach the coach through their own fields.
+
+    Strength and weakness come from the *phase ranking* when available, because
+    that is what the archetype label is derived from — the detector's weakness
+    wording comes from ACPL thresholds and can name a different phase, which made
+    the headline read "Strong Opening / Weak Endgame ... main leak: opening".
     """
     games_label = f"{games_analyzed_count} analyzed game" + (
         "" if games_analyzed_count == 1 else "s"
@@ -211,15 +262,19 @@ def _compose_profile_summary(
         f"{archetype or 'Balanced profile'} across {games_label} and {pattern_label}."
     ]
 
-    if primary_strengths:
-        sentences.append(f"Strongest area: {_first_sentence(primary_strengths[0])}")
-    elif not primary_weaknesses:
-        sentences.append(
-            "No dominant strength or weakness has cleared the detection threshold yet."
-        )
-
-    if primary_weaknesses:
-        sentences.append(f"Main leak: {_first_sentence(primary_weaknesses[0])}")
+    strongest_phase, weakest_phase = phase_findings(phase_performance)
+    if strongest_phase and weakest_phase:
+        sentences.append(f"Strongest area: your {strongest_phase} play.")
+        sentences.append(f"Main leak: your {weakest_phase} play.")
+    else:
+        if primary_strengths:
+            sentences.append(f"Strongest area: {_first_sentence(primary_strengths[0])}")
+        elif not primary_weaknesses:
+            sentences.append(
+                "No dominant strength or weakness has cleared the detection threshold yet."
+            )
+        if primary_weaknesses:
+            sentences.append(f"Main leak: {_first_sentence(primary_weaknesses[0])}")
 
     themes = tactical_themes or {}
     blunders = themes.get("blunders")

@@ -92,7 +92,7 @@ function AnalyzeOnboardingBody() {
         return;
       }
       // No active job — check whether results exist already.
-      const list = await api.games.getForUser(user.id, { limit: 100 });
+      const list = await api.games.getForUser(user.id, { limit: 250 });
       const analyzed = list.filter(
         (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
       );
@@ -157,7 +157,7 @@ function AnalyzeOnboardingBody() {
     if (!user) return;
     try {
       const [list, patternList] = await Promise.all([
-        api.games.getForUser(user.id, { limit: 100 }),
+        api.games.getForUser(user.id, { limit: 250 }),
         api.patterns.list(user.id, { limit: 20 }).catch(() => [] as PlayerPattern[]),
       ]);
       const analyzed = list.filter((game) => game.is_analyzed && game.analysis?.accuracy_percentage != null);
@@ -177,7 +177,7 @@ function AnalyzeOnboardingBody() {
       // failed (proxy timeout, redeploy blip). Before showing an error, check
       // the real state once more.
       try {
-        const list = await api.games.getForUser(user.id, { limit: 100 });
+        const list = await api.games.getForUser(user.id, { limit: 250 });
         const analyzed = list.filter(
           (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
         );

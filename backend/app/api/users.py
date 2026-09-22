@@ -18,11 +18,12 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..core.database import get_db
 from ..middleware.auth_middleware import get_current_user, require_ownership
-from ..models import Game, User
+from ..models import Game, GameAnalysis, User
 from ..services.integration.chesscom_api import (
     ChessComAPIError,
     RateLimitExceeded,
@@ -222,10 +223,29 @@ async def get_me(
     ID and whether the user has linked a Chess.com username yet. If the
     response carries ``chesscom_username: null`` the UI should send the
     user through the link-chesscom onboarding flow.
+
+    ``total_games`` and ``analyzed_games`` are recomputed here from the
+    games table rather than trusted from the cached columns. The analysis
+    pipeline never maintained ``analyzed_games`` (it stayed 0 for everyone),
+    and sign-in routing reads it to tell a newcomer from a returning player —
+    so a returning user was sent through onboarding again on every login.
     """
     current_user.total_games = (
         db.query(Game).filter(Game.user_id == current_user.id).count()
     )
+    current_user.analyzed_games = (
+        db.query(func.count(GameAnalysis.id))
+        .join(Game, Game.id == GameAnalysis.game_id)
+        .filter(Game.user_id == current_user.id, Game.is_analyzed.is_(True))
+        .scalar()
+        or 0
+    )
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except Exception as exc:  # noqa: BLE001 — never fail a read on the cache write
+        db.rollback()
+        logger.warning(f"Could not persist counts for user {current_user.id}: {exc}")
     return current_user
 
 
