@@ -21,6 +21,23 @@ export default function AuthCallbackPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
+  /**
+   * Poll for a session established by the client's own URL detection.
+   * Returns the session, or null when none appears inside the budget.
+   */
+  const waitForSession = async (
+    supabase: ReturnType<typeof createClient>,
+    budgetMs: number,
+  ) => {
+    const deadline = Date.now() + budgetMs
+    while (Date.now() < deadline) {
+      const { data } = await supabase.auth.getSession()
+      if (data.session) return data.session
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+    return null
+  }
+
   useEffect(() => {
     const supabase = createClient()
 
@@ -84,20 +101,35 @@ export default function AuthCallbackPage() {
 
       // 1. Classic PKCE code (same-browser magic link).
       if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(
-          window.location.href,
-        )
-        if (error) {
-          console.error('[auth/callback] exchange error:', error.message)
-          const isCrossBrowserPkce = /code verifier not found/i.test(
-            error.message,
+        // The browser client runs with detectSessionInUrl, so it may already be
+        // exchanging this code itself. Exchanging it again consumed nothing and
+        // failed with "PKCE code verifier not found in storage" — which bounced
+        // a user who was *already signed in* back to the login screen. Verified
+        // live: POST /auth/v1/token?grant_type=pkce returned 200 before this
+        // error was logged.
+        const detected = await waitForSession(supabase, 5_000)
+
+        if (!detected) {
+          const { error } = await supabase.auth.exchangeCodeForSession(
+            window.location.href,
           )
-          const message = isCrossBrowserPkce
-            ? 'Open this sign-in link in the same browser where you requested it, or request a new link here.'
-            : error.message
-          router.replace(`/auth/login?error=${encodeURIComponent(message)}`)
-          return
+          if (error) {
+            console.error('[auth/callback] exchange error:', error.message)
+            // Last check: an error here does not prove there is no session.
+            const recovered = await waitForSession(supabase, 2_000)
+            if (!recovered) {
+              const isCrossBrowserPkce = /code verifier not found/i.test(
+                error.message,
+              )
+              const message = isCrossBrowserPkce
+                ? 'Open this sign-in link in the same browser where you requested it, or request a new link here.'
+                : error.message
+              router.replace(`/auth/login?error=${encodeURIComponent(message)}`)
+              return
+            }
+          }
         }
+
         await continueToApp()
         return
       }
