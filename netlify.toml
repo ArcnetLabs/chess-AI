@@ -3,6 +3,13 @@
   command = "npm run build"
   publish = ".next"
   environment = { SECRETS_SCAN_ENABLED = "false" }
+  # Backend-only releases used to reach Netlify's own "no content change" check
+  # and surface as *errored* production deploys, indistinguishable from a real
+  # build failure when scanning deploy history. Skipping explicitly (exit 0)
+  # reports them as skipped instead. The command runs in `base`, so the diff
+  # covers frontend/ plus this config file, and any error in it falls through to
+  # a normal build.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ../netlify.toml"
 
 # Magic-link redirects must match Supabase → Authentication → URL Configuration
 [context.production.environment]
