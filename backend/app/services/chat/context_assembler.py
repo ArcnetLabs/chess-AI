@@ -5,8 +5,10 @@ from __future__ import annotations
 import re
 from typing import List, Tuple
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.game import Game, GameAnalysis
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
 from app.services.coaching.retrieval_service import (
@@ -69,6 +71,21 @@ def _format_weaknesses(weaknesses: object) -> str:
     return str(weaknesses)
 
 
+def _live_game_counts(db: Session, user_id: int) -> dict:
+    """Games actually imported and analyzed right now (not the snapshot)."""
+    total = (
+        db.query(func.count(Game.id)).filter(Game.user_id == user_id).scalar() or 0
+    )
+    analyzed = (
+        db.query(func.count(GameAnalysis.id))
+        .join(Game, Game.id == GameAnalysis.game_id)
+        .filter(Game.user_id == user_id, Game.is_analyzed.is_(True))
+        .scalar()
+        or 0
+    )
+    return {"total": int(total), "analyzed": int(analyzed)}
+
+
 def assemble_coach_context(
     db: Session,
     user_id: int,
@@ -92,6 +109,14 @@ def assemble_coach_context(
     ]
 
     profile: PlayerProfile | None = get_latest_profile(db, user_id)
+    live_counts = _live_game_counts(db, user_id)
+    lines.append(
+        "Analyzed games on record right now: "
+        f"{live_counts['analyzed']} analyzed of {live_counts['total']} imported. "
+        "Always answer questions about how many games you have access to from this "
+        "line, not from the profile snapshot below (snapshots lag the analysis run)."
+    )
+    lines.append("")
     if profile is None:
         lines.extend(
             [
