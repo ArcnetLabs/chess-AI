@@ -23,13 +23,19 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       auth: {
-        // Implict flow: the emailed link carries tokens in the URL fragment
-        // (#access_token=...), so it verifies without any pre-seeded PKCE
-        // verifier. Required because Supabase's default magic-link email
-        // template uses {{ .ConfirmationURL }} which does not carry the
-        // PKCE verifier — PKCE links therefore bounced to login every time
-        // (same browser or not). Implicit works in any browser.
-        flowType: 'implicit',
+        // PKCE, because that is what the sign-in links actually are: the email
+        // carries `token=pkce_...`, /auth/v1/verify turns it into `?code=...`
+        // on /auth/callback, and exchanging that code REQUIRES the verifier the
+        // client stored when it requested the link.
+        //
+        // This said 'implicit' briefly, to stop links bouncing to login. That
+        // diagnosis was wrong: the bounce was a redundant exchangeCodeForSession
+        // racing the client's own (fixed in the callback). Under 'implicit' the
+        // client sends code_challenge=null and stores no verifier, so a PKCE
+        // link can never be exchanged — observed live as "PKCE code verifier
+        // not found in storage", 422 from /auth/v1/token?grant_type=pkce, and
+        // no verifier in cookies or localStorage.
+        flowType: 'pkce',
         detectSessionInUrl: true,
       },
     },
