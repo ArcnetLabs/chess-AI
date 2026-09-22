@@ -4,6 +4,15 @@
  * Supabase's email template sends token_hash and type here. Unlike the PKCE
  * callback, verifyOtp does not depend on verifier state in the browser that
  * originally requested the email.
+ *
+ * Exception, observed live: when the client requests the link with PKCE (which
+ * it must — see lib/supabase/client.ts) the template's token_hash comes through
+ * with a `pkce_` prefix, and those tokens cannot be redeemed with verifyOtp at
+ * all: POST /auth/v1/verify answers 403 "Email link is invalid or has expired".
+ * They are only valid through the hosted verify redirect, which 302s back to
+ * /auth/callback?code=... for the client to exchange. The template also passes
+ * type=email, which that endpoint rejects with a 500 ("unexpected_failure"), so
+ * the type is mapped to the redirect-flow equivalent.
  */
 
 import { useEffect } from 'react'
@@ -11,7 +20,17 @@ import { useRouter } from 'next/router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { getAuthCallbackUrl } from '@/lib/auth/site-url'
 import { userApi } from '@/lib/api'
+
+/** OTP types the hosted /verify redirect accepts (type=email does not). */
+const REDIRECT_OTP_TYPES = new Set([
+  'magiclink',
+  'signup',
+  'invite',
+  'recovery',
+  'email_change',
+])
 
 export default function AuthConfirmPage() {
   const router = useRouter()
@@ -31,6 +50,19 @@ export default function AuthConfirmPage() {
 
     if (!tokenHash || !type) {
       router.replace('/auth/login?error=Invalid or incomplete sign-in link.')
+      return
+    }
+
+    // PKCE token: hand it to the hosted verify redirect, which returns a code
+    // to /auth/callback for this browser's stored verifier to exchange.
+    if (tokenHash.startsWith('pkce_')) {
+      const redirectType = REDIRECT_OTP_TYPES.has(type) ? type : 'magiclink'
+      const url =
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/verify` +
+        `?token=${encodeURIComponent(tokenHash)}` +
+        `&type=${redirectType}` +
+        `&redirect_to=${encodeURIComponent(getAuthCallbackUrl())}`
+      window.location.replace(url)
       return
     }
 
