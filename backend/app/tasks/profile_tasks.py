@@ -28,9 +28,17 @@ def schedule_profile_build_for_user(
     user_id: int,
     *,
     countdown: int = PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS,
+    force: bool = False,
 ) -> bool:
     """
     Enqueue profile build for a user, debounced per user_id.
+
+    ``force=True`` (used when an analysis batch finishes) clears the debounce
+    key first. Without it the *final* build after a long run is suppressed by
+    the build that the previous detection scheduled — observed live: an
+    onboarding run analysed 60 games while the profile snapshot stayed at the
+    16 games it was built from mid-run, so the reveal headline read "Across the
+    16 games we analyzed" next to a card saying 60.
 
     Returns True when a new Celery task was scheduled, False when suppressed
     by an active debounce key (another run is already pending).
@@ -44,6 +52,8 @@ def schedule_profile_build_for_user(
         return True
 
     debounce_key = f"{PROFILE_BUILD_DEBOUNCE_KEY_PREFIX}:{user_id}"
+    if force:
+        redis_client.delete(debounce_key)
     if not redis_client.set(debounce_key, "1", nx=True, ex=PROFILE_BUILD_DEBOUNCE_TTL_SECONDS):
         logger.debug(
             f"Profile build debounced for user_id={user_id} "
@@ -54,7 +64,7 @@ def schedule_profile_build_for_user(
     build_profile_task.apply_async(args=[user_id], countdown=countdown)
     logger.info(
         f"Scheduled debounced profile build for user_id={user_id} "
-        f"(countdown={countdown}s)"
+        f"(countdown={countdown}s{', forced' if force else ''})"
     )
     return True
 

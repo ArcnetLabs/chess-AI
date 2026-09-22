@@ -196,6 +196,25 @@ function InsightsBody() {
             patterns={patterns}
             user={user ?? undefined}
           />
+        ) : gamesLoading ? (
+          // The games payload for a full library takes tens of seconds, and this
+          // slot used to invite a returning user to "run an analysis pass" while
+          // it was still in flight — telling users with dozens of analysed games
+          // that they had none.
+          <section className="rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:pb-10 sm:pt-4">
+            <div className="-mt-8 mb-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-surface-bright/40 bg-surface shadow-brand-ambient">
+                <KnightGlyph className="h-7 w-7 text-brand-primary" />
+              </div>
+            </div>
+            <p className="text-2xl font-semibold tracking-tight text-content sm:text-[27px] sm:leading-[1.35]">
+              Loading your insights…
+            </p>
+            <p className="mt-3 text-[15px] text-content-muted">
+              Reading your analysed games — this takes a few seconds on a full
+              library.
+            </p>
+          </section>
         ) : (
           <section className="rounded-2xl border border-surface-bright/30 bg-surface-container/70 p-8 sm:px-10 sm:pb-10 sm:pt-4">
             <div className="-mt-8 mb-5">

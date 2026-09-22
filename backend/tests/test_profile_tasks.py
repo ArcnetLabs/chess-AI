@@ -60,6 +60,38 @@ class TestScheduleProfileBuild:
         assert scheduled is True
         mock_apply.assert_called_once_with(args=[7], countdown=45)
 
+    def test_force_clears_the_debounce_key_before_scheduling(self):
+        """The final build after an analysis batch must not be debounced away.
+
+        Observed live: a run analysed 60 games while the snapshot stayed at the
+        16 games it was built from mid-run, because the build the previous
+        detection had scheduled still held the key.
+        """
+        mock_redis = MagicMock()
+        mock_redis.set.return_value = True
+        mock_apply = MagicMock()
+
+        with patch("app.tasks.profile_tasks.redis_client", mock_redis), patch(
+            "app.tasks.profile_tasks.build_profile_task.apply_async",
+            mock_apply,
+        ):
+            scheduled = schedule_profile_build_for_user(28, countdown=60, force=True)
+
+        assert scheduled is True
+        mock_redis.delete.assert_called_once_with(f"{PROFILE_BUILD_DEBOUNCE_KEY_PREFIX}:28")
+        mock_apply.assert_called_once_with(args=[28], countdown=60)
+
+    def test_force_still_schedules_without_redis(self):
+        mock_apply = MagicMock()
+        with patch("app.tasks.profile_tasks.redis_client", None), patch(
+            "app.tasks.profile_tasks.build_profile_task.apply_async",
+            mock_apply,
+        ):
+            scheduled = schedule_profile_build_for_user(9, force=True)
+
+        assert scheduled is True
+        mock_apply.assert_called_once_with(args=[9], countdown=60)
+
 
 class TestBuildProfileTask:
     def test_calls_build_player_profile_success(self):
