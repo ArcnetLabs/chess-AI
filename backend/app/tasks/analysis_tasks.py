@@ -18,6 +18,10 @@ from app.services.analysis.analysis_job_store import get_analysis_job_store
 from app.services.analysis.unified_analyzer import AnalysisCancelledError
 from app.services.engine.engine_pool import StockfishEnginePool
 from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
+from app.tasks.profile_tasks import (
+    PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS,
+    schedule_profile_build_for_user,
+)
 
 
 async def _analyze_with_engine_cleanup(
@@ -147,9 +151,18 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
         if job_finished:
             logger.info(
                 f"{log_prefix}Job {job_id} finished — forcing final pattern detection "
-                f"for user {user_id}"
+                f"and profile build for user {user_id}"
             )
             schedule_pattern_detection_for_user(user_id, countdown=5, force=True)
+            # The profile build is debounced separately, so the build the last
+            # detection scheduled mid-run suppresses the final one. Queue it
+            # behind the detection (solo worker, ETA order) so the snapshot the
+            # reveal headlines reflects the completed run.
+            schedule_profile_build_for_user(
+                user_id,
+                countdown=PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS,
+                force=True,
+            )
         else:
             schedule_pattern_detection_for_user(user_id)
 
