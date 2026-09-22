@@ -48,6 +48,9 @@ function AnalyzeOnboardingBody() {
   const [patterns, setPatterns] = useState<PlayerPattern[]>([]);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
   const [liveCounts, setLiveCounts] = useState<{ completed: number; total: number } | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+
+  const TERMINAL_STATUSES = ['completed', 'partial', 'failed', 'cancelled'];
 
   // Real progress only: the backend reports completed_games / total_games on
   // every poll. No simulated creep — the bar reaches the end when the job
@@ -75,8 +78,13 @@ function AnalyzeOnboardingBody() {
   }, [jobStatus]);
 
   // Recovery: before ever showing the error page, look at what the backend
-  // is actually doing. If an analysis job is running, reattach polling to
-  // it; if games already carry analyses, show the reveal.
+  // is actually doing. Three sources, in order of directness:
+  //   1. the user's active job pointer;
+  //   2. the pipeline-status snapshot, whose "recent job" survives terminal
+  //      status and is visible even when the active pointer is not (the store
+  //      falls back to per-process memory when Redis is unavailable, so a
+  //      pointer written by one process can be invisible to the next request);
+  //   3. the games themselves — analyses already persisted mean the work landed.
   const recoverAnalysis = async () => {
     if (!user) {
       setPhase('error');
@@ -85,13 +93,36 @@ function AnalyzeOnboardingBody() {
     try {
       const active = await api.analysis.getActiveJobStatus(user.id);
       const activeStatus = active?.status;
-      if (active && active.job_id && !['completed', 'partial', 'failed', 'cancelled'].includes(activeStatus)) {
+      if (active && active.job_id && !TERMINAL_STATUSES.includes(activeStatus)) {
         setPhase('analyzing');
         setProgress(30);
         watchJob(active.job_id, { onComplete: handleComplete, onError: recoverAnalysis });
         return;
       }
-      // No active job — check whether results exist already.
+    } catch {
+      /* no active pointer — fall through to the snapshot */
+    }
+
+    try {
+      const pipeline = await api.analysis.getPipelineStatus(user.id);
+      const recent = pipeline?.recent_job;
+      if (recent?.job_id) {
+        const total = Number(recent.total_games ?? 0);
+        const completed = Number(recent.completed_games ?? 0);
+        if (total > 0) setLiveCounts({ completed, total });
+        if (!TERMINAL_STATUSES.includes(String(recent.status))) {
+          // The worker is still chewing through this job — follow it.
+          setPhase('analyzing');
+          watchJob(recent.job_id, { onComplete: handleComplete, onError: recoverAnalysis });
+          return;
+        }
+      }
+    } catch {
+      /* diagnostics are best-effort */
+    }
+
+    try {
+      // No running job — check whether results exist already.
       const list = await api.games.getForUser(user.id, { limit: 250 });
       const analyzed = list.filter(
         (game) => game.is_analyzed && game.analysis?.accuracy_percentage != null,
@@ -121,8 +152,23 @@ function AnalyzeOnboardingBody() {
     setProgress(6);
     setStageIndex(0);
     setLiveCounts(null);
+    setStartError(null);
     try {
-      await api.games.fetchRecent(user.id, { count: 200 });
+      // The import itself queues the newly fetched games for analysis, and its
+      // response carries that job. Following it directly means progress does
+      // not depend on a second request landing — which is how this page used to
+      // strand the user on the error screen while the worker analysed happily
+      // in the background.
+      const fetchResult = await api.games.fetchRecent(user.id, { count: 200 });
+      const queued = fetchResult?.analysis_queue;
+      const queuedGames = Number(queued?.games_queued ?? 0);
+      const fetchJobId = queued?.job_id;
+      if (typeof fetchJobId === 'string' && fetchJobId) {
+        if (queuedGames > 0) setLiveCounts({ completed: 0, total: queuedGames });
+        watchJob(fetchJobId, { onComplete: handleComplete, onError: recoverAnalysis });
+        return;
+      }
+
       const response = await api.analysis.analyzeGames(user.id, { days: undefined });
       const queuedCount =
         response && typeof response === 'object'
@@ -144,9 +190,19 @@ function AnalyzeOnboardingBody() {
       }
       // No job id and games were pending? Something raced — re-check.
       await loadResults();
-    } catch {
-      // The request chain slipped (proxy timeout, redeploy blip) — the
-      // worker may still be running. Reattach to the active job.
+    } catch (error: unknown) {
+      // Keep the reason: a silent catch here is what made this failure
+      // undiagnosable from the UI side.
+      const detail =
+        (error as { response?: { status?: number; data?: { detail?: string } } })?.response?.data
+          ?.detail ??
+        (error as { response?: { status?: number } })?.response?.status ??
+        (error instanceof Error ? error.message : 'unknown error');
+      const message = `Analysis start failed: ${String(detail)}`;
+      setStartError(message);
+      toast.error(message);
+      // The worker may still be running (the import queues work on its own) —
+      // reattach rather than declaring failure.
       await recoverAnalysis();
     }
   };
@@ -270,8 +326,15 @@ function AnalyzeOnboardingBody() {
               ? jobError
               : jobError instanceof Error
                 ? jobError.message
-                : 'We could not finish the analysis. The engine worker may still be running in the background — hit Retry in a minute.'}
+                : startError
+                  ? startError
+                  : 'We could not finish the analysis. The engine worker may still be running in the background — hit Retry in a minute.'}
           </p>
+          {startError || jobError ? (
+            <p className="text-xs text-content-muted/70">
+              If your games are still being analysed, this page will pick the run up on reload.
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={() => void startAnalysis()}
