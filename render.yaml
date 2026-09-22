@@ -136,6 +136,31 @@ services:
           type: web
           name: chess-insight-backend
           envVarKey: SECRET_KEY
+      # The profile builder runs on this worker and writes the coach-voice
+      # summary through the LLM. Without these the worker silently falls back to
+      # the deterministic text — which is why profile summaries read like an
+      # engine report while chat (on the backend service) had a working LLM.
+      # Referenced from the backend so the credentials live in one place.
+      - key: LLM_LOCAL_BASE_URL
+        fromService:
+          type: web
+          name: chess-insight-backend
+          envVarKey: LLM_LOCAL_BASE_URL
+      - key: LLM_LOCAL_API_KEY
+        fromService:
+          type: web
+          name: chess-insight-backend
+          envVarKey: LLM_LOCAL_API_KEY
+      - key: LLM_LOCAL_MODEL
+        fromService:
+          type: web
+          name: chess-insight-backend
+          envVarKey: LLM_LOCAL_MODEL
+      - key: LLM_LOCAL_SESSION_ID
+        fromService:
+          type: web
+          name: chess-insight-backend
+          envVarKey: LLM_LOCAL_SESSION_ID
       - key: STOCKFISH_PATH
         value: stockfish/stockfish
       - key: STOCKFISH_DEPTH
