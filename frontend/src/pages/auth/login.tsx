@@ -16,6 +16,25 @@ function normalizeChesscomUsername(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
+/**
+ * Upstream auth errors are terse and read like bugs ("email rate limit
+ * exceeded"). Say what happened and what to do instead — reproduced live: the
+ * shared mail pool caps sends per hour, so a user retrying sees this.
+ */
+function signInErrorMessage(raw: string): string {
+  const message = (raw || '').toLowerCase();
+  if (message.includes('rate limit') || message.includes('too many')) {
+    return 'We can only send a few sign-in emails per hour on the current mail plan. Wait a few minutes and try again — or check your inbox for the link we already sent.';
+  }
+  if (message.includes('invalid') && message.includes('email')) {
+    return 'That email address was rejected. Double-check it and try again.';
+  }
+  if (message.includes('network') || message.includes('fetch')) {
+    return 'Could not reach the sign-in service. Check your connection and try again.';
+  }
+  return raw;
+}
+
 function LoginBackdrop() {
   return (
     <>
@@ -136,7 +155,7 @@ export default function LoginPage() {
     });
 
     if (otpError) {
-      setError(otpError.message);
+      setError(signInErrorMessage(otpError.message));
       setLoading(false);
       return;
     }
