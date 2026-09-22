@@ -1,7 +1,7 @@
 """per-user chess.com game ids
 
-Revision ID: 0014_per_user_game_ids
-Revises: 0013_resize_semantic_memory_embeddings_768
+Revision ID: 0014
+Revises: 0013
 Create Date: 2026-09-22
 
 Uniqueness of ``games.chesscom_game_id`` was global, so a second ChessRun
@@ -12,8 +12,8 @@ one game to analyse. The constraint becomes (user_id, chesscom_game_id).
 
 from alembic import op
 
-revision = "0014_per_user_game_ids"
-down_revision = "0013_resize_semantic_memory_embeddings_768"
+revision = "0014"
+down_revision = "0013"
 branch_labels = None
 depends_on = None
 
