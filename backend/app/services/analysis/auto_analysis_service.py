@@ -11,6 +11,7 @@ from uuid import uuid4
 from loguru import logger
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.game import Game
 from app.models.user import User
 from app.services.analysis.analysis_job_store import get_analysis_job_store
@@ -68,8 +69,22 @@ def queue_new_games_for_analysis(
             Game.pgn.isnot(None),
             Game.pgn != "",
         )
+        .order_by(Game.end_time.desc())
         .all()
     ]
+
+    # Onboarding duration is decided here, not by the import: the fetch keeps the
+    # full library for Insights and the coach, while the bounded engine pass is
+    # what the user waits for. MAX_GAMES_PER_ANALYSIS previously bounded only the
+    # date-based fetch, so the count-based onboarding path queued the whole
+    # library (199 games, ~18 minutes) regardless of the setting.
+    cap = int(getattr(settings, "MAX_GAMES_PER_ANALYSIS", 0) or 0)
+    if cap > 0 and len(eligible_ids) > cap:
+        logger.info(
+            f"Auto-analysis capped for user {user.id} ({source}): "
+            f"{len(eligible_ids)} eligible, queueing the {cap} most recent"
+        )
+        eligible_ids = eligible_ids[:cap]
 
     if not eligible_ids:
         return {

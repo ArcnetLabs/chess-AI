@@ -1,8 +1,10 @@
 """Tests for P2-AA-01 post-sync auto-analysis queue."""
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.config import settings
 from app.models.game import Game
 from app.models.user import User
 from app.services.analysis.auto_analysis_service import (
@@ -109,3 +111,63 @@ def test_queue_skips_already_analyzed_games(mock_batch_task, db, user):
     assert result["status"] == "skipped"
     assert result["reason"] == "no_eligible_games"
     mock_batch_task.delay.assert_not_called()
+
+
+@patch("app.tasks.analysis_tasks.analyze_batch_games_task")
+def test_queue_is_capped_at_max_games_per_analysis(mock_batch_task, db, user, monkeypatch):
+    """Onboarding length is set by the queue cap, not by the import size.
+
+    MAX_GAMES_PER_ANALYSIS used to bound only the date-based fetch, so the
+    count-based onboarding path queued the whole library (199 games) whatever
+    the setting said.
+    """
+    monkeypatch.setattr(settings, "MAX_GAMES_PER_ANALYSIS", 5, raising=False)
+
+    mock_batch_task.delay.return_value = MagicMock(id="celery-task-cap")
+    now = datetime.now(timezone.utc)
+    ids = []
+    for index in range(12):
+        game = Game(
+            user_id=user.id,
+            chesscom_game_id=f"cap-{index}",
+            pgn="1. e4 e5",
+            is_analyzed=False,
+            end_time=now - timedelta(days=index),
+        )
+        db.add(game)
+        db.commit()
+        db.refresh(game)
+        ids.append(game.id)
+
+    result = queue_new_games_for_analysis(db, user, ids, source="test")
+
+    assert result["status"] == "queued"
+    assert result["games_queued"] == 5
+    queued = mock_batch_task.delay.call_args[0][0]
+    assert len(queued) == 5
+    # Most recent first: the cap keeps the newest games.
+    assert queued == ids[:5]
+
+
+@patch("app.tasks.analysis_tasks.analyze_batch_games_task")
+def test_queue_keeps_everything_when_cap_is_zero(mock_batch_task, db, user, monkeypatch):
+    monkeypatch.setattr(settings, "MAX_GAMES_PER_ANALYSIS", 0, raising=False)
+    mock_batch_task.delay.return_value = MagicMock(id="celery-task-nocap")
+
+    ids = []
+    for index in range(4):
+        game = Game(
+            user_id=user.id,
+            chesscom_game_id=f"nocap-{index}",
+            pgn="1. e4 e5",
+            is_analyzed=False,
+            end_time=datetime.now(timezone.utc) - timedelta(days=index),
+        )
+        db.add(game)
+        db.commit()
+        db.refresh(game)
+        ids.append(game.id)
+
+    result = queue_new_games_for_analysis(db, user, ids, source="test")
+
+    assert result["games_queued"] == 4
