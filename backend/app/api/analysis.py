@@ -264,8 +264,48 @@ async def analyze_user_games(
     game_ids_to_analyze = [game.id for game in games_to_analyze if game.pgn]
     skipped_no_pgn = len(games_to_analyze) - len(game_ids_to_analyze)
 
+    # The import path already queues the games it fetched (auto-analysis), so a
+    # client that fetches and then calls this endpoint used to queue the same
+    # games twice and pay for two full engine passes over them. Skip anything a
+    # running job already covers, and when that leaves nothing to do, hand back
+    # the running job so the caller follows it instead of starting a duplicate.
+    job_store = get_analysis_job_store()
+    running_job = job_store.get_active_job(user_id)
+    running_job_id = None
+    if running_job and running_job.get("status") not in (
+        "completed",
+        "partial",
+        "failed",
+        "cancelled",
+    ):
+        running_job_id = running_job.get("job_id")
+        already_queued = set(running_job.get("game_ids") or [])
+        if already_queued and not request.force_reanalysis:
+            deduped = [gid for gid in game_ids_to_analyze if gid not in already_queued]
+            skipped_already_queued = len(game_ids_to_analyze) - len(deduped)
+            game_ids_to_analyze = deduped
+        else:
+            skipped_already_queued = 0
+    else:
+        skipped_already_queued = 0
+
+    if not game_ids_to_analyze and running_job_id:
+        logger.info(
+            f"Analysis already running for user {user_id} "
+            f"(job={running_job_id}, skipped={skipped_already_queued} already queued)"
+        )
+        return {
+            "message": "Analysis already in progress",
+            "games_queued": 0,
+            "skipped_no_pgn": skipped_no_pgn,
+            "task_id": None,
+            "job_id": running_job_id,
+            "analysis_mode": analysis_mode,
+            "uses_ai": uses_ai,
+            "already_running": True,
+        }
+
     if game_ids_to_analyze:
-        job_store = get_analysis_job_store()
         job_id = str(uuid4())
         job_store.create_job(
             job_id=job_id,
@@ -288,6 +328,7 @@ async def analyze_user_games(
         "message": f"Queued {len(game_ids_to_analyze)} games for analysis",
         "games_queued": len(game_ids_to_analyze),
         "skipped_no_pgn": skipped_no_pgn,
+        "skipped_already_queued": skipped_already_queued,
         "task_id": task_id,
         "job_id": job_id,
         "analysis_mode": analysis_mode,

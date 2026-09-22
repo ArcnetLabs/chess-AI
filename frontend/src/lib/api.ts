@@ -118,6 +118,20 @@ apiClient.interceptors.response.use(
 // User API
 // ---------------------------------------------------------------------------
 
+/** Shape of GET /analysis/{user_id}/pipeline-status (fields the UI reads). */
+export interface PipelineStatus {
+  healthy?: boolean;
+  recent_job?: {
+    job_id?: string;
+    status?: string;
+    total_games?: number;
+    completed_games?: number;
+    failed_games?: number;
+    current_game_id?: number | null;
+    last_error?: string | null;
+  } | null;
+}
+
 export const userApi = {
   /**
    * Return the local profile row for the authenticated Supabase user.
@@ -299,6 +313,18 @@ export const analysisApi = {
 
   getActiveJobStatus: async (userId: number): Promise<AnalysisJobStatus> => {
     const response = await apiClient.get<AnalysisJobStatus>(`/analysis/${userId}/status`);
+    return response.data;
+  },
+
+  /**
+   * Pipeline diagnostics: engine/worker health plus the user's most recent job.
+   *
+   * The recent job survives terminal status, unlike the active-job pointer, so
+   * this is how the UI reattaches to a run whose active pointer is missing
+   * (the job store falls back to per-process memory when Redis is unavailable).
+   */
+  getPipelineStatus: async (userId: number): Promise<PipelineStatus> => {
+    const response = await apiClient.get<PipelineStatus>(`/analysis/${userId}/pipeline-status`);
     return response.data;
   },
 
