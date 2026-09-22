@@ -216,6 +216,17 @@ export interface FetchGamesResponse {
     time_controls?: string[] | null;
     rated_filter?: boolean | null;
   };
+  /**
+   * Queue created by the import itself. Carries the job id the analyze page
+   * follows, so progress does not depend on a separate analyze request landing.
+   */
+  analysis_queue?: {
+    status?: string;
+    reason?: string;
+    games_queued?: number;
+    task_id?: string;
+    job_id?: string;
+  } | null;
 }
 
 // Analyze Games Response — see @/types/analysis.types
