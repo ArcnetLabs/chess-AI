@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, Text, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, Text, Float, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..core.database import Base
@@ -8,12 +8,19 @@ class Game(Base):
     """Game model for storing Chess.com games."""
     
     __tablename__ = "games"
+    # Uniqueness is per user, not global: two ChessRun accounts may link the same
+    # Chess.com account (a re-signup, or two testers sharing a username), and a
+    # globally unique chesscom_game_id made the second account's import match the
+    # first account's rows, add nothing, and analyse one game.
+    __table_args__ = (
+        Index("uq_games_user_chesscom_game_id", "user_id", "chesscom_game_id", unique=True),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Chess.com game identifiers
-    chesscom_game_id = Column(String, unique=True, index=True, nullable=False)
+    chesscom_game_id = Column(String, index=True, nullable=False)
     chesscom_url = Column(String)
     
     # Game details

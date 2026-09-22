@@ -60,7 +60,10 @@ def persist_chesscom_games(
 
         existing_game = (
             db.query(Game)
-            .filter(Game.chesscom_game_id == game_data["chesscom_game_id"])
+            .filter(
+                Game.user_id == user.id,
+                Game.chesscom_game_id == game_data["chesscom_game_id"],
+            )
             .first()
         )
         if existing_game:
