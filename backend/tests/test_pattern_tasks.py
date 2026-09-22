@@ -1,6 +1,6 @@
 """Tests for pattern Celery task wiring (P1-PR-05)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -90,46 +90,45 @@ class TestDetectPatternsTask:
 
 class TestAnalysisTaskHook:
     def test_successful_analysis_schedules_pattern_detection(self):
-        import asyncio
+        """A successful game analysis schedules the (debounced) detection pass.
 
-        real_loop = asyncio.new_event_loop()
-        try:
-            with patch(
-                "app.tasks.analysis_tasks.schedule_pattern_detection_for_user"
-            ) as mock_schedule, patch(
-                "app.tasks.analysis_tasks.SessionLocal"
-            ) as mock_session_local, patch(
-                "app.tasks.analysis_tasks.analyze_game_for_user"
-            ), patch(
-                "app.tasks.analysis_tasks.persist_game_analysis"
-            ), patch(
-                "asyncio.new_event_loop", return_value=real_loop
-            ), patch.object(
-                real_loop, "run_until_complete"
-            ) as mock_run_until_complete:
-                mock_db = MagicMock()
-                mock_session_local.return_value = mock_db
+        The task analyses through ``asyncio.run(_analyze_with_engine_cleanup(...))``,
+        so the engine call is patched at that seam — the previous version of this
+        test patched ``asyncio.new_event_loop``, which the task no longer uses,
+        leaving the awaited result an AsyncMock and the test permanently red.
+        """
+        mock_result = MagicMock()
+        mock_result.user_acpl = 25.0
+        mock_result.accuracy_percentage = 85.0
+        mock_result.blunders = 0
+        mock_result.mistakes = 1
+        mock_result.inaccuracies = 2
 
-                mock_game = MagicMock()
-                mock_game.pgn = "[Event \"Test\"]\n1. e4 e5 2. Nf3 *"
-                mock_user = MagicMock()
-                mock_db.query.return_value.filter.return_value.first.side_effect = [
-                    mock_game,
-                    mock_user,
-                    None,
-                ]
+        with patch(
+            "app.tasks.analysis_tasks.schedule_pattern_detection_for_user"
+        ) as mock_schedule, patch(
+            "app.tasks.analysis_tasks.SessionLocal"
+        ) as mock_session_local, patch(
+            "app.tasks.analysis_tasks._analyze_with_engine_cleanup",
+            new=AsyncMock(return_value=mock_result),
+        ), patch(
+            "app.tasks.analysis_tasks.persist_game_analysis"
+        ):
+            mock_db = MagicMock()
+            mock_session_local.return_value = mock_db
 
-                mock_result = MagicMock()
-                mock_result.user_acpl = 25.0
-                mock_result.accuracy_percentage = 85.0
-                mock_result.blunders = 0
-                mock_result.mistakes = 1
-                mock_result.inaccuracies = 2
-                mock_run_until_complete.return_value = mock_result
+            mock_game = MagicMock()
+            mock_game.pgn = "[Event \"Test\"]\n1. e4 e5 2. Nf3 *"
+            # Explicit: a bare MagicMock attribute is truthy, which would make
+            # the task short-circuit to "already_analyzed" before the hook runs.
+            mock_game.is_analyzed = False
+            mock_db.query.return_value.filter.return_value.first.side_effect = [
+                mock_game,
+                MagicMock(),
+                None,
+            ]
 
-                response = analyze_game_task.run(1, 5)
-        finally:
-            real_loop.close()
+            response = analyze_game_task.run(1, 5)
 
         assert response["status"] == "success"
         mock_schedule.assert_called_once_with(5)

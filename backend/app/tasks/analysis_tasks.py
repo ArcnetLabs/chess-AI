@@ -139,8 +139,19 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             f"Inaccuracies={result.inaccuracies}"
         )
 
-        schedule_pattern_detection_for_user(user_id)
-        job_store.mark_game_completed(job_id, game_id)
+        # Per-game triggers are debounced, so the last game of a batch also
+        # forces the final detection pass: otherwise the pattern/profile
+        # snapshots can lag the finished analysis by the whole debounce window
+        # while the UI already reports the full game count.
+        job_finished = job_store.mark_game_completed(job_id, game_id)
+        if job_finished:
+            logger.info(
+                f"{log_prefix}Job {job_id} finished — forcing final pattern detection "
+                f"for user {user_id}"
+            )
+            schedule_pattern_detection_for_user(user_id, countdown=5, force=True)
+        else:
+            schedule_pattern_detection_for_user(user_id)
 
         return {
             "status": "success",
