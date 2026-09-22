@@ -112,10 +112,12 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-    except IntegrityError:
+    except IntegrityError as exc:
+        db.rollback()
+        detail = str(getattr(exc, "orig", exc))
+
         # Lost a race with a concurrent first request for the same identity —
         # the row now exists, so resolve it again rather than failing.
-        db.rollback()
         raced = (
             db.query(User)
             .filter(User.supabase_user_id == supabase_user_id)
@@ -123,9 +125,48 @@ def _resolve_or_provision_user(db: Session, claims: dict) -> User:
         )
         if raced is not None:
             return raced
+
+        # The signup metadata carried a Chess.com username another account
+        # already holds (users.chesscom_username has a unique index). Identity
+        # provisioning must not fail over a link that can be settled during
+        # onboarding: create the row without it and let the link step report the
+        # conflict. Previously this raised a 500, which surfaced as "your
+        # coaching workspace could not be loaded" for every such signup.
+        if chesscom_from_jwt and "chesscom_username" in detail:
+            logger.warning(
+                f"Chess.com username '{chesscom_from_jwt}' is already linked to another "
+                f"account; provisioning user for sub={supabase_user_id} without it"
+            )
+            fallback = User(
+                supabase_user_id=supabase_user_id,
+                email=email,
+                chesscom_username=None,
+                connection_type="username_only",
+                is_chesscom_connected=False,
+            )
+            try:
+                db.add(fallback)
+                db.commit()
+                db.refresh(fallback)
+            except Exception as retry_exc:  # noqa: BLE001
+                db.rollback()
+                logger.error(
+                    f"Failed to auto-provision user for sub={supabase_user_id} "
+                    f"without the taken username: {retry_exc}"
+                )
+                raise HTTPException(
+                    status_code=500, detail="Failed to provision local user"
+                ) from retry_exc
+            logger.info(
+                f"Auto-provisioned local user id={fallback.id} for "
+                f"supabase_user_id={supabase_user_id} (username link pending)"
+            )
+            return fallback
+
+        logger.error(f"Failed to auto-provision user for sub={supabase_user_id}: {detail}")
         raise HTTPException(
             status_code=500, detail="Failed to provision local user"
-        )
+        ) from exc
     except Exception as exc:  # noqa: BLE001 — surface as 500, never leak DB errors
         db.rollback()
         logger.error(

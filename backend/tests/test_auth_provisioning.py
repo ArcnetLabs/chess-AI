@@ -89,3 +89,33 @@ class TestResolveOrProvisionUser:
             _resolve_or_provision_user(db, {"email": "no-sub@example.com"})
 
         assert excinfo.value.status_code == 401
+
+    def test_provisions_without_a_username_another_account_holds(self, db):
+        """A taken Chess.com username must not break identity provisioning.
+
+        users.chesscom_username carries a unique index and the signup metadata
+        pre-seeds it, so a newcomer typing an already-linked username used to
+        raise a 500 (seen live as "your coaching workspace could not be
+        loaded"). Provisioning now drops the link — onboarding settles it — and
+        the existing holder keeps theirs.
+        """
+        holder = User(
+            email="holder@example.com",
+            supabase_user_id="holder-sub",
+            chesscom_username="alleyer16",
+            connection_type="username_only",
+            is_chesscom_connected=True,
+        )
+        db.add(holder)
+        db.commit()
+
+        user = _resolve_or_provision_user(
+            db, _claims("newcomer-sub", "newcomer@example.com", "alleyer16")
+        )
+
+        assert user.id is not None
+        assert user.email == "newcomer@example.com"
+        assert user.chesscom_username is None
+        assert user.is_chesscom_connected is False
+        db.refresh(holder)
+        assert holder.chesscom_username == "alleyer16"
