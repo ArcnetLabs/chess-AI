@@ -165,20 +165,28 @@ class AnalysisJobStore:
         self._save_job(job)
 
     def mark_game_completed(self, job_id: Optional[str], game_id: int) -> None:
+        """Count one finished game. Returns True when it finished the job.
+
+        The caller uses that edge to trigger the final pattern/profile pass: the
+        per-game triggers are debounced, so without an explicit end-of-batch
+        signal the last detection run can lag the analysis by the whole debounce
+        window (observed: 200 games analysed by 11:50, final detection only
+        starting at 11:53, leaving the profile snapshot on 18 games meanwhile).
+        """
         if not job_id:
-            return
+            return False
         if self.is_cancelled(job_id):
-            return
+            return False
 
         job = self.get_job(job_id)
         if not job:
-            return
+            return False
         if job.get("status") == AnalysisJobStatus.CANCELLED.value:
-            return
+            return False
 
         pending_before = list(job.get("pending_game_ids", []))
         if game_id not in pending_before:
-            return
+            return False
 
         pending = [gid for gid in pending_before if gid != game_id]
         job["pending_game_ids"] = pending
@@ -187,6 +195,11 @@ class AnalysisJobStore:
         job["updated_at"] = _utc_now_iso()
         self._finalize_status(job)
         self._save_job(job)
+        return job.get("status") in (
+            AnalysisJobStatus.COMPLETED.value,
+            AnalysisJobStatus.PARTIAL.value,
+            AnalysisJobStatus.FAILED.value,
+        )
 
     def mark_game_failed(
         self,

@@ -31,12 +31,17 @@ def schedule_pattern_detection_for_user(
     user_id: int,
     *,
     countdown: int = PATTERN_DEBOUNCE_COUNTDOWN_SECONDS,
+    force: bool = False,
 ) -> bool:
     """
     Enqueue pattern detection for a user, debounced per user_id.
 
     Returns True when a new Celery task was scheduled, False when suppressed
     by an active debounce key (another run is already pending).
+
+    ``force=True`` (used at the end of an analysis batch) clears the debounce
+    key first, so the final pass runs even though every per-game trigger sits
+    inside the current window.
     """
     if redis_client is None:
         detect_patterns_task.apply_async(args=[user_id], countdown=countdown)
@@ -47,6 +52,12 @@ def schedule_pattern_detection_for_user(
         return True
 
     debounce_key = f"{PATTERN_DEBOUNCE_KEY_PREFIX}:{user_id}"
+    if force:
+        try:
+            redis_client.delete(debounce_key)
+        except Exception as exc:  # noqa: BLE001 — the schedule below still counts
+            logger.warning(f"Could not clear pattern debounce key for user {user_id}: {exc}")
+
     if not redis_client.set(debounce_key, "1", nx=True, ex=PATTERN_DEBOUNCE_TTL_SECONDS):
         logger.debug(
             f"Pattern detection debounced for user_id={user_id} "
