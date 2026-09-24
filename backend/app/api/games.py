@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from pydantic import BaseModel, model_validator
 
@@ -511,9 +511,15 @@ async def get_user_games(
 
     
 
-    # Build query
-
-    query = db.query(Game).filter(Game.user_id == user_id)
+    # Build query. Eager-load the analysis: the response schema always carries
+    # it, and lazy loading issued one query per game — 200 round-trips to a
+    # remote pooler for a full library, which measured >30s for
+    # GET /games/{user_id}?limit=250 and stalled the Insights page behind it.
+    query = (
+        db.query(Game)
+        .options(selectinload(Game.analysis))
+        .filter(Game.user_id == user_id)
+    )
 
     
 
@@ -578,8 +584,7 @@ async def get_recent_games(
     
 
     # Get recent games
-
-    games = db.query(Game).filter(
+    games = db.query(Game).options(selectinload(Game.analysis)).filter(
 
         Game.user_id == user_id,
 
