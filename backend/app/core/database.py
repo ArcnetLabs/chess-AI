@@ -13,10 +13,23 @@ load_dotenv(env_path, override=True)
 from .config import settings
 
 
+DEFAULT_DRIVER = "psycopg2"
+DRIVERLESS_SCHEMES = ("postgresql://", "postgres://")
+
+
 def _validate_database_url(url: str) -> str:
     """Reject missing, SQLite, or non-Postgres URLs outside pytest.
 
     Production and staging must never silently fall back to SQLite.
+
+    The PostgreSQL driver is also made explicit here. ``requirements.txt`` ships
+    ``psycopg2-binary``, but SQLAlchemy only defaults a bare ``postgresql://``
+    URL to psycopg2 up to 2.0 — 2.1 changed the default to psycopg v3. Because
+    the pin is an open range (``sqlalchemy>=2.0.23``), a fresh build pulled 2.1
+    and ``create_engine`` failed with ``ModuleNotFoundError: No module named
+    'psycopg'``, which broke every deploy at the ``alembic upgrade head`` build
+    step while the already-running instance kept working. Naming the driver
+    removes that coupling for good.
     """
     if not url or url == "None":
         raise RuntimeError(
@@ -34,12 +47,17 @@ def _validate_database_url(url: str) -> str:
             "not silently degrade."
         )
 
-    if not url.startswith("postgresql"):
+    if not url.startswith("postgresql") and not url.startswith("postgres://"):
         raise RuntimeError(
             f"Unsupported DATABASE_URL scheme ({normalized!r}). "
             "Only postgresql:// URLs are supported."
         )
 
+    for scheme in DRIVERLESS_SCHEMES:
+        if url.startswith(scheme):
+            return url.replace(scheme, f"postgresql+{DEFAULT_DRIVER}://", 1)
+
+    # A driver was chosen explicitly in the URL; respect it.
     return url
 
 
