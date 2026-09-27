@@ -67,6 +67,7 @@ def move_row(
         features=features or {"material_balance": 0, "material_band": "level"},
         move_uci=move_uci,
         best_move_uci=best_move_uci,
+        is_mate_score=False,
     )
 
 
@@ -332,6 +333,60 @@ class TestContextualDetectors:
         assert detect_events_for_game(
             [opponent_error], game_result="draw", user_color="white"
         ) == []
+
+
+class TestMateRows:
+    def test_mate_rows_need_analyzer_agreement(self):
+        """A reconstructed mate evaluation alone must not create an event.
+
+        The analyzer flattens mate to 0 cp, so mate scores are rebuilt from
+        ``mate_in``; live data showed that reconstruction disagreeing with the
+        analyzer's own classification on most mate rows. Until it is verified
+        against the engine wrapper's sign convention, a mate row only produces
+        events when the analyzer independently calls the move a serious error.
+        """
+
+        def mate_move(classification: str) -> GameMove:
+            row = move_row(
+                ply=40,
+                color="white",
+                is_user_move=True,
+                fen_before=AFTER_E4,
+                fen_after=AFTER_E4,
+                cp_loss=2400.0,
+                eval_before=1200.0,
+                eval_after=-1200.0,
+                classification=classification,
+                phase="endgame",
+            )
+            row.is_mate_score = True
+            return row
+
+        assert (
+            detect_events_for_game(
+                [mate_move("best")], game_result="black", user_color="white"
+            )
+            == []
+        )
+        agreed = detect_events_for_game(
+            [mate_move("blunder")], game_result="black", user_color="white"
+        )
+        assert EVENT_MAJOR_BLUNDER in types_of(agreed)
+
+    def test_non_mate_rows_are_unaffected(self):
+        row = move_row(
+            ply=20,
+            color="white",
+            is_user_move=True,
+            fen_before=AFTER_E4,
+            fen_after=AFTER_E4,
+            cp_loss=350.0,
+            classification="good",
+        )
+        assert row.is_mate_score is False
+        assert EVENT_MAJOR_BLUNDER in types_of(
+            detect_events_for_game([row], game_result="draw", user_color="white")
+        )
 
 
 class TestDeterminism:

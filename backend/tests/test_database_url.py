@@ -9,41 +9,41 @@ and failed at ``alembic upgrade head`` with
 
 import pytest
 
-from app.core.database import DEFAULT_DRIVER, _validate_database_url
+from app.core.database import DEFAULT_DRIVER, resolve_database_url
 
 
 class TestDriverIsExplicit:
     def test_bare_postgresql_url_names_the_installed_driver(self):
         url = "postgresql://user:pass@host:6543/postgres?sslmode=require"
-        assert _validate_database_url(url) == url.replace(
+        assert resolve_database_url(url) == url.replace(
             "postgresql://", f"postgresql+{DEFAULT_DRIVER}://", 1
         )
 
     def test_heroku_style_postgres_scheme_is_normalised(self):
         url = "postgres://user:pass@host:5432/db"
-        assert _validate_database_url(url).startswith(f"postgresql+{DEFAULT_DRIVER}://")
+        assert resolve_database_url(url).startswith(f"postgresql+{DEFAULT_DRIVER}://")
 
     def test_explicit_driver_is_respected(self):
         """A deliberate psycopg v3 configuration must not be rewritten."""
         url = "postgresql+psycopg://user:pass@host:5432/db"
-        assert _validate_database_url(url) == url
+        assert resolve_database_url(url) == url
 
     def test_explicit_psycopg2_is_unchanged(self):
         url = "postgresql+psycopg2://user:pass@host:5432/db"
-        assert _validate_database_url(url) == url
+        assert resolve_database_url(url) == url
 
     def test_sqlite_allowed_only_under_pytest(self, monkeypatch):
         monkeypatch.setenv("TESTING", "1")
-        assert _validate_database_url("sqlite:///:memory:") == "sqlite:///:memory:"
+        assert resolve_database_url("sqlite:///:memory:") == "sqlite:///:memory:"
 
         monkeypatch.delenv("TESTING", raising=False)
         with pytest.raises(RuntimeError, match="forbidden outside pytest"):
-            _validate_database_url("sqlite:///:memory:")
+            resolve_database_url("sqlite:///:memory:")
 
     def test_missing_url_fails_fast(self):
         with pytest.raises(RuntimeError, match="not configured"):
-            _validate_database_url("")
+            resolve_database_url("")
 
     def test_non_postgres_scheme_rejected(self):
         with pytest.raises(RuntimeError, match="Unsupported DATABASE_URL scheme"):
-            _validate_database_url("mysql://user:pass@host/db")
+            resolve_database_url("mysql://user:pass@host/db")

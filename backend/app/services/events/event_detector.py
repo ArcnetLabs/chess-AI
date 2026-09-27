@@ -131,6 +131,15 @@ def detect_events_for_game(
         opponent_move = opponent.move_uci if opponent else None
         opponent_trigger_ply = None
 
+        # Mate rows carry a reconstructed evaluation (the analyzer flattens mate
+        # to 0 cp) whose sign convention is not independently verified: live data
+        # showed it disagreeing with the analyzer's own classification in 607 of
+        # 711 mate rows. A coaching claim is not published on that basis alone —
+        # mate rows produce events only when the analyzer also calls the move a
+        # serious error.
+        if move.is_mate_score and move.classification not in ("mistake", "blunder"):
+            continue
+
         # Opponent's previous move was itself an error: worth remembering even
         # when the player's reply was fine, because "punishing mistakes" is a
         # distinct skill from "not making them".

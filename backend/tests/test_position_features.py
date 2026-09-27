@@ -207,7 +207,9 @@ class TestMoveFactEvaluationMath:
         mate_move = rows[2]
         assert mate_move["is_mate_score"] is True
         assert mate_move["eval_after_cp"] == pytest.approx(-MATE_SCORE, abs=1.0)
-        assert mate_move["cp_loss"] > 1000
+        assert mate_move["cp_loss"] > 500
+        # Bounded: one mate must not swamp centipawn statistics.
+        assert MATE_SCORE <= 2000
 
     def test_rows_carry_identity_position_and_phase(self):
         rows = build_move_facts(

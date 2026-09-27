@@ -17,19 +17,19 @@ DEFAULT_DRIVER = "psycopg2"
 DRIVERLESS_SCHEMES = ("postgresql://", "postgres://")
 
 
-def _validate_database_url(url: str) -> str:
-    """Reject missing, SQLite, or non-Postgres URLs outside pytest.
+def resolve_database_url(url: str) -> str:
+    """Reject missing, SQLite, or non-Postgres URLs outside pytest, and name the
+    PostgreSQL driver explicitly.
 
     Production and staging must never silently fall back to SQLite.
 
-    The PostgreSQL driver is also made explicit here. ``requirements.txt`` ships
-    ``psycopg2-binary``, but SQLAlchemy only defaults a bare ``postgresql://``
-    URL to psycopg2 up to 2.0 — 2.1 changed the default to psycopg v3. Because
-    the pin is an open range (``sqlalchemy>=2.0.23``), a fresh build pulled 2.1
-    and ``create_engine`` failed with ``ModuleNotFoundError: No module named
-    'psycopg'``, which broke every deploy at the ``alembic upgrade head`` build
-    step while the already-running instance kept working. Naming the driver
-    removes that coupling for good.
+    The driver is named here rather than left to SQLAlchemy's default because
+    that default is version-dependent: a bare ``postgresql://`` resolves to
+    psycopg2 up to 2.0 and to psycopg v3 from 2.1, while this project installs
+    ``psycopg2-binary``. A build that resolved a newer SQLAlchemy therefore died
+    with ``ModuleNotFoundError: No module named 'psycopg'`` at the
+    ``alembic upgrade head`` step. Alembic's ``env.py`` creates its own engine
+    and calls this same function, so both paths agree on the driver.
     """
     if not url or url == "None":
         raise RuntimeError(
@@ -61,7 +61,7 @@ def _validate_database_url(url: str) -> str:
     return url
 
 
-database_url = _validate_database_url(settings.SQLALCHEMY_DATABASE_URI)
+database_url = resolve_database_url(settings.SQLALCHEMY_DATABASE_URI)
 
 engine = create_engine(
     database_url,
