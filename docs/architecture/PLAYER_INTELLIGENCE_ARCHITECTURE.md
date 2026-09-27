@@ -255,6 +255,16 @@ Fine-tuning is Phase 7 and is **not** assumed. The order is fixed:
 
 Only if the baseline shows the model failing *despite correct context* does Phase 7 proceed — starting with PEFT (LoRA/QLoRA) on an open-weight model, keeping the current hosted model as the serving path until a measured win exists.
 
+**How the gate is run today.** The question splits into two halves, and only one of them needs credentials — so the credential-free half is a shippable check rather than a parked task:
+
+| Question | Command | Needs a provider |
+|---|---|---|
+| Is the context correct and safe to coach from? | `python scripts/verify_context_quality.py --user-id 1` | no |
+| Do the pattern layer and grounding hold on labelled fixtures? | `python scripts/run_coach_eval.py --user-id 1` | no |
+| What does the model do with correct context? | `python scripts/run_model_eval.py --user-id 1` | yes |
+
+A model baseline only means something if the context under it is right, so the first two are gates on the third, not alternatives to it. The context check runs the same probes as `run_model_eval`, scores the rendered blocks the coach actually receives, and exits non-zero on any violation: missing grounding rule, engine vocabulary in player-facing text, a "recurring pattern" with no citable id, or an unstated absence. Because it is deterministic, it can also score the fallback coaching text a player sees when no provider is configured — text that is just as user-visible as model output and was previously unmeasured.
+
 **Feasibility (verified).** Open weights: [GLM-4.5 / GLM-5.1](https://huggingface.co/zai-org/GLM-5.1) (MIT), [Qwen3-8B/32B](https://huggingface.co/Qwen/Qwen3-32B) (Apache-2.0), [DeepSeek-R1](https://huggingface.co/deepseek-ai/DeepSeek-R1) (MIT). MoE giants (DeepSeek V3/R1 at 671B, GLM-5-class) are **poor local-LoRA targets** — adapters train on active parameters but all weights must be resident — so the realistic band is **dense 7B–32B** ([VRAM table, Spheron 2026](https://www.spheron.network/blog/gpu-vram-requirements-fine-tune-llm-2026/)):
 
 | Model | Full FT | LoRA r=64 BF16 | QLoRA NF4 |
@@ -295,10 +305,10 @@ Tooling: [Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide), 
 | **2 — Move facts + Events** | `game_moves` (+backfill), eval-before, canonical classifier/phase, position features, `chess_events`, event detectors | For a fixture game, every event reproducible from stored rows; no LLM in the path | ✅ delivered (#311/#312, hardened #315/#316): 143 backfilled games → 8,599 move rows, 1,789 events |
 | **3 — Pattern engine v2** | Event-driven detectors, feature similarity, persisted evidence, `pattern_runs`, trend, strengths | A pattern's claim can be re-derived from the DB alone; trend differs when history differs | ✅ delivered (#319/#320): 4,302 decisions → 28 context patterns + 3 strengths, every one with evidence, rate and trend |
 | **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) | ✅ delivered (#321/#322): three-stage match with pattern linkage; relevance floors applied to both paths |
-| **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows | next |
-| **6 — Coaching context** | Ranked context contract with budgets | Context contains the ten blocks, ranked, within budget; grounding rules hold | pending |
-| **7 — Evaluation** | Fixture dataset, harness, scores, baseline recorded | Baseline numbers exist for every metric, on a player/game-split test set | pending |
-| **8 — Fine-tuning (conditional)** | PEFT experiment, comparison, keep-on-win | Only if Phase 7 shows context is insufficient; else documented decision not to train | pending |
+| **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows | ✅ delivered (#325/#326): `coaching_interventions` with before/after decision series; `coaching_history` in the profile snapshot |
+| **6 — Coaching context** | Ranked context contract with budgets | Context contains the ten blocks, ranked, within budget; grounding rules hold | ✅ delivered (#327/#328, hardened #333): ranked blocks, whole-block budgeting, grounding rule on all three context paths |
+| **7 — Evaluation** | Fixture dataset, harness, scores, baseline recorded | Baseline numbers exist for every metric, on a player/game-split test set | ✅ harness + baseline (#329/#330): pattern recall 0.857, precision 1.0, false-pattern rate 0.0; grounding violations 0. One case (`opponent_induced`) still needs per-case game assignment |
+| **8 — Fine-tuning (conditional)** | PEFT experiment, comparison, keep-on-win | Only if Phase 7 shows context is insufficient; else documented decision not to train | measurement built (#331/#332, #333): context half passes 12/12 on production; model half awaiting a provider-backed run |
 
 Phases 2–3 are the critical path: until moves are relational and events exist, nothing downstream can be context-aware.
 

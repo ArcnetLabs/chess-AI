@@ -16,7 +16,7 @@ from typing import Callable, Dict, List, Optional
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from app.services.chat.event_context import assemble_event_context
+from app.services.chat.event_context import absence_context, assemble_event_context
 from app.services.evaluation.model_eval import Probe, Provider, run_probes
 
 # A real middlegame position and a real endgame position, used as the "current
@@ -61,12 +61,7 @@ def build_probes(db: Session, user_id: int) -> List[Probe]:
         Probe(
             name="no_history_position",
             question="Have I had trouble in positions like this before?",
-            context=(
-                "## Player history for this position\n"
-                "Nothing on record for this kind of position yet. Coach from the "
-                "engine facts alone, and say plainly that this situation is new for "
-                "the player."
-            ),
+            context=absence_context(),
             expects_history=False,
             expects_uncertainty=True,
             notes="the absence path, which the coach must state rather than fill",
