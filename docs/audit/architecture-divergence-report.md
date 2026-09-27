@@ -1,5 +1,7 @@
 # ChessRun — Architecture Divergence Report
 
+> **⚠️ Partially stale (verified 2026-09-24).** This report predates migrations `0006`–`0014` and the pattern/profile/retrieval build-out. Claims in §3.5 ("No pattern recognition code exists"), §5 items 1–5 and §5 items 12–15 are **no longer true**: pattern detection, longitudinal profiling, pgvector semantic memory with HNSW retrieval, per-user game-id uniqueness, Celery pattern/profile workers, and Supabase Auth → backend JWT verification all exist and run. For the current as-built state use [`player-intelligence-phase1-audit.md`](./player-intelligence-phase1-audit.md).
+
 **Date:** 2026-05-26  
 **Comparison axis:** `docs/product/FRD_PRODUCT.md` + `docs/requirements/FRD_TECHNICAL.md` **vs** the actual repository implementation.
 

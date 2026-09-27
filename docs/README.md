@@ -16,6 +16,7 @@ docs/
 ├── architecture/                   # System architecture & technical design
 │   ├── AI_MODEL_STRATEGY.md
 │   ├── MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md
+│   ├── PLAYER_INTELLIGENCE_ARCHITECTURE.md  # Target design: events → patterns → retrieval → coach
 │   ├── reference-context-system.md
 │   ├── repository-invariants.md        # Authoritative architectural rules (paired with scripts/review-loops/)
 │   └── stockfish-architecture.md       # Canonical Stockfish pool access (2026-05-26)
@@ -51,9 +52,10 @@ docs/
 │   ├── pricing_monetization_strategy.html
 │   ├── shared.css
 │   └── shared.js
-├── audit/                          # System state audit (2026-05-26)
+├── audit/                          # System state audit (2026-05-26) + player-intelligence audit
 │   ├── README.md                       # Audit index — START HERE
 │   ├── system-state-audit.md           # Master findings doc
+│   ├── player-intelligence-phase1-audit.md  # As-built audit of the intelligence layers (2026-09-24)
 │   ├── backend-audit.md
 │   ├── frontend-audit.md
 │   ├── technical-debt-report.md
@@ -77,6 +79,7 @@ docs/
 | Building a feature | [`execution/feature-execution-roadmap.md`](./execution/feature-execution-roadmap.md) → [`requirements/FRD_TECHNICAL.md`](./requirements/FRD_TECHNICAL.md) → relevant doc in [`architecture/`](./architecture/) |
 | Deploying or running ops | [`deployment/infrastructure-stabilization-report.md`](./deployment/infrastructure-stabilization-report.md) → [`deployment/DEPLOYMENT_GUIDE.md`](./deployment/DEPLOYMENT_GUIDE.md) → [`deployment/DOCKER_GUIDE.md`](./deployment/DOCKER_GUIDE.md) |
 | Working on AI / RAG / memory | [`architecture/AI_MODEL_STRATEGY.md`](./architecture/AI_MODEL_STRATEGY.md) + [`architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`](./architecture/MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md) |
+| **Working on player intelligence (patterns, events, retrieval, coaching context)** | [`audit/player-intelligence-phase1-audit.md`](./audit/player-intelligence-phase1-audit.md) → [`architecture/PLAYER_INTELLIGENCE_ARCHITECTURE.md`](./architecture/PLAYER_INTELLIGENCE_ARCHITECTURE.md) |
 | Working on pricing / packaging | [`strategy/PRICING_MONETIZATION_STRATEGY.md`](./strategy/PRICING_MONETIZATION_STRATEGY.md) |
 | Planning expansion | [`strategy/FUTURE_SERVICES_EXPANSION_STRATEGY.md`](./strategy/FUTURE_SERVICES_EXPANSION_STRATEGY.md) |
 
@@ -87,7 +90,8 @@ docs/
 ### Architecture (`architecture/`)
 Authoritative technical design documents that describe how subsystems work.
 - **`AI_MODEL_STRATEGY.md`** — Model selection, prompting, evaluation, and inference strategy for the AI subsystem.
-- **`MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`** — Long-term memory, retrieval, and context assembly architecture for the chatbot/coach.
+- **`MEMORY_RETRIEVAL_CONTEXT_ARCHITECTURE.md`** — Long-term memory, retrieval, and context assembly architecture for the chatbot/coach. **Note:** this documents the *target* design; for what is actually built see [`audit/player-intelligence-phase1-audit.md`](./audit/player-intelligence-phase1-audit.md).
+- **`PLAYER_INTELLIGENCE_ARCHITECTURE.md`** — Target architecture for the player-aware, pattern-driven loop: move facts → chess events → context-aware patterns → historical similarity retrieval → player model and coaching memory → ranked coaching context → evidence-based interventions, plus the evaluation-before-fine-tuning gate.
 - **`reference-context-system.md`** — Why reference-driven development matters, how the `reference/` + `prompts/` system reduces agent hallucination, and how to maintain it.
 - **`repository-invariants.md`** — The authoritative list of architectural rules ChessRun enforces. Paired with `scripts/review-loops/`, `.cursor/rules/`, and the review workflows. Changing a rule changes this document first.
 - **`stockfish-architecture.md`** — Single canonical path for Stockfish via `engine_pool.py`; thread/queue safety and consumer map.
