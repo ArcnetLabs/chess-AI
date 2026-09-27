@@ -11,18 +11,30 @@ from typing import Optional
 from loguru import logger
 from sqlalchemy.orm import Session
 
+from .event_pattern_detector import detect_event_patterns
 from .pattern_aggregator import build_pattern_run_result
 from .pattern_data import load_pattern_aggregation_input
 from .pattern_service import persist_pattern_snapshots
 from .types import PatternRunResult
+
+# Bumped when the set of detectors or their rules change, so a stored run can be
+# interpreted later.
+RUN_DETECTOR_VERSION = "pattern_engine_v2_events"
 
 
 class PatternEngine:
     """
     Orchestrates the pattern aggregation pipeline.
 
-    Future detectors (blunder clusters, P1-PR-03+) register via ``PatternAggregator``.
-    Celery tasks should call ``run_pattern_detection`` — not inline logic.
+    Two families of detectors run together:
+
+    * the original label/aggregate detectors (phase ACPL, opening, blunder
+      clusters), which read ``GameAnalysis`` rows;
+    * the context-aware event detectors, which read ``chess_events`` and
+      ``game_moves`` and group decisions by the situation that produced them.
+
+    Both are deterministic and LLM-free. Celery tasks call
+    ``run_pattern_detection`` — not inline logic.
     """
 
     def __init__(self, db: Session):
@@ -49,9 +61,25 @@ class PatternEngine:
             return PatternRunResult(user_id=user_id, patterns=[], games_considered=0)
 
         result = build_pattern_run_result(data)
+        result.detector_version = RUN_DETECTOR_VERSION
+
+        # Context-aware pass over the move/event layer. Failing here must not
+        # lose the aggregate detectors' output, so it is contained.
+        try:
+            event_patterns, decisions = detect_event_patterns(
+                self._db, user_id, game_limit=game_limit
+            )
+            result.patterns.extend(event_patterns)
+            result.decisions_considered = decisions
+        except Exception as exc:  # noqa: BLE001 - report, never break the run
+            logger.error(
+                f"Event pattern detection failed for user_id={user_id}: {exc}"
+            )
+
         logger.info(
             f"Pattern detection user_id={user_id}: "
-            f"{result.pattern_count} patterns from {result.games_considered} games"
+            f"{result.pattern_count} patterns from {result.games_considered} games "
+            f"({result.decisions_considered} decisions)"
         )
 
         if persist and result.patterns:
