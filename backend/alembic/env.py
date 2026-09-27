@@ -13,7 +13,7 @@ env_path = Path(__file__).parent.parent.parent / '.env'
 load_dotenv(env_path, override=True)
 
 from app.core.config import settings
-from app.core.database import Base
+from app.core.database import Base, resolve_database_url
 from app.models import *  # Import all models
 
 # This is the Alembic Config object, which provides
@@ -35,20 +35,20 @@ target_metadata = Base.metadata
 # ... etc.
 
 def get_database_url():
-    """Get database URL from environment — PostgreSQL only, no silent fallback."""
+    """Resolve the database URL, normalised so the driver is explicit.
+
+    Normalisation is shared with the application (``resolve_database_url``)
+    rather than re-implemented here: migrations create their own engine, and
+    leaving a bare ``postgresql://`` in this path let the driver follow whatever
+    SQLAlchemy version the build installed — which is how ``alembic upgrade
+    head`` started failing with a missing psycopg v3 driver.
+    """
     db_url = os.getenv("DATABASE_URL") or settings.DATABASE_URL
     if db_url:
-        if db_url.startswith("sqlite") and os.getenv("TESTING") != "1":
-            raise RuntimeError(
-                "SQLite is not allowed for Alembic outside pytest. "
-                "Set DATABASE_URL to a PostgreSQL connection string."
-            )
-        if not db_url.startswith(("postgresql", "sqlite")):
-            raise RuntimeError(f"Unsupported DATABASE_URL scheme in {db_url[:20]}...")
-        return db_url
+        return resolve_database_url(db_url)
 
     if os.getenv("POSTGRES_SERVER"):
-        return (
+        return resolve_database_url(
             f"postgresql://{os.getenv('POSTGRES_USER', 'chessai')}:"
             f"{os.getenv('POSTGRES_PASSWORD', '')}@"
             f"{os.getenv('POSTGRES_SERVER', 'localhost')}:"
