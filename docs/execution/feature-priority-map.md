@@ -5,6 +5,8 @@
 **Audience:** Product, engineering, AI agents  
 **Companion docs:** [`feature-execution-roadmap.md`](./feature-execution-roadmap.md), [`multi-agent-development-strategy.md`](./multi-agent-development-strategy.md)
 
+> **⚠️ Status correction (2026-09-24):** the maturity column in the tables below is stale. Verified against production and code: **pattern recognition now exists and runs** (deterministic detectors in `services/patterns/`, 4 pattern families, persisted occurrences with FENs), **longitudinal player profiling exists** (append-only versioned `player_profiles` with a history endpoint), **coaching memory/retrieval is built** (pgvector 768-d + HNSW over patterns and past coaching exchanges, retrieved into chat), and **recommendation/drill generation exists** (rule engine + occurrence-grounded drill generator, not yet wired into the coach). What remains missing is the layer beneath them — an *event* representation and context-aware pattern detection — plus trend/progress and an intervention ledger. See [`../audit/player-intelligence-phase1-audit.md`](../audit/player-intelligence-phase1-audit.md) and [`../architecture/PLAYER_INTELLIGENCE_ARCHITECTURE.md`](../architecture/PLAYER_INTELLIGENCE_ARCHITECTURE.md).
+
 ---
 
 ## Executive summary

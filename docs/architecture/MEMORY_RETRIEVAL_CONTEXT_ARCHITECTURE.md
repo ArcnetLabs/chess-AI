@@ -2,7 +2,9 @@
 
 **Version:** 1.0  
 **Status:** Technical Architecture / Implementation Specification  
-**Audience:** Backend Engineers, AI/ML Engineers, Database Architects, Infrastructure Teams  
+**Audience:** Backend Engineers, AI/ML Engineers, Database Architects, Infrastructure Teams
+
+> **⚠️ Doc vs reality (verified 2026-09-24):** this document specifies the *target* design and is **not** a description of what is built. Notable differences: `move_timing_data` (diagrammed below) **does not exist** and no per-move clock data is ingested; there is **no per-move table** (moves live in JSON on `game_analyses`); the `HallucinationGuard` / `CONSTRAINED_SYSTEM_PROMPT` of §9.3 **have no implementation**; and retrieval does run on pgvector + HNSW (migration `0013`) but with **no relevance floor**. For the as-built picture, see [`../audit/player-intelligence-phase1-audit.md`](../audit/player-intelligence-phase1-audit.md); for the forward design, [`PLAYER_INTELLIGENCE_ARCHITECTURE.md`](./PLAYER_INTELLIGENCE_ARCHITECTURE.md).  
 
 ---
 
@@ -78,18 +80,15 @@ flowchart TB
             ANALYSES[game_analyses]
             PATTERNS[player_patterns]
             PROFILES[player_profiles]
-            CHAT[coach_conversations]
-            TIMING[move_timing_data]
+            CHAT[chat_sessions]
         end
     end
 
     subgraph Tier2["Tier 2: Semantic Memory"]
         PGVEC[(pgvector Extension)]
-        subgraph Vectors["Embeddings"]
-            COACH_EMB[coaching_summaries]
-            PAT_EMB[pattern_embeddings]
-            GAME_EMB[game_summaries]
-            BEHAV_EMB[behavioral_notes]
+        subgraph Vectors["Embeddings (semantic_memory)"]
+            PAT_EMB[pattern slice]
+            COACH_EMB[coaching slice]
         end
     end
 
@@ -219,10 +218,10 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE semantic_memory (
   id BIGSERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  memory_type TEXT NOT NULL, -- 'pattern', 'coaching', 'behavioral', 'game_summary'
+  memory_type TEXT NOT NULL, -- 'pattern' (analysis insights), 'coaching' (past exchanges)
   source_id BIGINT, -- Foreign key to source table (e.g., pattern_id)
   content_summary TEXT NOT NULL, -- Human-readable summary
-  embedding VECTOR(1536), -- OpenAI text-embedding-3-small dimensions
+  embedding VECTOR(768), -- Gemini gemini-embedding-001 dimensions
   metadata JSONB, -- Source references, timestamps, tags
   created_at TIMESTAMPTZ DEFAULT NOW(),
   last_accessed_at TIMESTAMPTZ DEFAULT NOW()
@@ -286,14 +285,14 @@ ChessRun implements a **multi-horizon memory system** that spans from immediate 
 ```mermaid
 flowchart TB
     subgraph MemoryHorizons["Memory Horizons"]
-        STM[Short-Term Memory<br/>Current Conversation<br/>Last 10 messages]
+        STM[Short-Term Memory<br/>Current Conversation<br/>7-message window + rolling summary]
         MTM[Medium-Term Memory<br/>Recent Patterns<br/>Last 30 days]
         LTM[Long-Term Memory<br/>Player Archetype<br/>Lifetime patterns]
         SEM[Semantic Memory<br/>Similar situations<br/>Conceptual retrieval]
     end
 
     subgraph Sources["Memory Sources"]
-        CHAT[chat_messages table]
+        CHAT[chat_sessions record]
         RECENT[player_patterns recent]
         PROFILE[player_profiles]
         VECT[semantic_memory vectors]
@@ -313,39 +312,30 @@ flowchart TB
     MemoryHorizons --> ASSEMBLER
     ASSEMBLER --> RANKER
     RANKER --> PRUNER
-    PRUNER --> CONTEXT[Final Context Window<br/>~4K tokens]
+    PRUNER --> CONTEXT[Final Context Window]
 ```
 
 ### 3.1 Short-Term Conversational Memory
 
-**Scope:** Current session, last 10-15 message exchanges
+**Scope:** Current session, 7 most recent messages before the current turn
 
-**Storage:** `coach_conversations` table (SQL)
+**Storage:** `chat_sessions.context_json` (SQL, durable) + Redis hot cache
 
 **Purpose:** Maintain conversation continuity, reference prior questions, avoid repetition
 
 **Implementation:**
 ```python
 class ShortTermMemory:
-    def retrieve(self, session_id: str, limit: int = 10) -> List[Message]:
-        """Retrieve recent conversation history."""
-        return self.db.query("""
-            SELECT message_role, message_content, created_at
-            FROM coach_conversations
-            WHERE session_id = %s
-            ORDER BY created_at DESC
-            LIMIT %s
-        """, (session_id, limit))
-
-    def estimate_tokens(self, messages: List[Message]) -> int:
-        """Estimate token count for context window planning."""
-        return sum(len(msg.content.split()) * 1.3 for msg in messages)  # Rough estimate
+    def recent_window(self, context: ChatContext, n: int = 7) -> List[ChatMessage]:
+        """The 7 most recent messages before the current turn."""
+        return context.get_recent_messages(n)[:-1]
 ```
 
-**Pruning Strategy:**
-- Always include last 3 exchanges (critical for continuity)
-- Include earlier exchanges if token budget allows
-- Summarize older parts of conversation if needed
+**No-silent-cut policy:**
+- The 7-message window is always included, every call
+- Older messages are folded into the rolling thread summary (§7.2), never silently cut
+- The Conversation Record (§7.3) pins the earliest exchanges on every call
+- Context degrades to compressed narrative — it never just disappears
 
 ### 3.2 Medium-Term Player Memory
 
@@ -418,25 +408,33 @@ class PlayerProfile:
 
 **Retrieval Flow:**
 ```python
-class SemanticMemory:
-    def __init__(self, embedding_service: EmbeddingService):
-        self.embedder = embedding_service
+class SemanticRetriever:
+    # Recall is baseline: every retrieval-eligible question searches the
+    # full memory store. Similarity alone decides what surfaces — content
+    # type is never narrowed by keywords. The similarity floor defaults
+    # to permissive (0.0); relevance comes from ordering, not hard cutoffs.
+    DEFAULT_CONTENT_TYPES = ['pattern', 'coaching']
+
+    def retrieval_limit(self, content_types: List[str]) -> int:
+        """Top-k scales with the number of slices searched: 5 base -> 8 for both."""
+        return 5 + 3 * max(0, len(content_types or []) - 1)
 
     async def retrieve_similar_memories(
         self,
         user_id: int,
         query: str,
-        memory_types: List[str],
-        top_k: int = 5
+        content_types: List[str] = DEFAULT_CONTENT_TYPES,
+        limit: int = 8,
     ) -> List[SemanticMemory]:
         """Retrieve semantically similar memories."""
 
         # 1. Generate embedding for query
+        #    (Gemini gemini-embedding-001, 768 dims)
         query_embedding = await self.embedder.embed(query)
 
-        # 2. Vector similarity search
-        results = await self.db.query("""
-            SELECT 
+        # 2. Vector similarity search — similarity alone decides what surfaces
+        return await self.db.query("""
+            SELECT
                 sm.id,
                 sm.memory_type,
                 sm.content_summary,
@@ -447,15 +445,12 @@ class SemanticMemory:
               AND sm.memory_type = ANY(%s)
             ORDER BY sm.embedding <=> %s::vector
             LIMIT %s
-        """, (query_embedding, user_id, memory_types, query_embedding, top_k))
-
-        # 3. Filter by similarity threshold
-        return [r for r in results if r.similarity_score > 0.75]
+        """, (query_embedding, user_id, content_types, query_embedding, limit))
 ```
 
 ### 3.5 Memory Ranking and Pruning
 
-Not all retrieved memories are equally relevant. The system ranks by:
+**Shipped today:** ranking is the vector store's similarity order (§3.4). The composite ranker below is a planned refinement layered on top of that order:
 
 ```python
 class MemoryRanker:
@@ -631,41 +626,15 @@ class StructuredRetriever:
 
 ```python
 class SemanticRetriever:
-    async def retrieve(
-        self,
-        user_id: int,
-        query: str,
-        intent: Intent
-    ) -> List[SemanticMemory]:
-        """Semantic retrieval with intent-aware filtering."""
+    # Recall is baseline: intent keywords never gate WHAT is searched.
+    # Every retrieval-eligible question gets the full store; keywords
+    # only enable deeper grounding (dated chronology) for recall questions.
+    DEFAULT_CONTENT_TYPES = ['pattern', 'coaching']
 
-        # Generate query embedding
-        query_embedding = await self.embedder.embed(query)
-
-        # Map intent to memory types
-        memory_types = self.map_intent_to_memory_types(intent)
-
-        # Vector similarity search
-        memories = await self.vector_db.similarity_search(
-            user_id=user_id,
-            embedding=query_embedding,
-            memory_types=memory_types,
-            top_k=10
-        )
-
-        # Re-rank with domain-specific logic
-        return self.rerank_by_chess_relevance(memories, intent)
-
-    def map_intent_to_memory_types(self, intent: Intent) -> List[str]:
-        """Map user intent to relevant memory types."""
-        mapping = {
-            IntentType.PATTERN_QUESTION: ['pattern', 'coaching'],
-            IntentType.OPENING_QUESTION: ['opening_weakness', 'coaching'],
-            IntentType.TACTIC_QUESTION: ['pattern', 'behavioral'],
-            IntentType.IMPROVEMENT_PLAN: ['coaching', 'recommendation'],
-            IntentType.GAME_REVIEW: ['game_summary', 'pattern'],
-        }
-        return mapping.get(intent.type, ['pattern', 'coaching', 'behavioral'])
+    def retrieval_scope(self, intent: Intent) -> Tuple[List[str], int]:
+        content_types = self.DEFAULT_CONTENT_TYPES
+        # top-k scales with slices searched: 8 when both are searched
+        return content_types, 5 + 3 * (len(content_types) - 1)
 ```
 
 ### 4.4 Hybrid Retrieval Strategy
@@ -685,7 +654,7 @@ class HybridRetriever:
         structured_task = self.structured.retrieve(user_id, query)
         semantic_task = self.semantic.retrieve(user_id, query)
         profile_task = self.profile.get(user_id)
-        history_task = self.chat_history.get_recent(user_id, limit=5)
+        history_task = self.chat_history.get_recent(user_id, limit=7)
 
         # Await all retrievals
         structured, semantic, profile, history = await asyncio.gather(
@@ -766,7 +735,7 @@ sequenceDiagram
     end
 
     API->>PA: Assemble context
-    PA->>PA: Rank by relevance<br/>Prune to token budget<br/>Build structured prompt
+    PA->>PA: Assemble layered context<br/>(memories, summary, record, window)
 
     PA->>LLM: Send contextualized prompt
     LLM-->>PA: Coaching response
@@ -783,77 +752,43 @@ class PromptAssembler:
         self,
         context: CoachContext,
         query: str,
-        token_budget: int = 4000
+        recall: bool = False
     ) -> Prompt:
-        """Assemble final prompt within token budget."""
+        """Assemble the layered prompt. Every layer's inclusion rule is
+        deterministic — there is no token-budget pruning step."""
 
         sections = []
-        current_tokens = 0
 
-        # 1. System prompt (fixed cost, ~200 tokens)
-        system = self.system_prompt()
-        sections.append(system)
-        current_tokens += self.estimate_tokens(system)
+        # 1. System prompt: coaching rules + grounding rules +
+        #    recall-honesty rule (never answer recall questions from the
+        #    coach's own past lines or memory summaries)
+        sections.append(self.system_prompt())
 
-        # 2. Player profile (high priority, ~300 tokens)
-        if context.profile:
-            profile_section = self.format_profile(context.profile)
-            sections.append(profile_section)
-            current_tokens += self.estimate_tokens(profile_section)
-
-        # 3. Relevant patterns (ranked by severity, ~800 tokens)
+        # 2. Player context + relevant semantic memories
+        #    (similarity matches from the full memory store)
         if context.patterns:
-            patterns_section = self.format_patterns(
-                context.patterns,
-                max_tokens=800
-            )
-            sections.append(patterns_section)
-            current_tokens += self.estimate_tokens(patterns_section)
+            sections.append(self.format_patterns(context.patterns))
+        if context.semantic_memories:
+            sections.append(self.format_semantic_memories(context.semantic_memories))
 
-        # 4. Semantic memories (if token budget allows, ~500 tokens)
-        if context.semantic_memories and current_tokens < token_budget * 0.7:
-            semantic_section = self.format_semantic_memories(
-                context.semantic_memories[:3]
-            )
-            sections.append(semantic_section)
-            current_tokens += self.estimate_tokens(semantic_section)
+        # 3. Rolling thread summary — everything that has scrolled out of
+        #    the recent window, compressed (never silently cut)
+        if context.early_summary:
+            sections.append(self.format_thread_summary(context.early_summary))
 
-        # 5. Conversation history (if space, ~600 tokens)
-        if context.conversation_history and current_tokens < token_budget * 0.85:
-            history_section = self.format_history(
-                context.conversation_history,
-                max_tokens=600
-            )
-            sections.append(history_section)
+        # 4. Conversation record: earliest exchanges with an "Earliest
+        #    player message" headline; recall questions also receive the
+        #    full dated player-message chronology
+        sections.append(self.format_conversation_record(context, include_chronology=recall))
+
+        # 5. Recent window: the 7 messages before the current turn,
+        #    verbatim as chat turns (always included)
+        sections.append(self.format_recent_window(context.get_recent_messages(7)[:-1]))
 
         # 6. Current question (always included)
         sections.append(f"\n## Current Question\nPlayer: {query}\n\nCoach: ")
 
         return Prompt(content="\n\n".join(sections))
-
-    def format_patterns(self, patterns: List[Pattern], max_tokens: int) -> str:
-        """Format patterns for prompt, respecting token budget."""
-
-        lines = ["## Your Detected Patterns (Most Relevant)\n"]
-        tokens_used = self.estimate_tokens(lines[0])
-
-        for pattern in patterns:
-            pattern_text = f"""
-**{pattern.name} ({pattern.severity})**
-- Confidence: {pattern.confidence_score:.0%}
-- Affects {pattern.affected_games_count} games ({pattern.affected_games_ratio:.0%} of recent games)
-- Description: {pattern.description}
-- Recommendation: {pattern.recommended_drill_type}
-"""
-            pattern_tokens = self.estimate_tokens(pattern_text)
-
-            if tokens_used + pattern_tokens < max_tokens:
-                lines.append(pattern_text)
-                tokens_used += pattern_tokens
-            else:
-                break
-
-        return "\n".join(lines)
 ```
 
 ### 5.3 Example Use Case: "Why do I keep losing winning positions?"
@@ -968,8 +903,8 @@ class SummarizationService:
         elif content.type == 'game':
             return self.summarize_game(content)
 
-        elif content.type == 'coaching_session':
-            return self.summarize_coaching(content)
+        # Coaching exchanges skip this service entirely — each completed
+        # exchange is compressed by the chat-memory pipeline (§6.3).
 
     def summarize_pattern(self, pattern: Pattern) -> str:
         """Pattern summary for embedding."""
@@ -994,59 +929,26 @@ Middlegame {analysis.phase_scores.middlegame}%, Endgame {analysis.phase_scores.e
 """.strip()
 ```
 
-### 6.3 Chunking Strategy
+### 6.3 Exchange Compression (No Chunking)
 
-**Long conversations need intelligent chunking:**
+**Conversations are not chunked — each completed exchange becomes exactly one memory.** Chunking raw conversations was considered and dropped: it produced overlapping, low-signal vectors. The shipped unit of conversational memory is the single user→assistant pair, compressed deterministically:
 
 ```python
-class ConversationChunker:
-    def chunk_conversation(
-        self,
-        messages: List[Message],
-        chunk_size: int = 512
-    ) -> List[Chunk]:
-        """Chunk conversation into semantically coherent segments."""
-
-        chunks = []
-        current_chunk = []
-        current_tokens = 0
-
-        for i, msg in enumerate(messages):
-            msg_tokens = self.estimate_tokens(msg.content)
-
-            # Start new chunk on topic shift or size limit
-            if current_tokens + msg_tokens > chunk_size or self.is_topic_shift(messages, i):
-                if current_chunk:
-                    chunks.append(self.create_chunk(current_chunk))
-                current_chunk = [msg]
-                current_tokens = msg_tokens
-            else:
-                current_chunk.append(msg)
-                current_tokens += msg_tokens
-
-        # Add final chunk
-        if current_chunk:
-            chunks.append(self.create_chunk(current_chunk))
-
-        return chunks
-
-    def create_chunk(self, messages: List[Message]) -> Chunk:
-        """Create chunk with metadata."""
-        content = "\n".join(f"{m.role}: {m.content}" for m in messages)
-
-        # Extract topic from first user message in chunk
-        topic = self.extract_topic(messages)
-
-        return Chunk(
-            content=content,
-            metadata={
-                "topic": topic,
-                "message_count": len(messages),
-                "start_time": messages[0].timestamp,
-                "end_time": messages[-1].timestamp,
-            }
-        )
+def compress_exchange(
+    user_message: str,
+    coach_message: str,
+    date: datetime,
+) -> str:
+    """One exchange -> one dated memory sentence, ready to embed."""
+    user_text = collapse_whitespace(user_message)[:220]
+    coach_text = collapse_whitespace(coach_message)[:320]
+    return (
+        f"Coaching exchange ({date:%Y-%m-%d}). "
+        f"Player asked: {user_text} | Coach: {coach_text}"
+    )
 ```
+
+Deterministic content ids (`md5(session_id + ":" + user_message_index)`) make re-runs idempotent — no chunk bookkeeping, no duplicates.
 
 ### 6.4 Embedding Refresh and Re-indexing
 
@@ -1103,130 +1005,102 @@ class EmbeddingLifecycleManager:
 
 ## 7. Chat Memory Architecture
 
-### 7.1 Chat Session Model
+### 7.1 Conversation Record
+
+Coaching memory has four working layers: the **recent window** fed to the LLM, a **rolling thread summary** of everything that has scrolled out of it, a **conversation record** that always pins the earliest exchanges, and **semantic memories** extracted asynchronously after every exchange. The window is never silently cut — context that leaves it is summarized, not discarded.
+
+One durable row per conversation. Messages, coach state, and the rolling summary all live in a single serialized `context_json` payload — Postgres is the source of truth, Redis holds the hot cache in front of it.
 
 ```sql
--- Chat sessions (conversation containers)
+-- Durable coaching conversation record
 CREATE TABLE chat_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title TEXT, -- AI-generated summary (e.g., "Rook Endgame Discussion")
-  context_snapshot JSONB, -- Player state at session start
-  message_count INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  last_activity_at TIMESTAMPTZ DEFAULT NOW(),
-  is_archived BOOLEAN DEFAULT FALSE
+  session_id   VARCHAR(36) PRIMARY KEY,          -- conversation UUID
+  user_id      INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  context_json JSON NOT NULL,                    -- serialized ChatContext
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Individual messages
-CREATE TABLE chat_messages (
-  id BIGSERIAL PRIMARY KEY,
-  session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-  message_role TEXT NOT NULL, -- 'user', 'assistant', 'system'
-  content TEXT NOT NULL,
-  referenced_patterns JSONB, -- Array of pattern IDs cited
-  referenced_games JSONB, -- Array of game IDs cited
-  model_used TEXT, -- Which LLM generated response
-  tokens_used JSONB, -- {input: 1200, output: 350}
-  latency_ms INT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Session summaries for semantic retrieval
-CREATE TABLE chat_summaries (
-  id BIGSERIAL PRIMARY KEY,
-  session_id UUID UNIQUE REFERENCES chat_sessions(id) ON DELETE CASCADE,
-  user_id INT NOT NULL,
-  summary_text TEXT, -- AI-generated summary of entire conversation
-  key_topics JSONB, -- Extracted topics
-  resolved_questions JSONB, -- Questions that were answered
-  open_questions JSONB, -- Unresolved threads
-  generated_at TIMESTAMPTZ DEFAULT NOW()
-);
+CREATE INDEX idx_chat_sessions_user_updated
+  ON chat_sessions (user_id, updated_at);
 ```
 
-### 7.2 Long-Term Memory Extraction
-
-**Not all chat content needs to live forever in context. Extract what matters:**
-
-```python
-class ChatMemoryExtractor:
-    async def extract_memories(self, session_id: str) -> List[ExtractedMemory]:
-        """Extract important memories from chat session."""
-
-        # Fetch session with messages
-        session = await self.get_session_with_messages(session_id)
-
-        memories = []
-
-        # 1. Extract resolved questions with answers
-        for qa in self.extract_qa_pairs(session.messages):
-            if self.is_valuable_qa(qa):
-                memories.append(ExtractedMemory(
-                    type='coaching_insight',
-                    content=f"Q: {qa.question}\nA: {qa.answer}",
-                    importance=self.score_importance(qa),
-                    metadata={
-                        "session_id": session_id,
-                        "topic": qa.topic,
-                        "user_understood": qa.confirmation_received
-                    }
-                ))
-
-        # 2. Extract breakthrough moments
-        for msg in session.messages:
-            if self.is_breakthrough_indication(msg):
-                memories.append(ExtractedMemory(
-                    type='breakthrough',
-                    content=msg.content,
-                    importance=0.9,
-                    metadata={"moment_type": "understanding"}
-                ))
-
-        # 3. Extract recurring confusion (needs more coaching)
-        for topic, count in self.count_topic_mentions(session.messages).items():
-            if count >= 3:  # User asked 3+ times
-                memories.append(ExtractedMemory(
-                    type='ongoing_struggle',
-                    content=f"User struggled with {topic} ({count} mentions)",
-                    importance=0.8,
-                    metadata={"topic": topic, "mentions": count}
-                ))
-
-        return memories
-
-    async def persist_memories(self, memories: List[ExtractedMemory], user_id: int):
-        """Persist extracted memories to semantic store."""
-
-        for memory in memories:
-            if memory.importance > 0.7:  # Only high-importance memories
-                embedding = await self.embedder.embed(memory.content)
-
-                await self.vector_db.insert(
-                    user_id=user_id,
-                    memory_type=memory.type,
-                    content_summary=memory.content,
-                    embedding=embedding,
-                    metadata=memory.metadata
-                )
+```json
+// context_json payload:
+{
+  "current_position":     "<FEN the coach is anchored to>",
+  "conversation_history": [
+    { "role": "user | assistant | system",
+      "content": "...",
+      "position_fen": null, "intent": null,
+      "timestamp": "<ISO>", "metadata": {} }
+  ],
+  "skill_level":   "intermediate",
+  "focus_areas":   [],
+  "recent_topics": [],
+  "early_summary": "...",  // rolling thread summary (§7.2)
+  "summary_upto":  0       // history index the summary covers through
+}
 ```
 
-### 7.3 Raw Chat History vs. Semantic Memory
+The LLM's visible window is the **7 most recent messages before the current turn**. Older messages stay on the record; they surface through the rolling summary (§7.2) and the context layers below instead of disappearing.
+
+### 7.2 Memory Extraction Pipeline
+
+Extraction is asynchronous and debounced per session — rapid exchanges never spawn parallel extraction runs.
+
+```text
+After every coaching exchange:
+  1. process_message persists the exchange into chat_sessions.context_json
+  2. fire-and-forget schedule call (TESTING-guarded, exception-safe)
+  3. Redis SET NX debounce per session (TTL 300s, 30s countdown)
+     -> Celery 'analysis' queue -> extract_chat_memories_task
+
+  The task runs two idempotent jobs:
+  A. Exchange memories (sync_session_chat_memories)
+     each user/assistant pair -> ONE dated memory sentence
+     "Coaching exchange (YYYY-MM-DD). Player asked: ... | Coach: ..."
+     upserted into semantic_memory['coaching'] keyed by
+     md5(session_id + ":" + user_message_index)
+     only new exchanges are embedded (Gemini gemini-embedding-001, 768 dims)
+  B. Rolling thread summary (sync_session_thread_summary)
+     messages older than the 7-message window are folded into
+     context_json.early_summary / summary_upto
+     one incremental LLM call per run, only when new out-of-window
+     messages exist; factual, under 250 words
+```
+
+### 7.3 Context Injection & Recall Honesty
+
+Every coach LLM call receives the same backbone, in order:
+
+| Layer | Covers | Injected when |
+|-------|--------|---------------|
+| Relevant Semantic Memories | Similarity matches from the full memory store | Every retrieval-eligible call (small talk / unknown skip retrieval) |
+| Rolling Thread Summary | Everything older than the 7-message window, compressed | Every call, once a summary exists |
+| Conversation Record | Earliest exchanges, with an "Earliest player message" headline | Every call; recall-flagged questions additionally receive the full dated player-message chronology (last 60 entries, 100 chars each) |
+| Recent Window | Last 7 messages before the current turn, verbatim | Every call |
+
+> **Recall Is Baseline, Not a Question Shape.** Every retrieval-eligible question searches the full memory store — `["pattern", "coaching"]` — with the top-k scaled to `5 + 3 × (slices − 1)` (8 when both slices are searched). Similarity alone decides what surfaces; keywords never gate *what* is searched — they only enable the chronology grounding for "what did I ask / what did we discuss" questions. A standing system-prompt rule restricts recall answers to the visible history, Conversation Record, and retrieved memories — never the coach's own past lines or memory summaries. "What was the first message I sent" is answered deterministically from the session record (no LLM, no retrieval).
+
+> **LLM Reliability.** Every coach and summary call treats an empty completion as a provider failure: per-provider retries, then failover across the provider chain (local → openrouter → openai). The local provider sends `x-opencode-session` when configured — OpenCode Go returns 400s or degraded/empty completions without it. There are no canned response templates: when the LLM cannot be reached, the coach says so and answers nothing fabricated.
+
+### 7.4 Raw Chat History vs. Semantic Memory
 
 | Aspect | Raw Chat History | Semantic Memory |
 |--------|------------------|-----------------|
-| **Storage** | SQL (`chat_messages`) | Vector DB (`semantic_memory`) |
+| **Storage** | SQL (`chat_sessions.context_json`) | Vector DB (`semantic_memory`) |
 | **Scope** | Exact conversation | Conceptual summary |
 | **Use Case** | Session continuity | Cross-session retrieval |
 | **Token Cost** | High (every word) | Low (summarized) |
 | **Retrieval** | Sequential access | Similarity search |
-| **Lifespan** | 30-90 days | Permanent |
+| **Lifespan** | Session lifetime (retained on the record) | Permanent |
 | **Example** | "User: Why did I lose? Coach: You missed a fork..." | "User struggled with knight fork recognition, needs more practice" |
 
 **Why this separation matters:**
 - Sending full conversation history to LLM consumes context window
 - Semantic memory allows retrieval of relevant prior coaching without sending everything
-- User can have 1000+ messages, but only top 5 relevant memories get injected
+- Only the most relevant memories get injected — top 8 when both slices of the store are searched (§7.3)
 
 ---
 
@@ -1744,7 +1618,7 @@ ChessRun's memory and retrieval architecture represents a **domain-specific evol
    - Combined for optimal context assembly
 
 4. **Multi-Horizon Memory:**
-   - Short-term: Current conversation (last 10 messages)
+   - Short-term: Current conversation (7-message window + rolling summary)
    - Medium-term: Recent patterns and games (30-90 days)
    - Long-term: Player archetype and lifetime tendencies
    - Semantic: Conceptually similar situations across all history
@@ -1780,6 +1654,6 @@ ChessRun is **not a generic chatbot with chess knowledge** — it is a **structu
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2025-01-12  
-**Next Review:** 2025-04-12  
+**Document Version:** 1.1  
+**Last Updated:** 2026-09-09  
+**Next Review:** 2026-12-09  
