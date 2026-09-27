@@ -13,7 +13,7 @@ if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from .core.config import settings
-from .api import users, games, analysis, insights, moves, chat, patterns, profiles, notifications, memories, training
+from .api import users, games, analysis, insights, moves, chat, patterns, profiles, notifications, memories, training, interventions
 from .core.logging_config import configure_logging
 
 # Configure logging
@@ -57,6 +57,7 @@ app.include_router(insights.router, prefix=f"{settings.API_V1_STR}/insights", ta
 app.include_router(moves.router, prefix=f"{settings.API_V1_STR}/moves", tags=["moves"])
 app.include_router(chat.router, prefix=f"{settings.API_V1_STR}/chat", tags=["chat"])
 app.include_router(training.router, prefix=f"{settings.API_V1_STR}/training", tags=["training"])
+app.include_router(interventions.router, prefix=f"{settings.API_V1_STR}/users", tags=["interventions"])
 
 
 @app.get("/")
