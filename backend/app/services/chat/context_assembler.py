@@ -20,6 +20,7 @@ from app.services.coaching.retrieval_service import (
 from app.services.patterns.constants import SEVERITY_RANK
 from app.services.patterns.pattern_service import list_user_patterns
 from app.services.profiles.profile_service import get_latest_profile
+from app.services.retrieval import DEFAULT_SEMANTIC_MIN_SIMILARITY
 
 
 def extract_pattern_ids_from_context(context: str) -> List[int]:
@@ -166,6 +167,10 @@ def assemble_coach_context(
                 query_text,
                 content_types=content_types,
                 limit=_retrieval_limit(content_types),
+                # Without an explicit floor every stored memory qualifies, so
+                # "relevant memories" meant "some memories". See
+                # services/retrieval/similar_decisions.py for the rationale.
+                min_similarity=DEFAULT_SEMANTIC_MIN_SIMILARITY,
             )
 
     memory_block = format_retrieved_memories_for_context(memories or [])
