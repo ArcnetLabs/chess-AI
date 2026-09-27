@@ -153,6 +153,7 @@ class Decision:
 
     game_id: int
     game_order: int  # recency rank: 0 = most recent game
+    game_end_time: Optional[datetime] = None
     event_types: Tuple[str, ...] = ()
     cp_loss: float = 0.0
     phase: Optional[str] = None
@@ -211,6 +212,7 @@ def _load_decisions(db: Session, user_id: int, game_limit: Optional[int]) -> Lis
 
     order = {game_id: rank for rank, (game_id, _end, _winner) in enumerate(games)}
     winners = {game_id: winner for (game_id, _end, winner) in games}
+    end_times = {game_id: end for (game_id, end, _winner) in games}
     game_ids = list(order)
 
     all_moves = (
@@ -242,6 +244,7 @@ def _load_decisions(db: Session, user_id: int, game_limit: Optional[int]) -> Lis
             Decision(
                 game_id=move.game_id,
                 game_order=order.get(move.game_id, 0),
+                game_end_time=end_times.get(move.game_id),
                 event_types=tuple(sorted({e.event_type for e in events})),
                 serious_event_types=tuple(
                     sorted(
@@ -316,6 +319,18 @@ def _split_by_recency(
     recent = [d for d in decisions if d.game_order in recent_orders]
     older = [d for d in decisions if d.game_order not in recent_orders]
     return recent, older
+
+
+def load_decisions(
+    db: Session, user_id: int, game_limit: Optional[int] = None
+) -> List[Decision]:
+    """Public accessor for the decision series.
+
+    Exposed so the coaching-memory layer can measure an intervention's outcome
+    against the same evidence the pattern engine uses, rather than re-deriving it
+    and risking two different denominators for the same claim.
+    """
+    return _load_decisions(db, user_id, game_limit)
 
 
 def _rate(errors: int, opportunities: int) -> Optional[float]:
