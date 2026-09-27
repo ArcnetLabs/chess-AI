@@ -294,8 +294,8 @@ Tooling: [Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide), 
 | **1 — Audit** | This document + [`player-intelligence-phase1-audit.md`](../audit/player-intelligence-phase1-audit.md); stale docs corrected | As-built claims backed by code/schema evidence; change set agreed | ✅ delivered (#309/#310) |
 | **2 — Move facts + Events** | `game_moves` (+backfill), eval-before, canonical classifier/phase, position features, `chess_events`, event detectors | For a fixture game, every event reproducible from stored rows; no LLM in the path | ✅ delivered (#311/#312, hardened #315/#316): 143 backfilled games → 8,599 move rows, 1,789 events |
 | **3 — Pattern engine v2** | Event-driven detectors, feature similarity, persisted evidence, `pattern_runs`, trend, strengths | A pattern's claim can be re-derived from the DB alone; trend differs when history differs | ✅ delivered (#319/#320): 4,302 decisions → 28 context patterns + 3 strengths, every one with evidence, rate and trend |
-| **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) | next |
-| **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows | pending |
+| **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) | ✅ delivered (#321/#322): three-stage match with pattern linkage; relevance floors applied to both paths |
+| **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows | next |
 | **6 — Coaching context** | Ranked context contract with budgets | Context contains the ten blocks, ranked, within budget; grounding rules hold | pending |
 | **7 — Evaluation** | Fixture dataset, harness, scores, baseline recorded | Baseline numbers exist for every metric, on a player/game-split test set | pending |
 | **8 — Fine-tuning (conditional)** | PEFT experiment, comparison, keep-on-win | Only if Phase 7 shows context is insufficient; else documented decision not to train | pending |
@@ -330,6 +330,20 @@ Three calibration decisions came out of running it against real data, and are wo
 1. **The context signature had to be coarsened.** Including the exact pawn-structure key produced near-unique signatures — 4,302 decisions pooled into groups of eight or fewer, so nothing reached a sample threshold. Structure is now reported as evidence, not used as a grouping key.
 2. **"Triggered" needed a real definition.** Treating it as "an opponent moved before this one" is true for every move after the first; it now means the mover had a piece hanging or the opponent's previous move was itself an error.
 3. **Persistence is capped to the actionable head** (top 25 weaknesses, plus strengths). Detection stays inclusive because the evidence is the asset, but a profile listing 168 weaknesses is the same as listing none; the tail is deterministic and recomputable.
+
+### What Phase 4 delivered, verified on production
+
+Retrieval over the player's own decisions (`services/retrieval/similar_decisions.py`), answering *"have I seen this player in this situation before, what did they do, how did it end?"* in three stages: same `position_key`, then same structure and phase, then a weighted feature distance (phase 0.30, material state 0.25, complexity 0.15, threat picture 0.15, mobility 0.10, trigger 0.05). Every match carries the played move, the engine's better move, the loss, the game result, and **the pattern it is already evidence for**, so a retrieved memory connects to a named weakness.
+
+Verified live for a real critical `threat_unanswered` event (game 2260 move 38, played `f6f7`, engine preferred `f8h6`): five genuinely similar past decisions across three games, two already linked to the `endgame_technique_failure` pattern.
+
+The relevance-floor gap from the audit is closed: `retrieve_semantic_memories` had defaulted `min_similarity` to `0.0` and no caller passed it, so every stored memory counted as relevant. It is now `0.3`, position retrieval has its own `0.62` floor, and exact/structure matches bypass it deliberately.
+
+Three flaws were found by running it rather than by reading it:
+
+1. **Structure was a filter, not a ranking signal** — an exact pawn skeleton returned zero candidates for a real endgame where similar positions existed. Stage 2 exists to widen the search, so structure now ranks instead of gating.
+2. **Evidence clustered in one game** — four of five matches came from a single game, and "you did this three times" is weaker than "you did this in three different games", so matches are capped at two per game and the scan orders by game recency rather than row insertion.
+3. **Match kind must outrank score** — a feature score of 1.0 could tie with an exact position recurrence and displace it (this one was caught by a unit test).
 
 ---
 
