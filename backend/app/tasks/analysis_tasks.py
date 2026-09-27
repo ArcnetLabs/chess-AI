@@ -13,6 +13,7 @@ from app.models.user import User
 from app.services.analysis.analysis_service import (
     analyze_game_for_user,
     persist_game_analysis,
+    persist_move_layer,
 )
 from app.services.analysis.analysis_job_store import get_analysis_job_store
 from app.services.analysis.unified_analyzer import AnalysisCancelledError
@@ -134,6 +135,17 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             logger.info(f"✨ {log_prefix}Creating new analysis for game {game_id}")
         
         persist_game_analysis(db, game, result, existing=existing_analysis)
+
+        # Per-move facts and chess events — the substrate pattern detection
+        # reads. Failure here must not lose the analysis that was just saved:
+        # the backfill script can rebuild this layer from the stored JSON.
+        try:
+            persist_move_layer(db, game, user, result)
+        except Exception as move_exc:  # noqa: BLE001
+            db.rollback()
+            logger.error(
+                f"⚠️ {log_prefix}Move/event layer failed for game {game_id}: {move_exc}"
+            )
         
         total_time = time.time() - start_time
         logger.info(

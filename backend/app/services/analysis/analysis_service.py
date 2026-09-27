@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.models.game import Game, GameAnalysis
 from app.models.user import User
+from app.services.events import detect_and_persist_events
 
+from .move_facts import build_move_facts, persist_move_facts
 from .unified_analyzer import GameAnalysisResult, MoveAnalysis, UnifiedChessAnalyzer
 
 
@@ -27,6 +29,7 @@ def _serialize_move_analysis(move: MoveAnalysis) -> dict:
         "classification": move.classification,
         "best_move_uci": move.best_move_uci,
         "is_user_move": move.is_user_move,
+        "pv": move.pv,
     }
 
 
@@ -132,6 +135,44 @@ def persist_game_analysis(
     game.is_analyzed = True
     db.commit()
     return analysis
+
+
+def persist_move_layer(
+    db: Session,
+    game: Game,
+    user: User,
+    result: GameAnalysisResult,
+) -> int:
+    """Persist per-move facts and the chess events derived from them.
+
+    Runs after ``persist_game_analysis`` so the aggregate row exists first. The
+    move layer is the substrate pattern detection reads: without it, detectors
+    can only count labels and phase averages (see
+    ``docs/audit/player-intelligence-phase1-audit.md`` §6).
+    """
+    rows = build_move_facts(
+        user_id=user.id,
+        game_id=game.id,
+        user_color=result.user_color,
+        moves=result.all_moves or [],
+        engine_depth=result.analysis_depth,
+    )
+    if not rows:
+        return 0
+
+    persist_move_facts(db, rows)
+    events = detect_and_persist_events(
+        db,
+        user_id=user.id,
+        game_id=game.id,
+        game_result=game.winner,
+        user_color=result.user_color,
+    )
+    db.commit()
+    logger.debug(
+        f"Move layer persisted for game {game.id}: {len(rows)} moves, {events} events"
+    )
+    return events
 
 
 async def analyze_game_for_user(
