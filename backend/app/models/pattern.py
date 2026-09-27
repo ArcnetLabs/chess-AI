@@ -55,6 +55,17 @@ class PlayerPattern(Base):
     is_strength = Column(Boolean, default=False, nullable=False)
     recommended_drill_type = Column(String, nullable=True)
 
+    # Context-aware evidence (event-driven detectors). Detectors computed an
+    # ``evidence`` dict and threw it away before, so the numbers behind a claim
+    # could not be re-read from the database; ``opportunity_count`` is the
+    # denominator that turns a count into a rate.
+    evidence = Column(JSON, nullable=True)
+    context_signature = Column(String(160), nullable=True, index=True)
+    opportunity_count = Column(Integer, nullable=True)
+    occurrence_rate = Column(Float, nullable=True)
+    detector_id = Column(String(40), nullable=True)
+    detector_version = Column(Integer, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),
@@ -115,6 +126,21 @@ class PatternOccurrence(Base):
     context_description = Column(Text, nullable=True)
     detector_metadata = Column(JSON, nullable=True)
 
+    # Link back to the move and event this occurrence came from, so a coach can
+    # walk pattern -> event -> move -> engine evaluation.
+    move_id = Column(
+        Integer,
+        ForeignKey("game_moves.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    event_id = Column(
+        Integer,
+        ForeignKey("chess_events.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     detected_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -126,4 +152,34 @@ class PatternOccurrence(Base):
         return (
             f"<PatternOccurrence(id={self.id}, pattern_id={self.pattern_id}, "
             f"game_id={self.game_id}, move={self.move_number})>"
+        )
+
+
+class PatternRun(Base):
+    """One detection run, so pattern history is auditable over time.
+
+    ``player_patterns`` holds a single upserted row per (user, type, subtype), so
+    before this table there was no record of what earlier runs found and no way
+    to answer "is this getting better?" from run history. Trend is computed from
+    the decision series itself (game recency), and this table records what each
+    run saw.
+    """
+
+    __tablename__ = "pattern_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    ran_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    detector_version = Column(String(40), nullable=False)
+    games_considered = Column(Integer, nullable=False, default=0)
+    decisions_considered = Column(Integer, nullable=False, default=0)
+    patterns_detected = Column(Integer, nullable=False, default=0)
+    strengths_detected = Column(Integer, nullable=False, default=0)
+    summary = Column(JSON, nullable=True)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"<PatternRun(id={self.id}, user_id={self.user_id}, "
+            f"patterns={self.patterns_detected})>"
         )

@@ -53,6 +53,14 @@ class DetectedPattern:
     recommended_drill_type: Optional[str] = None
     trend_direction: Optional[str] = None
     evidence: Dict[str, Any] = field(default_factory=dict)
+    # Context-aware patterns (the event-driven detectors) additionally record the
+    # situation they describe and how often the player faced it, so a claim can
+    # never be a bare count without a denominator.
+    context_signature: Optional[str] = None
+    opportunity_count: Optional[int] = None
+    occurrence_rate: Optional[float] = None
+    detector_id: Optional[str] = None
+    detector_version: Optional[int] = None
 
     def pattern_key(self) -> tuple[str, str]:
         return (self.pattern_type, self.pattern_subtype)
@@ -110,6 +118,7 @@ class PatternRunResult:
     games_considered: int
     ran_at: datetime = field(default_factory=lambda: datetime.utcnow())
     detector_version: str = "pattern_engine_v1"
+    decisions_considered: int = 0
 
     @property
     def pattern_count(self) -> int:

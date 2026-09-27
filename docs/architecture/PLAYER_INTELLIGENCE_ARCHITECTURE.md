@@ -293,8 +293,8 @@ Tooling: [Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide), 
 |---|---|---|---|
 | **1 — Audit** | This document + [`player-intelligence-phase1-audit.md`](../audit/player-intelligence-phase1-audit.md); stale docs corrected | As-built claims backed by code/schema evidence; change set agreed | ✅ delivered (#309/#310) |
 | **2 — Move facts + Events** | `game_moves` (+backfill), eval-before, canonical classifier/phase, position features, `chess_events`, event detectors | For a fixture game, every event reproducible from stored rows; no LLM in the path | ✅ delivered (#311/#312, hardened #315/#316): 143 backfilled games → 8,599 move rows, 1,789 events |
-| **3 — Pattern engine v2** | Event-driven detectors, feature similarity, persisted evidence, `pattern_runs`, trend, strengths | A pattern's claim can be re-derived from the DB alone; trend differs when history differs | next |
-| **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) | pending |
+| **3 — Pattern engine v2** | Event-driven detectors, feature similarity, persisted evidence, `pattern_runs`, trend, strengths | A pattern's claim can be re-derived from the DB alone; trend differs when history differs | ✅ delivered (#319/#320): 4,302 decisions → 28 context patterns + 3 strengths, every one with evidence, rate and trend |
+| **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) | next |
 | **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows | pending |
 | **6 — Coaching context** | Ranked context contract with budgets | Context contains the ten blocks, ranked, within budget; grounding rules hold | pending |
 | **7 — Evaluation** | Fixture dataset, harness, scores, baseline recorded | Baseline numbers exist for every metric, on a player/game-split test set | pending |
@@ -314,6 +314,22 @@ Phases 2–3 are the critical path: until moves are relational and events exist,
 
 - **Mate evaluations are reconstructed, not measured.** The analyzer flattens mate to 0 cp (`unified_analyzer.py:283`), so mate scores come from `mate_in`, and that reconstruction disagreed with the analyzer's own classification on **607 of 711** mate rows. Mate rows therefore produce no event unless the analyzer independently calls the move a mistake or blunder (103 rows qualified). Verifying the engine wrapper's mate sign convention is a small, bounded Phase 3 task; until then, precision was preferred over recall by design.
 - **Phase is still the move-number rule.** `game_moves.phase` uses the canonical boundary so existing detectors stay consistent; the material-aware rule from §3 is not adopted yet. `simplified`, `material_band` and `queens_off` are stored per move precisely so it can be added later without re-deriving.
+
+### What Phase 3 delivered, verified on production
+
+The engine now runs the original aggregate detectors **and** context-aware event detectors together, and everything is deterministic and LLM-free. On the live account: **4,302 decisions → 28 context patterns + 3 strengths**, persisted with evidence.
+
+- **Patterns are rates, not counts.** Every pattern stores `opportunity_count` (how often the player faced that situation) next to `occurrence_count`, so "7 blunders" cannot masquerade as a weakness when it happened in 900 decisions. Example from real data: *endgame technique failure in level, non-simplified positions after the opponent created a threat — **36.7% of 79 opportunities**, 29 times across 18 games, confidence 0.99, persistent*.
+- **Trend is measured, not stored.** The decision series is split by game recency against the same denominators, and real data shows the full range: 22 persistent, 2 improving, 1 worsening. "Improving" means the recent games are measurably cleaner, not that a run happened.
+- **Strengths exist by the same standard** — `solid_opening` (2.9% serious-error rate over 1,061 decisions), `solid_middlegame` (6.6%/1,728), `solid_endgame` (8.9%/1,513) — so the profile is not a list of failures. They count only high/critical events, because the event vocabulary fires liberally and counting every event disqualified every phase.
+- **Evidence is persisted and linked.** Detectors used to compute an `evidence` dict and discard it; it is now stored, and occurrences carry `move_id`/`event_id`, so pattern → event → move → engine evaluation is walkable. All 29 occurrences of the top pattern carry their FEN, both evaluations and plain-language context.
+- **Run history exists** (`pattern_runs`), so what each run saw is auditable, and patterns that no longer fire are pruned rather than left on the profile forever.
+
+Three calibration decisions came out of running it against real data, and are worth keeping in mind for Phase 4:
+
+1. **The context signature had to be coarsened.** Including the exact pawn-structure key produced near-unique signatures — 4,302 decisions pooled into groups of eight or fewer, so nothing reached a sample threshold. Structure is now reported as evidence, not used as a grouping key.
+2. **"Triggered" needed a real definition.** Treating it as "an opponent moved before this one" is true for every move after the first; it now means the mover had a piece hanging or the opponent's previous move was itself an error.
+3. **Persistence is capped to the actionable head** (top 25 weaknesses, plus strengths). Detection stays inclusive because the evidence is the asset, but a profile listing 168 weaknesses is the same as listing none; the tail is deterministic and recomputable.
 
 ---
 
