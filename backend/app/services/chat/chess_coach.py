@@ -313,6 +313,7 @@ class ChessCoach:
         grounding_block = self._format_position_analysis_block(
             context.current_position, analysis
         )
+        grounding_block = self._with_player_context(grounding_block, context)
         used_llm = False
         llm_provider: Optional[str] = None
         llm_model: Optional[str] = None
@@ -469,6 +470,7 @@ class ChessCoach:
         grounding_block = self._format_explain_move_block(
             context.current_position, move_rec
         )
+        grounding_block = self._with_player_context(grounding_block, context)
         used_llm = False
         llm_provider: Optional[str] = None
         llm_model: Optional[str] = None
@@ -608,6 +610,7 @@ class ChessCoach:
         grounding_block = self._format_compare_block(
             context.current_position, moves[:3], comparison
         )
+        grounding_block = self._with_player_context(grounding_block, context)
         used_llm = False
         llm_provider: Optional[str] = None
         llm_model: Optional[str] = None
@@ -893,6 +896,37 @@ class ChessCoach:
                 "player's actual message that matches the position they mean."
             )
         return "\n".join(lines)
+
+    def _with_player_context(
+        self, grounding_block: str, context: ChatContext
+    ) -> str:
+        """Append the player's own history to a position-centric answer.
+
+        Explain-move, analyze-position and compare used to receive only their
+        engine block, so the moments where a player asks "what should I do here?"
+        were exactly the moments with no personal history (phase 1 audit). This
+        adds relevant patterns, similar past decisions and prior coaching, or an
+        explicit statement that nothing matches.
+
+        A failure here degrades to the engine-only answer rather than losing it.
+        """
+        if context.user_id is None or not context.current_position:
+            return grounding_block
+        try:
+            from .event_context import assemble_event_context
+
+            extra = assemble_event_context(
+                self.db,
+                context.user_id,
+                fen=context.current_position,
+                exclude_game_id=context.game_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - never break a grounded answer
+            logger.warning(f"Player context unavailable: {exc}")
+            return grounding_block
+        if not extra:
+            return grounding_block
+        return f"{grounding_block}\n\n{extra}"
 
     async def _llm_coach_reply(
         self, message: str, context: ChatContext, grounding_block: str
