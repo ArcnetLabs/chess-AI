@@ -289,18 +289,31 @@ Tooling: [Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide), 
 
 ## 12. Phased delivery
 
-| Phase | Deliverable | Acceptance |
-|---|---|---|
-| **1 — Audit** | This document + [`player-intelligence-phase1-audit.md`](../audit/player-intelligence-phase1-audit.md); stale docs corrected | As-built claims backed by code/schema evidence; change set agreed |
-| **2 — Move facts + Events** | `game_moves` (+backfill), eval-before, canonical classifier/phase, position features, `chess_events`, event detectors | For a fixture game, every event reproducible from stored rows; no LLM in the path |
-| **3 — Pattern engine v2** | Event-driven detectors, feature similarity, persisted evidence, `pattern_runs`, trend, strengths | A pattern's claim can be re-derived from the DB alone; trend differs when history differs |
-| **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) |
-| **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows |
-| **6 — Coaching context** | Ranked context contract with budgets | Context contains the ten blocks, ranked, within budget; grounding rules hold |
-| **7 — Evaluation** | Fixture dataset, harness, scores, baseline recorded | Baseline numbers exist for every metric, on a player/game-split test set |
-| **8 — Fine-tuning (conditional)** | PEFT experiment, comparison, keep-on-win | Only if Phase 7 shows context is insufficient; else documented decision not to train |
+| Phase | Deliverable | Acceptance | Status |
+|---|---|---|---|
+| **1 — Audit** | This document + [`player-intelligence-phase1-audit.md`](../audit/player-intelligence-phase1-audit.md); stale docs corrected | As-built claims backed by code/schema evidence; change set agreed | ✅ delivered (#309/#310) |
+| **2 — Move facts + Events** | `game_moves` (+backfill), eval-before, canonical classifier/phase, position features, `chess_events`, event detectors | For a fixture game, every event reproducible from stored rows; no LLM in the path | ✅ delivered (#311/#312, hardened #315/#316): 143 backfilled games → 8,599 move rows, 1,789 events |
+| **3 — Pattern engine v2** | Event-driven detectors, feature similarity, persisted evidence, `pattern_runs`, trend, strengths | A pattern's claim can be re-derived from the DB alone; trend differs when history differs | next |
+| **4 — Retrieval** | Position/event-keyed similarity retrieval + relevance floors | Given a new event, the system returns the player's genuine similar history (or states none) | pending |
+| **5 — Player model + coaching memory** | Profile extensions, intervention ledger, progress states | Coach can answer "have I taught you this, and did it work?" from stored rows | pending |
+| **6 — Coaching context** | Ranked context contract with budgets | Context contains the ten blocks, ranked, within budget; grounding rules hold | pending |
+| **7 — Evaluation** | Fixture dataset, harness, scores, baseline recorded | Baseline numbers exist for every metric, on a player/game-split test set | pending |
+| **8 — Fine-tuning (conditional)** | PEFT experiment, comparison, keep-on-win | Only if Phase 7 shows context is insufficient; else documented decision not to train | pending |
 
 Phases 2–3 are the critical path: until moves are relational and events exist, nothing downstream can be context-aware.
+
+### What Phase 2 delivered, verified on production
+
+143 existing analyses were backfilled without an engine call: **8,599 move rows** and **1,789 events** across 13 event types. Evidence that the layer is usable rather than merely populated:
+
+- Non-mate user moves sit at **p50 27 / p90 208 / p99 684 cp** loss — plausible for the account's rating, and the mate-score bound keeps the tail honest (a raw ±10000 had put the blunder average at 3044 cp).
+- **72 position keys recur across games** (the most common appears in 71 games, then 43 / 41 / 23 / 16), and the same pawn structures recur across 71 / 43 / 41 / 32 games — the substrate for "you keep reaching this position".
+- **1,129 events carry an opponent trigger**, e.g. *after opponent played h7h6 → major_blunder ×7*, *after g8f6 → threat_unanswered ×6*. The "you struggle when opponents do X" capability is now queryable data rather than an aspiration.
+
+### Two limits carried into Phase 3
+
+- **Mate evaluations are reconstructed, not measured.** The analyzer flattens mate to 0 cp (`unified_analyzer.py:283`), so mate scores come from `mate_in`, and that reconstruction disagreed with the analyzer's own classification on **607 of 711** mate rows. Mate rows therefore produce no event unless the analyzer independently calls the move a mistake or blunder (103 rows qualified). Verifying the engine wrapper's mate sign convention is a small, bounded Phase 3 task; until then, precision was preferred over recall by design.
+- **Phase is still the move-number rule.** `game_moves.phase` uses the canonical boundary so existing detectors stay consistent; the material-aware rule from §3 is not adopted yet. `simplified`, `material_band` and `queens_off` are stored per move precisely so it can be added later without re-deriving.
 
 ---
 
