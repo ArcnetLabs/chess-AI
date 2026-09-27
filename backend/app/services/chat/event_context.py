@@ -38,6 +38,16 @@ MAX_SIMILAR = 3
 MAX_INTERVENTIONS = 3
 MAX_BLOCK_CHARS = 2600
 
+# The block states the rule it depends on. The coach's system prompt also carries
+# grounding rules, so this is defence in depth rather than the only guard — but a
+# block that hands the model pattern claims and history without saying they are
+# the only admissible evidence is not self-describing, cannot be audited on its
+# own, and would silently lose its constraint if it were ever reused elsewhere.
+GROUNDING_RULE = (
+    "Only the evidence below is admissible: do not invent chess evaluations, "
+    "statistics, games or patterns beyond it."
+)
+
 
 def _features_for_fen(fen: str) -> Tuple[Optional[str], Optional[str], Dict, Optional[str]]:
     """Position key, structure key, features and phase for a FEN."""
@@ -79,6 +89,21 @@ def _pattern_relevance(pattern, phase: Optional[str], concept: Optional[str]) ->
         # Strengths inform tone, but the coach is looking for what to fix.
         score -= 0.15
     return round(score, 3)
+
+
+def absence_context() -> str:
+    """The exact text used when nothing matches this position.
+
+    Public so evaluation probes can use the real string instead of a hand-copied
+    imitation: a probe that re-types the message drifts from the system it claims
+    to measure (it did — the copy was missing the grounding rule).
+    """
+    return (
+        "## Player history for this position\n"
+        f"{GROUNDING_RULE}\n"
+        "Nothing on record for this kind of position yet. Coach from the engine "
+        "facts alone, and say plainly that this situation is new for the player."
+    )
 
 
 def assemble_event_context(
@@ -170,11 +195,7 @@ def assemble_event_context(
         )
 
     if not blocks:
-        return (
-            "## Player history for this position\n"
-            "Nothing on record for this kind of position yet. Coach from the engine "
-            "facts alone, and say plainly that this situation is new for the player."
-        )
+        return absence_context()
 
     # Budget: drop whole blocks, lowest priority first (higher number = lower
     # priority), rather than truncating a claim mid-sentence.
@@ -182,10 +203,10 @@ def assemble_event_context(
     while blocks:
         body = "\n\n".join(f"{title}\n{text}" for title, _priority, text in blocks)
         if len(body) <= MAX_BLOCK_CHARS or len(blocks) == 1:
-            return body
+            return f"{GROUNDING_RULE}\n\n{body}"
         dropped = blocks.pop()
         logger.debug(f"assemble_event_context: dropped block {dropped[0]!r} to fit budget")
     return ""
 
 
-__all__ = ["assemble_event_context"]
+__all__ = ["assemble_event_context", "absence_context"]
