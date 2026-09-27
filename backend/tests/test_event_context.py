@@ -16,8 +16,10 @@ import pytest
 from app.models.pattern import PlayerPattern
 from app.models.user import User
 from app.services.chat.event_context import (
+    GROUNDING_RULE,
     MAX_BLOCK_CHARS,
     MAX_PATTERNS,
+    absence_context,
     assemble_event_context,
 )
 
@@ -182,3 +184,32 @@ class TestAssembly:
         )
         block = assemble_event_context(db, user.id, fen="8/8/4k3/8/8/4K3/4P3/8 w - - 0 1")
         assert block.index("weakness__") < block.index("strength__")
+
+
+class TestGroundingRule:
+    """The admissibility rule must survive on every return path.
+
+    A live context-quality run failed the no-history probe because the rule was
+    added to the budgeted path only and the absence path kept a hand-typed copy
+    of the message. Both branches are asserted here, and the absence text is
+    required to be the shared constant rather than a re-typed string.
+    """
+
+    def test_present_when_history_exists(self, db, user):
+        add_pattern(
+            db,
+            user.id,
+            subtype="weakness__endgame|level|simplified|triggered",
+            context="endgame|level|simplified|triggered",
+            impact=0.7,
+        )
+        block = assemble_event_context(db, user.id, fen="8/8/4k3/8/8/4K3/4P3/8 w - - 0 1")
+        assert GROUNDING_RULE in block
+
+    def test_present_when_no_history(self, db, user):
+        assert GROUNDING_RULE in absence_context()
+
+    def test_absence_path_uses_the_shared_constant(self, db, user):
+        """Asking for an unknown position returns exactly the shared string."""
+        block = assemble_event_context(db, user.id, fen="8/8/4k3/8/8/4K3/4P3/8 w - - 0 1")
+        assert block == absence_context()
