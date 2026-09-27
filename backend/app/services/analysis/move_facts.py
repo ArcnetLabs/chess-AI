@@ -45,9 +45,19 @@ from .position_features import (
     structure_key,
 )
 
-# Mate is scored as a decisive evaluation rather than zero, so a move that walks
-# into mate cannot look like a quiet one.
-MATE_SCORE = 10000.0
+# Mate is scored as decisive but *bounded*. A raw +/-10000 makes centipawn
+# statistics meaningless — one mate flip swamps every average and saturates every
+# severity band — so mate is mapped to a value clearly above any real material
+# swing while staying in a sane range.
+#
+# IMPORTANT: mate rows are reconstructed from ``mate_in`` (the analyzer flattened
+# ``evaluation_cp`` to 0 for mates), and that reconstruction has not been
+# independently verified against the engine wrapper's sign convention. Live data
+# showed mate-derived cp_loss disagreeing with the analyzer's own move
+# classification in 607 of 711 mate rows, so the event detector refuses to build
+# coaching claims on a mate row unless the analyzer independently agrees the move
+# was a serious error. See ``is_mate_score``.
+MATE_SCORE = 1200.0
 
 
 def _eval_after_black_centric(move, mover: str) -> float:

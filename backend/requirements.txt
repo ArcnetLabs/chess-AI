@@ -14,8 +14,14 @@ supabase==2.22.0
 PyJWT[crypto]==2.9.0
 
 # Database (SQLAlchemy still used for ORM)
-sqlalchemy>=2.0.23
-alembic>=1.13.0
+# The upper bound is deliberate. SQLAlchemy 2.1 changed the default sync driver
+# for a bare ``postgresql://`` URL to psycopg v3 (this project installs
+# psycopg2-binary) and removed the ``sqlalchemy.ext.declarative`` import the code
+# still uses, so an open range broke every deploy once pip stopped serving 2.0.x
+# from cache — the build installed 2.1.1 and ``alembic upgrade head`` died with
+# "ModuleNotFoundError: No module named 'psycopg'".
+sqlalchemy>=2.0.23,<2.1
+alembic>=1.13.0,<1.21
 psycopg2-binary==2.9.11
 asyncpg>=0.31.0
 pgvector>=0.3.6
