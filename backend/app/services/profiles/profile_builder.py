@@ -15,6 +15,7 @@ from app.models.game import Game, GameAnalysis
 from app.models.profile import PlayerProfile
 from app.models.user import User
 from app.services.analysis.analysis_pipeline import AnalysisPipeline
+from app.services.coaching.interventions import coaching_history_summary
 from app.services.patterns.constants import (
     MIN_OPENING_SAMPLE_GAMES,
     OPENING_ACPL_THRESHOLD,
@@ -121,6 +122,11 @@ def build_player_profile(
         tactical_themes=tactical_themes,
         pattern_summary_refs=pattern_summary_refs,
         rating_trends=rating_trends,
+        # What coaching has already been offered for these weaknesses and whether
+        # it moved anything. Part of the snapshot because the coach loads the
+        # snapshot, and repeating advice the player already received is the
+        # failure mode this exists to prevent.
+        coaching_history=coaching_history_summary(db, user_id, limit=10),
         games_analyzed_count=aggregation.total_analyzed_games,
         patterns_detected_count=len(patterns),
         first_game_date=first_game_date,

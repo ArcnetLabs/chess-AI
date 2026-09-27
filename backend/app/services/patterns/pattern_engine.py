@@ -84,6 +84,22 @@ class PatternEngine:
 
         if persist and result.patterns:
             persist_pattern_snapshots(self._db, user_id, result)
+            # Coaching outcomes track the newest games, so they are refreshed by
+            # the same run that updates the patterns they refer to. Imported here
+            # rather than at module scope: the interventions service reads the
+            # decision series from this package, and a module-level import would
+            # be circular. Failing here must not invalidate a detection run.
+            try:
+                from app.services.coaching.interventions import (
+                    evaluate_intervention_outcomes,
+                )
+
+                evaluate_intervention_outcomes(self._db, user_id)
+            except Exception as outcome_exc:  # noqa: BLE001
+                logger.error(
+                    f"Intervention outcome evaluation failed for user_id={user_id}: "
+                    f"{outcome_exc}"
+                )
 
         return result
 

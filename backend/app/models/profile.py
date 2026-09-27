@@ -50,6 +50,9 @@ class PlayerProfile(Base):
     tactical_themes = Column(JSON, nullable=True)
     pattern_summary_refs = Column(JSON, nullable=True)
     rating_trends = Column(JSON, nullable=True)
+    # What coaching has already been offered for these weaknesses, and whether it
+    # moved anything (see services/coaching/interventions.py).
+    coaching_history = Column(JSON, nullable=True)
 
     games_analyzed_count = Column(Integer, nullable=False, default=0)
     patterns_detected_count = Column(Integer, nullable=False, default=0)
