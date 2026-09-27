@@ -13,6 +13,7 @@ from app.services.chat.chess_coach import ChessCoach
 from app.services.chat.context_assembler import assemble_coach_context
 from app.services.chat import ChatIntent
 from app.services.coaching.retrieval_service import RetrievedMemory
+from app.services.retrieval import DEFAULT_SEMANTIC_MIN_SIMILARITY
 
 
 @pytest.fixture
@@ -275,6 +276,9 @@ def test_assemble_coach_context_includes_retrieved_memories(
         "How do I improve endgames?",
         content_types=None,
         limit=5,
+        # The relevance floor is passed explicitly: leaving it unset meant every
+        # stored memory qualified as "relevant" (see the phase 1 audit).
+        min_similarity=DEFAULT_SEMANTIC_MIN_SIMILARITY,
     )
     assert "## Relevant Semantic Memories" in context
     assert "rook endgames under time pressure" in context
