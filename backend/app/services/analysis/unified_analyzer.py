@@ -32,6 +32,10 @@ class MoveAnalysis:
     evaluation_change: Optional[float]
     classification: str  # brilliant, great, best, excellent, good, inaccuracy, mistake, blunder
     is_user_move: bool
+    # Principal variation from the engine at this position. Kept because the
+    # coach needs to explain *why* a move was better, and the engine already
+    # computed it — it used to be discarded here.
+    pv: Optional[list] = None
 
 
 @dataclass
@@ -312,7 +316,8 @@ class UnifiedChessAnalyzer:
                 best_move_uci=best_move,
                 evaluation_change=eval_change,
                 classification=classification,
-                is_user_move=is_user_move
+                is_user_move=is_user_move,
+                pv=current_eval.get('pv'),
             )
             
             moves_analysis.append(move_analysis)
