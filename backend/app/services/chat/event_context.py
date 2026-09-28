@@ -29,12 +29,17 @@ from sqlalchemy.orm import Session
 
 from app.services.coaching.interventions import list_interventions
 from app.services.patterns.pattern_service import list_user_patterns
-from app.services.retrieval import find_similar_decisions
+from app.services.retrieval import (
+    find_similar_decisions,
+    find_similar_games,
+    format_similar_games_for_context,
+)
 
 # Budgets: enough to ground a specific answer, small enough to leave room for the
 # engine facts the answer is actually about.
 MAX_PATTERNS = 4
 MAX_SIMILAR = 3
+MAX_SIMILAR_GAMES = 3
 MAX_INTERVENTIONS = 3
 MAX_BLOCK_CHARS = 2600
 
@@ -175,6 +180,25 @@ def assemble_event_context(
                 f"{decision.outcome_text()}{pattern}"
             )
         blocks.append(("## Similar positions from your own games", 2, "\n".join(lines)))
+
+    # 2b. Whole games in this kind of position, with how they went. Anchored on
+    # structure or exact position; it is silent when nothing genuinely matches,
+    # which is the common case and the honest answer.
+    games = find_similar_games(
+        db,
+        user_id,
+        position_key=position_key,
+        structure_key=structure_key,
+        phase=phase,
+        features=features,
+        exclude_game_id=exclude_game_id,
+        limit=MAX_SIMILAR_GAMES,
+    )
+    if games:
+        block = format_similar_games_for_context(games)
+        if block:
+            heading, _, body = block.partition("\n")
+            blocks.append((heading, 2, body))
 
     # 3. Coaching already offered for these patterns.
     interventions = list_interventions(db, user_id, limit=MAX_INTERVENTIONS)
