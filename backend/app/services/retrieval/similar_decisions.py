@@ -167,6 +167,37 @@ def _pattern_for_move(db: Session, move_id: int) -> Optional[str]:
     return occurrence.pattern.pattern_subtype
 
 
+def _legal_best_move(move: GameMove) -> Optional[str]:
+    """The stored best move, but only if the player could actually have played it.
+
+    Rows written before the analyzer fix store the *opponent's* best reply: the
+    engine was queried after the move was pushed, so ``best_move`` belongs to the
+    side to move in ``fen_after``. Measured on production, 2,982 of 3,000 stored best
+    moves were legal in ``fen_after`` and **none** were legal in neither, which is
+    what identified the cause.
+
+    Rather than show a player advice they could not follow ("you played f2f4, better
+    was b8c6" — a Black move offered to White), an unusable best move is dropped
+    here, in one place, so every consumer is protected at once. Historical rows keep
+    their stored value; it simply is not presented as an alternative.
+    """
+    if not move.best_move_uci or not move.fen_before:
+        return None
+    if move.best_move_uci == move.move_uci:
+        return move.best_move_uci
+    try:
+        import chess
+
+        board = chess.Board(move.fen_before)
+        return (
+            move.best_move_uci
+            if chess.Move.from_uci(move.best_move_uci) in board.legal_moves
+            else None
+        )
+    except Exception:
+        return None
+
+
 def _to_decision(
     move: GameMove,
     game: Optional[Game],
@@ -184,7 +215,7 @@ def _to_decision(
         phase=move.phase,
         fen_before=move.fen_before,
         played_move=move.move_uci,
-        best_move=move.best_move_uci,
+        best_move=_legal_best_move(move),
         cp_loss=float(move.cp_loss or 0.0),
         classification=move.classification,
         game_result=game.winner if game else None,
