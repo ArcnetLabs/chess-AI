@@ -122,7 +122,7 @@ export function DigestModal({
           ) : items.length === 0 ? (
             <p className="py-10 text-center text-sm leading-6 text-[#bbcabf]">
               Nothing here yet. After each analysis run your coach compiles a weekly digest of
-              changes, focus areas, and drills — it will appear here.
+              changes, focus areas, and what to work on next — it will appear here.
             </p>
           ) : (
             <ul className="space-y-3">

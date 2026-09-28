@@ -50,7 +50,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
  * - Cookie-based session storage means this works in both SSR and
  *   client-side contexts without exposing tokens to localStorage.
  *
- * Response interceptor handles 401 → redirect-to-login transparently.
+ * Response interceptor handles 401 â†’ redirect-to-login transparently.
  */
 const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -88,7 +88,7 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // Avoid dashboard ↔ login redirect loops when Supabase session exists
+      // Avoid dashboard â†” login redirect loops when Supabase session exists
       // but the backend rejects the JWT (misconfigured SUPABASE_JWT_SECRET).
       try {
         const supabase = createClient();
@@ -97,7 +97,7 @@ apiClient.interceptors.response.use(
         } = await supabase.auth.getSession();
         if (session?.access_token) {
           console.error(
-            '[api] 401 with active Supabase session — backend JWT verification likely misconfigured',
+            '[api] 401 with active Supabase session â€” backend JWT verification likely misconfigured',
           );
           return Promise.reject(error);
         }
@@ -437,7 +437,7 @@ export const insightsApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Patterns API (deterministic backend patterns — no UI in this layer)
+// Patterns API (deterministic backend patterns â€” no UI in this layer)
 // ---------------------------------------------------------------------------
 
 export const patternApi = {
@@ -460,7 +460,7 @@ export const patternApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Player profiles API (longitudinal snapshots — no UI in this layer)
+// Player profiles API (longitudinal snapshots â€” no UI in this layer)
 // ---------------------------------------------------------------------------
 
 export const profileApi = {
@@ -542,7 +542,7 @@ export const chatApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Memories API (semantic-memory catalog — "What your coach knows")
+// Memories API (semantic-memory catalog â€” "What your coach knows")
 // ---------------------------------------------------------------------------
 
 export interface MemoryItem {
@@ -582,136 +582,6 @@ export const memoryApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Training API (plans, drills, progress — coach/interview-authored artifacts)
-// ---------------------------------------------------------------------------
-
-export interface TrainingDrill {
-  id: number;
-  training_plan_id: number | null;
-  pattern_id: number | null;
-  drill_type: string;
-  status: string;
-  prompt_text: string;
-  position_fen: string | null;
-  expected_answer: string | null;
-  user_answer: string | null;
-  is_correct: boolean | null;
-  score: number | null;
-  started_at: string | null;
-  completed_at: string | null;
-}
-
-export interface TrainingPlanSummary {
-  id: number;
-  plan_version: number;
-  status: string;
-  title: string;
-  focus_areas: string[] | null;
-  focus_pattern_ids: number[] | null;
-  drill_count: number;
-  completed_drill_count: number;
-  source: string;
-  generated_at: string | null;
-}
-
-export interface TrainingPlanDetail extends TrainingPlanSummary {
-  drills: TrainingDrill[];
-}
-
-export interface TrainingPlanInput {
-  title: string;
-  drills: Array<{
-    drill_type?: string;
-    prompt_text: string;
-    position_fen?: string | null;
-    pattern_id?: number | null;
-    expected_answer?: string | null;
-  }>;
-  focus_areas?: string[];
-  focus_pattern_ids?: number[];
-  source?: 'interview' | 'coach' | 'self';
-}
-
-export interface TrainingProgress {
-  total_drills: number;
-  completed_drills: number;
-  pending_drills: number;
-  skipped_drills: number;
-  in_progress_drills: number;
-  completion_rate: number;
-  active_plan_id: number | null;
-  active_plan_version: number | null;
-  active_plan_completion_rate: number | null;
-  by_drill_type: Record<string, { total: number; completed: number }>;
-  last_completed_at: string | null;
-}
-
-export const trainingApi = {
-  listPlans: async (userId: number): Promise<{ plans: TrainingPlanSummary[] }> => {
-    const response = await apiClient.get(`/training/${userId}/plans`);
-    return response.data;
-  },
-
-  getActivePlan: async (userId: number): Promise<TrainingPlanDetail> => {
-    const response = await apiClient.get<TrainingPlanDetail>(
-      `/training/${userId}/plans/active`,
-    );
-    return response.data;
-  },
-
-  createPlan: async (userId: number, plan: TrainingPlanInput): Promise<TrainingPlanDetail> => {
-    const response = await apiClient.post<TrainingPlanDetail>(
-      `/training/${userId}/plans`,
-      plan,
-    );
-    return response.data;
-  },
-
-  saveDrill: async (
-    userId: number,
-    drill: {
-      drill_type?: string;
-      prompt_text: string;
-      position_fen?: string | null;
-      pattern_id?: number | null;
-      training_plan_id?: number | null;
-      expected_answer?: string | null;
-    },
-  ): Promise<TrainingDrill> => {
-    const response = await apiClient.post<TrainingDrill>(`/training/${userId}/drills`, drill);
-    return response.data;
-  },
-
-  setDrillStatus: async (
-    userId: number,
-    drillId: number,
-    status: 'in_progress' | 'skipped',
-  ): Promise<TrainingDrill> => {
-    const response = await apiClient.patch<TrainingDrill>(
-      `/training/${userId}/drills/${drillId}`,
-      { status },
-    );
-    return response.data;
-  },
-
-  completeDrill: async (
-    userId: number,
-    drillId: number,
-    attempt: { user_answer: string; is_correct: boolean; score?: number | null },
-  ): Promise<TrainingDrill> => {
-    const response = await apiClient.post<TrainingDrill>(
-      `/training/${userId}/drills/${drillId}/complete`,
-      attempt,
-    );
-    return response.data;
-  },
-
-  getProgress: async (userId: number): Promise<TrainingProgress> => {
-    const response = await apiClient.get<TrainingProgress>(`/training/${userId}/progress`);
-    return response.data;
-  },
-};
-
 // Practice focus API (what to work on, and where to do the work)
 // ---------------------------------------------------------------------------
 //
@@ -757,6 +627,9 @@ export const practiceApi = {
   },
 };
 
+// The training/drill client is deliberately gone: ChessRun is the coach, practice
+// happens on ChessReps and ChessFlow, and nothing in the app renders a drill surface.
+// The backend endpoints remain for when a partner integration needs them.
 const api = {
   users: userApi,
   games: gamesApi,
@@ -766,7 +639,6 @@ const api = {
   profiles: profileApi,
   chat: chatApi,
   memories: memoryApi,
-  training: trainingApi,
   practice: practiceApi,
   notifications: notificationsApi,
 };
