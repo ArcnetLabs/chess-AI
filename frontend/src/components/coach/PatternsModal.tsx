@@ -8,22 +8,57 @@ function trendLabel(trend: string | null | undefined): string | null {
   const value = trend.toLowerCase();
   if (['worsening', 'down', 'declining'].includes(value)) return 'Trending worse';
   if (['improving', 'up', 'rising'].includes(value)) return 'Improving';
+  if (value === 'resolved') return 'Not seen lately';
+  if (value === 'new') return 'New';
+  if (value === 'persistent') return 'Keeps happening';
   if (value.includes('stable') || value === 'flat') return 'Stable';
+  // No direction is stored when the recent history is too thin to compare, so
+  // there is nothing to say — better than implying stability we did not measure.
   return null;
 }
 
 function trendTone(trend: string | null | undefined): string {
   const value = (trend ?? '').toLowerCase();
   if (['worsening', 'down', 'declining'].includes(value)) return 'text-[#ffb4ab]';
-  if (['improving', 'up', 'rising'].includes(value)) return 'text-[#6ffbbe]';
+  if (['improving', 'up', 'rising', 'resolved'].includes(value)) return 'text-[#6ffbbe]';
   return 'text-[#bbcabf]';
 }
 
+/** Severity is an internal word; the player gets plain language. */
+function severityLabel(severity: string | null | undefined, isStrength: boolean): string | null {
+  if (isStrength) return null; // the section heading already says it is a strength
+  const value = (severity ?? '').toLowerCase();
+  if (value === 'critical' || value === 'high') return 'Costly';
+  if (value === 'medium') return 'Worth fixing';
+  if (value === 'low') return 'Minor';
+  return null;
+}
+
+/**
+ * A short title for a pattern.
+ *
+ * Newer patterns store ``event_type__context_signature``, so the raw subtype
+ * contains the pipe-delimited signature ("endgame|level|complex|triggered") and
+ * rendering it directly put internal vocabulary in front of the player. Only the
+ * event-type half is a human-readable phrase; the situation is already described
+ * in the pattern's own sentence.
+ */
 function categoryLabel(type: string, subtype: string): string {
-  const clean = subtype
+  const [eventPart] = subtype.split('__');
+  const clean = (eventPart || type)
     .replace(/_/g, ' ')
+    .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
   return clean || type;
+}
+
+/** Plain-English count line. "Occurrences" is our word, not the player's. */
+function countLabel(pattern: PlayerPattern): string {
+  if (pattern.is_strength) {
+    return `Held up in ${pattern.affected_games_count} games`;
+  }
+  const times = pattern.occurrence_count === 1 ? 'once' : `${pattern.occurrence_count} times`;
+  return `Happened ${times} in ${pattern.affected_games_count} games`;
 }
 
 export function PatternsModal({
@@ -139,17 +174,16 @@ export function PatternsModal({
 
 function PatternCard({ pattern }: { pattern: PlayerPattern }) {
   const trend = trendLabel(pattern.trend_direction);
+  const severity = severityLabel(pattern.severity, pattern.is_strength);
   return (
     <li className="rounded-lg border border-[#262626] bg-[#171717] px-4 py-3">
       <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-[#bbcabf]">
         <span className="text-brand-primary">{categoryLabel(pattern.pattern_type, pattern.pattern_subtype)}</span>
-        <span className="rounded-full border border-[#3c4a42] px-2 py-0.5">{pattern.severity}</span>
+        {severity && <span className="rounded-full border border-[#3c4a42] px-2 py-0.5">{severity}</span>}
         {trend && <span className={`ml-auto normal-case tracking-normal ${trendTone(pattern.trend_direction)}`}>{trend}</span>}
       </p>
       <p className="mt-1.5 text-sm leading-6 text-[#e5e2e1]">{pattern.pattern_description}</p>
-      <p className="mt-1.5 font-mono text-xs text-[#bbcabf]">
-        {pattern.occurrence_count} occurrences across {pattern.affected_games_count} games
-      </p>
+      <p className="mt-1.5 font-mono text-xs text-[#bbcabf]">{countLabel(pattern)}</p>
     </li>
   );
 }
