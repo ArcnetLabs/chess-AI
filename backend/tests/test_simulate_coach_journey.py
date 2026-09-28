@@ -118,5 +118,8 @@ def test_main_without_jwt_returns_one(capsys):
     exit_code = module.main([])
     captured = capsys.readouterr()
     assert exit_code == 1
-    assert "Sign in via Supabase, copy access_token" in captured.out
+    # Assert against the script's own instruction text. This test previously
+    # re-typed the copy, so it went stale the moment sign-in became passwordless
+    # and reported a failure in the script that did not exist.
+    assert module.JWT_SETUP_INSTRUCTIONS.splitlines()[0] in captured.out
     assert "Overall: FAIL" in captured.out
