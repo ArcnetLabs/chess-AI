@@ -269,6 +269,7 @@ Only if the baseline shows the model failing *despite correct context* does Phas
 |---|---|---|
 | Is the context correct and safe to coach from? | `python scripts/verify_context_quality.py --user-id 1` | no |
 | Do the pattern layer and grounding hold on labelled fixtures? | `python scripts/run_coach_eval.py --user-id 1` | no |
+| Are the stored per-ply facts internally consistent? | `python scripts/audit_move_facts.py --user-id 1` | no |
 | What does the model do with correct context? | `python scripts/run_model_eval.py --user-id 1` | yes |
 
 A model baseline only means something if the context under it is right, so the first two are gates on the third, not alternatives to it. The context check runs the same probes as `run_model_eval`, scores the rendered blocks the coach actually receives, and exits non-zero on any violation: missing grounding rule, engine vocabulary in player-facing text, a "recurring pattern" with no citable id, or an unstated absence. Because it is deterministic, it can also score the fallback coaching text a player sees when no provider is configured — text that is just as user-visible as model output and was previously unmeasured.
@@ -332,6 +333,18 @@ Phases 2–3 are the critical path: until moves are relational and events exist,
 
 - **Mate evaluations are reconstructed, not measured.** The analyzer flattens mate to 0 cp (`unified_analyzer.py:283`), so mate scores come from `mate_in`, and that reconstruction disagreed with the analyzer's own classification on **607 of 711** mate rows. Mate rows therefore produce no event unless the analyzer independently calls the move a mistake or blunder (103 rows qualified). Verifying the engine wrapper's mate sign convention is a small, bounded Phase 3 task; until then, precision was preferred over recall by design.
 - **Phase is still the move-number rule.** `game_moves.phase` uses the canonical boundary so existing detectors stay consistent; the material-aware rule from §3 is not adopted yet. `simplified`, `material_band` and `queens_off` are stored per move precisely so it can be added later without re-deriving.
+
+### The best-move defect, and what it says about the substrate
+
+Every stored ply carried the **opponent's** best reply as its "best move": the analyzer evaluated the board after pushing the move, so `current_eval['best_move']` belonged to whoever moved next, and `is_best = (move_uci == best_move)` compared the player's move against the opponent's — false for effectively every ply in the library. It surfaced as one wrong sentence in a coach context ("you played f2f4, better was b8c6"), and the fix is in `unified_analyzer._analyze_all_moves`, which now carries the *pre-move* evaluation's best move forward one ply (no extra engine call).
+
+Confirmed by measurement rather than inspection: across 3,000 production rows, 1,492 stored best moves were illegal in their own position, **2,982 were legal in `fen_after`** and **0 in neither** — which located the cause precisely. A separate check ruled out the competing hypothesis, since `structure_key`/`position_key` describe `fen_before` 200/200.
+
+Consequences, for the record: patterns and events are **unaffected** (they gate on `cp_loss` from the stored evaluations); what was wrong was coaching text, the best-move statistic, and "best" classification. Rows written before the fix keep the wrong value, `similar_decisions` drops a best move that is illegal in its own position so no consumer can present it, and a re-analysis writes correct values.
+
+Third finding of this shape in the project, so the lesson is now enforced rather than remembered: **the substrate is audited by command, not by reading output closely.** `scripts/audit_move_facts.py` checks keys against their positions, move legality against the recorded colour, `cp_loss` against its documented formula, mate flags, PV/best-move agreement and ply linkage, with no engine call. It currently passes on production: 8,599 rows, every invariant clean except the known-legacy best-move class.
+
+Worth stating plainly, since it happened three times in one session: **my own checkers produced more false alarms than the data produced defects** — the audit first reported 5,830 phantom eval discontinuities (the perspective flip is the convention) and 269 phantom PV mismatches (the PV is stored as a stringified list). A checker needs the same verification as the code it checks, which is why the two conventions are now pinned by `tests/test_move_fact_conventions.py`.
 
 ### What Phase 3 delivered, verified on production
 
