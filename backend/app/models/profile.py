@@ -53,6 +53,10 @@ class PlayerProfile(Base):
     # What coaching has already been offered for these weaknesses, and whether it
     # moved anything (see services/coaching/interventions.py).
     coaching_history = Column(JSON, nullable=True)
+    # Measured tendencies about *when* this player's decisions go wrong, each with
+    # its own baseline, confidence and supporting pattern ids
+    # (see services/profiles/behavioural_hypotheses.py).
+    behavioural_hypotheses = Column(JSON, nullable=True)
 
     games_analyzed_count = Column(Integer, nullable=False, default=0)
     patterns_detected_count = Column(Integer, nullable=False, default=0)

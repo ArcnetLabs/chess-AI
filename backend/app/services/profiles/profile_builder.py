@@ -111,6 +111,22 @@ def build_player_profile(
     rating_trends = _build_rating_trends(user, aggregation.opening_by_game)
     archetype = _derive_archetype(phase_performance)
 
+    # Behavioural hypotheses are measured from the same decision series the pattern
+    # engine uses, then attached to the patterns that fired in their own situations.
+    # Contained: a failure here must not cost the whole snapshot.
+    try:
+        from app.services.patterns.event_pattern_detector import load_decisions
+        from app.services.profiles.behavioural_hypotheses import (
+            build_behavioural_hypotheses,
+        )
+
+        behavioural_hypotheses = build_behavioural_hypotheses(
+            load_decisions(db, user_id), patterns
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"Behavioural hypotheses failed for user_id={user_id}: {exc}")
+        behavioural_hypotheses = []
+
     latest = _latest_profile(db, user_id)
     if (
         not force
@@ -152,6 +168,7 @@ def build_player_profile(
         # snapshot, and repeating advice the player already received is the
         # failure mode this exists to prevent.
         coaching_history=coaching_history_summary(db, user_id, limit=10),
+        behavioural_hypotheses=behavioural_hypotheses,
         games_analyzed_count=aggregation.total_analyzed_games,
         patterns_detected_count=len(patterns),
         first_game_date=first_game_date,

@@ -138,6 +138,13 @@ def assemble_coach_context(
         )
         if profile.profile_summary:
             lines.append(f"profile_summary: {profile.profile_summary}")
+        # Measured tendencies about *when* this player's decisions go wrong, each
+        # compared against their own baseline. Stated as facts the coach may use,
+        # with the numbers, so it does not have to characterise the player itself.
+        for hypothesis in (profile.behavioural_hypotheses or [])[:3]:
+            statement = hypothesis.get("statement") if isinstance(hypothesis, dict) else None
+            if statement:
+                lines.append(f"tendency: {statement}")
         lines.append("")
 
     all_patterns = list_user_patterns(db, user_id, limit=200)
