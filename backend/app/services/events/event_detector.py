@@ -14,6 +14,10 @@ from typing import Dict, List, Optional, Sequence
 
 from app.models.game_move import GameMove
 
+# How close to MATE_SCORE an evaluation must be to count as a mate score. The stored
+# value is the bound itself, but rounding means a strict equality test is brittle.
+MATE_TOLERANCE = 1.0
+
 from .event_types import (
     BLUNDER_CP_LOSS,
     CLEAR_ADVANTAGE,
@@ -78,6 +82,31 @@ def _event(
     }
 
 
+def _mate_reversal(eval_before: float, eval_after: float) -> bool:
+    """Did the game's decisive state flip on this move?
+
+    Both evaluations are in the mover's own perspective and bounded by
+    ``MATE_SCORE``, so ``+MATE_SCORE`` means "the mover is mating" and
+    ``-MATE_SCORE`` means "the mover is being mated". A reversal is either
+    direction of that flip — which is what makes a mate row worth coaching, as
+    opposed to a mate that merely got slower.
+
+    The bound is imported here rather than at module scope: ``app.services.analysis``
+    imports this package, so a top-level import of ``move_facts`` closes a cycle and
+    breaks every entry point that imports the events package first. The tests did not
+    catch it because they happen to import in the other order — running the real
+    entry point did.
+    """
+    from app.services.analysis.move_facts import MATE_SCORE
+
+    mating = MATE_SCORE - MATE_TOLERANCE
+    was_mating = eval_before >= mating
+    is_mating = eval_after >= mating
+    was_mated = eval_before <= -mating
+    is_mated = eval_after <= -mating
+    return (was_mating and not is_mating) or (is_mated and not was_mated)
+
+
 def _was_capture(move: GameMove) -> bool:
     """True when the played move captured something.
 
@@ -131,13 +160,27 @@ def detect_events_for_game(
         opponent_move = opponent.move_uci if opponent else None
         opponent_trigger_ply = None
 
-        # Mate rows carry a reconstructed evaluation (the analyzer flattens mate
-        # to 0 cp) whose sign convention is not independently verified: live data
-        # showed it disagreeing with the analyzer's own classification in 607 of
-        # 711 mate rows. A coaching claim is not published on that basis alone —
-        # mate rows produce events only when the analyzer also calls the move a
-        # serious error.
-        if move.is_mate_score and move.classification not in ("mistake", "blunder"):
+        # Mate rows carry a reconstructed evaluation, because the analyzer flattens
+        # mate to 0 cp. That reconstruction used to be treated as unverified, and mate
+        # rows only produced events when the analyzer *also* called the move a serious
+        # error — which turned out to be backwards, for two measured reasons:
+        #
+        # 1. The reconstruction is correct. The convention was checked against the
+        #    games themselves: on 711 mate rows the mating side it implies matched the
+        #    eventual winner in 97 of 98 finished games, and in every mating sequence
+        #    a positive `mate_in` on a Black move's row meant White was mating.
+        # 2. The analyzer's classification is the unreliable one here. It flattens mate
+        #    to 0 cp, so 602 of those 711 rows are labelled "best" — including both
+        #    rows where a forced mate was thrown away (eval +1200 → −1200, cp_loss
+        #    2400, classified "best"). Gating on that label admitted 103 rows on a
+        #    signal that cannot see mate, and excluded the clearest blunders in the
+        #    library.
+        #
+        # So the gate now uses the verified evidence: a mate row may produce events
+        # when the position *reversed* — the mover was mating and no longer is, or was
+        # not being mated and now is. Rows where the mover is merely mating more
+        # slowly, or is still losing, stay silent: a slower mate is not a blunder.
+        if move.is_mate_score and not _mate_reversal(eval_before, eval_after):
             continue
 
         # Opponent's previous move was itself an error: worth remembering even
