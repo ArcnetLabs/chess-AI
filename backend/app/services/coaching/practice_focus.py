@@ -139,41 +139,53 @@ def build_practice_focus(
         reverse=True,
     )
 
-    items: List[Dict] = []
+    by_focus: Dict[str, Dict] = {}
     for pattern in ranked:
-        if len(items) >= limit:
-            break
         event_type = _event_type(pattern)
         if event_type is None or event_type not in PRACTICE_BY_EVENT:
             # Legacy aggregate patterns ("endgame_major_swings") carry no event to
             # map. Recommending practice for them would mean guessing what to fix.
             continue
         focus, partner_key = PRACTICE_BY_EVENT[event_type]
+
+        # Collapsed by focus, because a player reads this as "what to work on" and
+        # the engine legitimately finds the same advice in several situations: real
+        # data produced "your endgame technique" twice, from two contexts, which
+        # reads as a broken page. The situations stay in pattern_ids — they remain
+        # separate rows in the ledger, where outcomes are measured per pattern.
+        existing = by_focus.get(focus)
+        if existing is not None:
+            existing["pattern_ids"].append(pattern.id)
+            existing["situations"] = len(existing["pattern_ids"])
+            continue
+        if len(by_focus) >= limit:
+            continue
+
         partner = PRACTICE_PARTNERS.get(partner_key) if partner_key else None
-        items.append(
-            {
-                "pattern_id": pattern.id,
-                "focus": focus,
-                "why": _evidence_sentence(pattern),
-                "context": pattern.context_signature,
-                "severity": pattern.severity,
-                "trend": pattern.trend_direction,
-                "occurrences": pattern.occurrence_count,
-                "opportunities": pattern.opportunity_count,
-                "partner": (
-                    {
-                        "key": partner.key,
-                        "name": partner.name,
-                        "focus": partner.focus,
-                        "status": partner.status,
-                        "url": partner.url,
-                    }
-                    if partner
-                    else None
-                ),
-            }
-        )
-    return items
+        by_focus[focus] = {
+            "pattern_id": pattern.id,
+            "pattern_ids": [pattern.id],
+            "situations": 1,
+            "focus": focus,
+            "why": _evidence_sentence(pattern),
+            "context": pattern.context_signature,
+            "severity": pattern.severity,
+            "trend": pattern.trend_direction,
+            "occurrences": pattern.occurrence_count,
+            "opportunities": pattern.opportunity_count,
+            "partner": (
+                {
+                    "key": partner.key,
+                    "name": partner.name,
+                    "focus": partner.focus,
+                    "status": partner.status,
+                    "url": partner.url,
+                }
+                if partner
+                else None
+            ),
+        }
+    return list(by_focus.values())
 
 
 def offer_practice_focus(db: Session, user_id: int, *, limit: int = DEFAULT_FOCUS_LIMIT) -> List[Dict]:
@@ -181,27 +193,31 @@ def offer_practice_focus(db: Session, user_id: int, *, limit: int = DEFAULT_FOCU
 
     Recording is what makes "have I taught you this, and did it work?" answerable:
     the ledger row is the moment coaching was delivered, and the outcome machinery
-    measures the pattern's rate after it. Duplicate offers are skipped by the
-    ledger itself, so this is safe to call on every pattern run.
+    measures the pattern's rate after it. One row per *situation* — the page may
+    collapse two situations into one line of advice, but each is measured against
+    its own pattern. Duplicate offers are skipped by the ledger itself, so this is
+    safe to call on every pattern run.
     """
     items = build_practice_focus(db, user_id, limit=limit)
     recorded = 0
     for item in items:
-        row = record_delivered_coaching(
-            db,
-            user_id,
-            pattern_id=item["pattern_id"],
-            intervention_type=INTERVENTION_PRACTICE,
-            title=item["focus"],
-            payload={
-                "focus": item["focus"],
-                "partner": item["partner"]["key"] if item["partner"] else None,
-                "opportunities": item["opportunities"],
-            },
-            commit=False,
-        )
-        if row is not None:
-            recorded += 1
+        for pattern_id in item["pattern_ids"]:
+            row = record_delivered_coaching(
+                db,
+                user_id,
+                pattern_id=pattern_id,
+                intervention_type=INTERVENTION_PRACTICE,
+                title=item["focus"],
+                payload={
+                    "focus": item["focus"],
+                    "partner": item["partner"]["key"] if item["partner"] else None,
+                    "opportunities": item["opportunities"],
+                    "situations": item["situations"],
+                },
+                commit=False,
+            )
+            if row is not None:
+                recorded += 1
     if recorded:
         db.commit()
         logger.info(

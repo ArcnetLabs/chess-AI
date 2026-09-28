@@ -729,6 +729,9 @@ export interface PracticePartner {
 
 export interface PracticeFocusItem {
   pattern_id: number;
+  /** Every situation behind this one line of advice. */
+  pattern_ids: number[];
+  situations: number;
   focus: string;
   why: string;
   context: string | null;
