@@ -20,6 +20,7 @@ from app.services.patterns.event_pattern_detector import (
     MIN_DISTINCT_GAMES,
     MIN_OCCURRENCES,
     MIN_OPPORTUNITIES,
+    MIN_OPPORTUNITIES_PER_HALF,
     Decision,
     detect_context_patterns,
     detect_strengths,
@@ -247,6 +248,39 @@ class TestContextPatternDetection:
         decisions = self._series(error_orders={0, 1, 2, 3, 4})
         pattern = detect_context_patterns(decisions)[0]
         assert pattern.trend_direction == "new"
+
+    def test_no_direction_when_a_half_is_too_thin(self):
+        """A direction is a claim about change, so both halves need a sample.
+
+        Nine games split 4/5: the older half is one opportunity short of the
+        floor, so the pattern is still reported but without a trend.
+        """
+        decisions = self._series(error_orders={0, 1, 2, 3}, total_games=9)
+        pattern = detect_context_patterns(decisions)[0]
+        assert pattern.trend_direction is None
+        assert pattern.evidence["trend_suppressed"] is True
+        assert (
+            pattern.evidence["thresholds"]["min_opportunities_per_half"]
+            == MIN_OPPORTUNITIES_PER_HALF
+        )
+
+    def test_one_recent_error_does_not_claim_a_worsening_trend(self):
+        """The false claim the floor exists to stop: one error in a thin half.
+
+        Rates alone make this look like a collapse (the recent rate is far above
+        the earlier one), but two positions cannot establish a direction.
+        """
+        decisions = self._series(error_orders={0, 6, 7, 8}, total_games=9)
+        patterns = detect_context_patterns(decisions)
+        assert patterns, "premise: the pattern still qualifies on occurrences"
+        assert patterns[0].trend_direction is None
+        assert patterns[0].evidence["recent"]["opportunities"] < MIN_OPPORTUNITIES_PER_HALF
+
+    def test_direction_returns_once_both_halves_clear_the_floor(self):
+        decisions = self._series(error_orders={0, 1, 2, 3, 10, 11, 12, 13}, total_games=20)
+        pattern = detect_context_patterns(decisions)[0]
+        assert pattern.trend_direction is not None
+        assert pattern.evidence["trend_suppressed"] is False
 
     def test_occurrences_carry_position_and_decision(self):
         decisions = self._series(error_orders={0, 1, 2, 10, 11, 12})

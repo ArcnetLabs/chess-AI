@@ -52,6 +52,14 @@ MIN_OPPORTUNITIES = 8
 IMPROVING_RATIO = 0.6
 WORSENING_RATIO = 1.5
 
+# A direction is a claim about change, so it needs a sample in *both* halves of the
+# timeline. Without this, a player whose recent half holds two positions and one
+# error reads as "worsening" off a single data point — and a player who has barely
+# played lately reads as "improving" for the same reason. Below this floor no
+# direction is reported at all (``trend_direction`` stays NULL) rather than
+# defaulting to "persistent", which would itself be an unearned claim of stability.
+MIN_OPPORTUNITIES_PER_HALF = 5
+
 # A phase is a strength when the player rarely makes *serious* errors there.
 # "Serious" means a high- or critical-severity event, because the vocabulary also
 # fires for small slips and counting those would disqualify every phase.
@@ -127,7 +135,12 @@ def _classify_trend(
     recent_occurrences: int,
     older_occurrences: int,
 ) -> str:
-    """Classify direction from the decision series, split by game recency."""
+    """Classify direction from the decision series, split by game recency.
+
+    Assumes the caller has already applied ``MIN_OPPORTUNITIES_PER_HALF``; with a
+    thin half the ratios here are noise, and every branch would still return a
+    confident-sounding word.
+    """
     if older_occurrences == 0 and recent_occurrences > 0:
         return "new"
     if recent_occurrences == 0 and older_occurrences > 0:
@@ -450,12 +463,17 @@ def detect_context_patterns(
         recent_opportunities, older_opportunities = _split_by_recency(opportunities)
         recent_errors = [d for d in recent_opportunities if d.event_types]
         older_errors = [d for d in older_opportunities if d.event_types]
-        trend = _classify_trend(
-            _rate(len(recent_errors), len(recent_opportunities)),
-            _rate(len(older_errors), len(older_opportunities)),
-            recent_occurrences=len(recent_errors),
-            older_occurrences=len(older_errors),
-        )
+        # No direction is claimed unless both halves hold enough to compare; the
+        # pattern is still reported, just without a story about where it is going.
+        if min(len(recent_opportunities), len(older_opportunities)) < MIN_OPPORTUNITIES_PER_HALF:
+            trend = None
+        else:
+            trend = _classify_trend(
+                _rate(len(recent_errors), len(recent_opportunities)),
+                _rate(len(older_errors), len(older_opportunities)),
+                recent_occurrences=len(recent_errors),
+                older_occurrences=len(older_errors),
+            )
 
         subtype = f"{event_type}__{context}"[:120]
         label = _EVENT_LABELS.get(event_type, event_type.replace("_", " "))
@@ -536,7 +554,14 @@ def detect_context_patterns(
                         "min_occurrences": MIN_OCCURRENCES,
                         "min_games": MIN_DISTINCT_GAMES,
                         "min_opportunities": MIN_OPPORTUNITIES,
+                        "min_opportunities_per_half": MIN_OPPORTUNITIES_PER_HALF,
                     },
+                    # Why no direction was claimed, when none was: a NULL trend is
+                    # a measurement ("too thin to compare"), not a missing value.
+                    "trend_suppressed": (
+                        min(len(recent_opportunities), len(older_opportunities))
+                        < MIN_OPPORTUNITIES_PER_HALF
+                    ),
                 },
             )
         )
