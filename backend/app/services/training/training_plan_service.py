@@ -81,6 +81,28 @@ def create_manual_plan(
     plan.drill_count = len(drills)
     db.commit()
     db.refresh(plan)
+
+    # Coaching memory: a plan targeting a pattern is coaching delivered, so it is
+    # recorded here — where the product knows it happened — rather than left to a
+    # model to report. Local import to keep the pattern/services import graph acyclic.
+    from app.services.coaching.interventions import record_delivered_coaching
+
+    targeted = {pid for pid in (focus_pattern_ids or []) if pid is not None}
+    targeted.update(
+        drill.get("pattern_id") for drill in drills if drill.get("pattern_id") is not None
+    )
+    for pattern_id in sorted(targeted):
+        record_delivered_coaching(
+            db,
+            user_id,
+            pattern_id=pattern_id,
+            title=f"Training plan: {plan.title}",
+            payload={"plan_id": plan.id, "plan_version": plan.plan_version},
+            commit=False,
+        )
+    if targeted:
+        db.commit()
+
     return plan
 
 
@@ -126,6 +148,17 @@ def create_adhoc_drill(
         plan.drill_count = (plan.drill_count or 0) + 1
     db.commit()
     db.refresh(drill)
+
+    # "Save this drill" is also coaching delivered, so it enters the ledger too.
+    from app.services.coaching.interventions import record_delivered_coaching
+
+    record_delivered_coaching(
+        db,
+        user_id,
+        pattern_id=pattern_id,
+        title=f"Saved {drill.drill_type} drill",
+        payload={"drill_id": drill.id, "plan_id": training_plan_id},
+    )
     return drill
 
 

@@ -42,12 +42,17 @@ INTERVENTION_DRILL = "drill"
 INTERVENTION_VARIATION = "variation_study"
 INTERVENTION_CONCEPT = "concept_explanation"
 INTERVENTION_EXERCISE = "position_exercise"
+# ChessRun recommends practice; the practice itself happens on ChessReps and
+# ChessFlow, so a recommendation is its own kind of coaching rather than a drill
+# we handed over.
+INTERVENTION_PRACTICE = "practice_recommendation"
 
 VALID_TYPES = (
     INTERVENTION_DRILL,
     INTERVENTION_VARIATION,
     INTERVENTION_CONCEPT,
     INTERVENTION_EXERCISE,
+    INTERVENTION_PRACTICE,
 )
 
 
@@ -109,6 +114,75 @@ def record_intervention(
         f"pattern={pattern_subtype or pattern_id}"
     )
     return row
+
+
+# Outcomes that mean "this intervention is still being measured". A second
+# intervention on the same pattern is not recorded while one of these stands:
+# re-offering the same thing adds no coaching and would only crowd the ledger.
+UNRESOLVED_OUTCOMES = (OUTCOME_UNKNOWN, OUTCOME_PERSISTENT)
+
+# Who wrote the row. Distinguishing them keeps the evidence chain honest: a row
+# with source="system" records something the product did, and can be trusted on
+# its own; a row with source="coach" records what the model said it did.
+SOURCE_SYSTEM = "system"
+
+
+def record_delivered_coaching(
+    db: Session,
+    user_id: int,
+    *,
+    pattern_id: Optional[int],
+    intervention_type: str = INTERVENTION_DRILL,
+    title: Optional[str] = None,
+    payload: Optional[Dict] = None,
+    source: str = SOURCE_SYSTEM,
+    commit: bool = True,
+) -> Optional[CoachingIntervention]:
+    """Record coaching the *system* handed the player, not coaching the model claims.
+
+    Called when a training plan or drill is created: at that point it is a fact
+    about the product that the player was given work on a named pattern, and the
+    outcome machinery can measure whether that pattern's rate changed afterwards.
+    Letting the model decide when to write would put an unverified claim into the
+    evidence chain the ledger exists to provide.
+
+    Returns ``None`` and writes nothing when there is no pattern to measure
+    against, or while an earlier intervention on the same pattern is still being
+    measured.
+    """
+    if pattern_id is None:
+        logger.debug(
+            f"Not recording an intervention for user_id={user_id}: no pattern to measure it against"
+        )
+        return None
+
+    existing = (
+        db.query(CoachingIntervention)
+        .filter(
+            CoachingIntervention.user_id == user_id,
+            CoachingIntervention.pattern_id == pattern_id,
+            CoachingIntervention.intervention_type == intervention_type,
+            CoachingIntervention.outcome.in_(UNRESOLVED_OUTCOMES),
+        )
+        .first()
+    )
+    if existing is not None:
+        logger.debug(
+            f"Skipping duplicate {intervention_type} intervention for user_id={user_id} "
+            f"pattern_id={pattern_id} (id={existing.id} still {existing.outcome})"
+        )
+        return None
+
+    return record_intervention(
+        db,
+        user_id,
+        intervention_type=intervention_type,
+        pattern_id=pattern_id,
+        title=title,
+        payload=payload,
+        source=source,
+        commit=commit,
+    )
 
 
 def _pattern_from_subtype(subtype: Optional[str]) -> Optional[tuple[str, str]]:

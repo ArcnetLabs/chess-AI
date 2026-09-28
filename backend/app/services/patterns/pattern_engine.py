@@ -101,6 +101,21 @@ class PatternEngine:
                     f"{outcome_exc}"
                 )
 
+            # Coaching memory: the practice focus offered to this player is
+            # recorded here, because this is where the product knows coaching was
+            # delivered. "Have I taught you this, and did it work?" is only
+            # answerable if the offer is a stored fact rather than something a
+            # model reports about itself. Duplicates are skipped by the ledger, so
+            # this is safe on every run.
+            try:
+                from app.services.coaching.practice_focus import offer_practice_focus
+
+                offer_practice_focus(self._db, user_id)
+            except Exception as practice_exc:  # noqa: BLE001
+                logger.error(
+                    f"Practice focus failed for user_id={user_id}: {practice_exc}"
+                )
+
         return result
 
 

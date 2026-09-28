@@ -23,6 +23,7 @@ from app.services.coaching.interventions import (
     OUTCOME_RESOLVED,
     OUTCOME_UNKNOWN,
     OUTCOME_WORSENED,
+    SOURCE_SYSTEM,
     coaching_history_summary,
     evaluate_intervention_outcome,
     evaluate_intervention_outcomes,
@@ -104,6 +105,192 @@ class Intervention:
     def __init__(self, pivot: datetime, subtype: str = SUBTYPE):
         self.pattern_subtype = subtype
         self.offered_at = pivot
+
+
+class TestSystemRecordedCoaching:
+    """The ledger must fill from what the product did, not from a model's account.
+
+    Before this, the only writer was an authenticated POST that nothing called, so
+    in production the ledger stayed empty and both the "coaching already given"
+    context block and the profile's coaching history could never populate.
+    """
+
+    def _pattern(self, db, user, subtype: str = SUBTYPE, context: str = CONTEXT):
+        from app.models.pattern import PlayerPattern
+
+        row = PlayerPattern(
+            user_id=user.id,
+            pattern_type="weakness",
+            pattern_subtype=subtype,
+            context_signature=context,
+            severity="high",
+            confidence_score=0.9,
+            occurrence_count=5,
+            affected_games_count=4,
+            affected_games_ratio=0.5,
+            pattern_description="Recurring pattern: an endgame technique error.",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row
+
+    def test_plan_records_the_pattern_it_targets(self, db, coach_user):
+        from app.services.training.training_plan_service import create_manual_plan
+
+        pattern = self._pattern(db, coach_user)
+        plan = create_manual_plan(
+            db,
+            coach_user.id,
+            title="Rook endings",
+            drills=[{"prompt_text": "Convert this ending", "pattern_id": pattern.id}],
+            focus_pattern_ids=[pattern.id],
+        )
+
+        rows = db.query(CoachingIntervention).all()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row.source == SOURCE_SYSTEM
+        assert row.pattern_id == pattern.id
+        # The descriptive fields are copied, so the outcome stays measurable even
+        # after the pattern row is pruned.
+        assert row.pattern_subtype == SUBTYPE
+        assert row.context_signature == CONTEXT
+        assert row.payload["plan_id"] == plan.id
+
+    def test_a_second_plan_on_the_same_pattern_is_not_a_second_intervention(self, db, coach_user):
+        from app.services.training.training_plan_service import create_manual_plan
+
+        pattern = self._pattern(db, coach_user)
+        for _ in range(2):
+            create_manual_plan(
+                db,
+                coach_user.id,
+                title="Rook endings",
+                drills=[{"prompt_text": "Convert this ending", "pattern_id": pattern.id}],
+                focus_pattern_ids=[pattern.id],
+            )
+        assert db.query(CoachingIntervention).count() == 1
+
+    def test_a_new_attempt_is_recorded_once_the_last_one_settled(self, db, coach_user):
+        from app.services.training.training_plan_service import create_manual_plan
+
+        pattern = self._pattern(db, coach_user)
+        create_manual_plan(
+            db,
+            coach_user.id,
+            title="Rook endings",
+            drills=[{"prompt_text": "Convert this ending", "pattern_id": pattern.id}],
+            focus_pattern_ids=[pattern.id],
+        )
+        db.query(CoachingIntervention).one().outcome = OUTCOME_RESOLVED
+        db.commit()
+
+        create_manual_plan(
+            db,
+            coach_user.id,
+            title="Rook endings again",
+            drills=[{"prompt_text": "Convert this ending", "pattern_id": pattern.id}],
+            focus_pattern_ids=[pattern.id],
+        )
+        assert db.query(CoachingIntervention).count() == 2
+
+    def test_a_plan_without_a_pattern_records_nothing(self, db, coach_user):
+        """An intervention that can never be measured is noise in the ledger."""
+        from app.services.training.training_plan_service import create_manual_plan
+
+        create_manual_plan(
+            db,
+            coach_user.id,
+            title="General work",
+            drills=[{"prompt_text": "Play a slow game"}],
+        )
+        assert db.query(CoachingIntervention).count() == 0
+
+    def test_saved_drill_records_an_intervention(self, db, coach_user):
+        from app.services.training.training_plan_service import create_adhoc_drill
+
+        pattern = self._pattern(db, coach_user)
+        drill = create_adhoc_drill(
+            db,
+            coach_user.id,
+            drill_type="puzzle",
+            prompt_text="Find the winning continuation",
+            pattern_id=pattern.id,
+        )
+
+        row = db.query(CoachingIntervention).one()
+        assert row.pattern_id == pattern.id
+        assert row.payload["drill_id"] == drill.id
+
+    def test_generated_plan_records_by_its_own_path(self, db, coach_user, monkeypatch):
+        """The generator builds plan rows directly, so it needs its own hook."""
+        from app.services.training import drill_generator_service as generator
+
+        pattern = self._pattern(db, coach_user)
+        monkeypatch.setattr(generator, "select_patterns_for_drills", lambda *a, **k: [pattern])
+        monkeypatch.setattr(generator, "pick_best_occurrence", lambda *a, **k: None)
+
+        plan = generator.generate_training_plan(db, coach_user.id)
+        assert plan is not None
+
+        row = db.query(CoachingIntervention).one()
+        assert row.pattern_id == pattern.id
+        assert row.payload["generator"] == "drill_generator_service"
+
+    def test_legacy_pattern_is_recorded_but_never_measurable(self, db, coach_user, pivot):
+        """A pattern from the old engine has no context to measure against.
+
+        Recording it is still correct — the coaching happened — but the outcome
+        stays ``unknown`` with a reason instead of being guessed. Worth pinning:
+        production still holds these rows, so the honest answer must be visible.
+        """
+        from app.services.training.training_plan_service import create_manual_plan
+
+        pattern = self._pattern(
+            db,
+            coach_user,
+            subtype="endgame_major_swings",
+            context=None,
+        )
+        create_manual_plan(
+            db,
+            coach_user.id,
+            title="Legacy pattern work",
+            drills=[{"prompt_text": "Work on endgames", "pattern_id": pattern.id}],
+            focus_pattern_ids=[pattern.id],
+        )
+
+        row = db.query(CoachingIntervention).one()
+        result = evaluate_intervention_outcome(
+            row,
+            series(games_before=5, errors_before=5, games_after=5, errors_after=0, pivot=pivot),
+        )
+        assert result["outcome"] == OUTCOME_UNKNOWN
+        assert "measurable pattern" in result["reason"]
+
+    def test_recorded_intervention_is_measurable_end_to_end(self, db, coach_user, pivot):
+        """The point of recording: the outcome can actually be computed later."""
+        from app.services.training.training_plan_service import create_manual_plan
+
+        pattern = self._pattern(db, coach_user)
+        create_manual_plan(
+            db,
+            coach_user.id,
+            title="Rook endings",
+            drills=[{"prompt_text": "Convert this ending", "pattern_id": pattern.id}],
+            focus_pattern_ids=[pattern.id],
+        )
+        row = db.query(CoachingIntervention).one()
+        row.offered_at = pivot
+        db.commit()
+
+        decisions = series(
+            games_before=5, errors_before=5, games_after=5, errors_after=0, pivot=pivot
+        )
+        result = evaluate_intervention_outcome(row, decisions)
+        assert result["outcome"] == OUTCOME_RESOLVED
+        assert result["evidence"]["before"]["occurrences"] == 5
 
 
 class TestOutcomeMeasurement:

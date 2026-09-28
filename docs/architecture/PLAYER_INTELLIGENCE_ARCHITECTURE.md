@@ -180,13 +180,21 @@ Also required here: **a relevance floor.** `min_similarity` is currently never p
 | Field | Meaning |
 |---|---|
 | `pattern_id` | What weakness this addresses. |
-| `intervention_type` | `drill`, `variation_study`, `concept_explanation`, `position_exercise`. |
+| `intervention_type` | `practice_recommendation`, `drill`, `variation_study`, `concept_explanation`, `position_exercise`. |
 | `concept`, `payload` (JSONB) | The specific material offered. |
 | `offered_at`, `session_id` | When and in which conversation. |
 | `outcome` | `unknown`, `improving`, `persistent`, `resolved`, computed from later pattern windows. |
 | `evidence` (JSONB) | Before/after rates and the window boundaries. |
 
 This is what prevents generic repetition: before coaching a pattern, the system checks what was already tried and whether it moved.
+
+**ChessRun coaches; practice happens elsewhere (product decision).** Players do their reps on **ChessReps** (spaced-repetition repertoire) and **ChessFlow** (guided calculation), not inside ChessRun. That is a deliberate MVP boundary, not a missing feature, and it constrains the design in three ways:
+
+1. **The product's coaching output is a prescription** — what to work on, and why, in the player's own evidence. `services/coaching/practice_focus.py` is the single owner of that mapping (event type → focus → the platform it belongs on), so the API, the UI and the coach's prompt cannot drift into three different descriptions of the same advice.
+2. **The ledger records the recommendation, not a completed drill.** `practice_recommendation` is its own intervention type, written by the system when focus is offered (during a pattern run), never chosen by the model. "Have I taught you this, and did it work?" therefore stays answerable without an integration: the offer is a stored fact and the outcome is measured from later games.
+3. **No invented partner content.** With no integration yet, the system names a platform only as a destination and never a specific drill, course, line or link there. The coach's prompt carries the same rule (`PRACTICE_HANDOFF_RULE`), because a plausible-looking link to content that may not exist is the same class of ungrounded claim the rest of the system refuses to make. A partner is suggested only when the fix genuinely belongs on it; otherwise the focus is still given, and no destination is named.
+
+Integration with either platform is future work; when it lands, `PRACTICE_PARTNERS` is the one place that changes.
 
 **Profile states** (derived, stored on the pattern/ledger, never guessed): `newly_detected`, `known`, `improving`, `persistent`, `resolved`, `needs_reinforcement`.
 
