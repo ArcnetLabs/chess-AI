@@ -173,10 +173,17 @@ def assemble_event_context(
         lines = []
         for decision in similar:
             pattern = f" (part of '{decision.pattern_subtype}')" if decision.pattern_subtype else ""
+            # The alternative is omitted rather than faked when it is unusable: rows
+            # written before the analyzer fix stored the opponent's reply as the
+            # "best move", and telling a player to play a move they cannot play is
+            # worse than saying nothing about it.
+            alternative = (
+                f", better was {decision.best_move}" if decision.best_move else ""
+            )
             lines.append(
                 f"- Game {decision.game_id} move {decision.move_number} "
                 f"({decision.match_kind.replace('_', ' ')}): you played "
-                f"{decision.played_move}, better was {decision.best_move}, "
+                f"{decision.played_move}{alternative}, "
                 f"{decision.outcome_text()}{pattern}"
             )
         blocks.append(("## Similar positions from your own games", 2, "\n".join(lines)))

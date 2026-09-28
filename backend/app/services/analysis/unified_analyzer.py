@@ -263,6 +263,12 @@ class UnifiedChessAnalyzer:
         # Get initial position evaluation
         prev_eval = await self.engine.evaluate_position(board)
         prev_cp = prev_eval['evaluation_cp'] or 0
+        # The best move for the side that is about to move belongs to the position we
+        # already evaluated *before* each move. Carrying it forward costs no engine
+        # call, and it is the only way this field can mean "what you should have
+        # played": evaluating after pushing the move returns the opponent's best
+        # reply instead, which is what the field used to hold.
+        prev_best_move = prev_eval.get('best_move')
         
         move_number = 0
         
@@ -286,7 +292,12 @@ class UnifiedChessAnalyzer:
             current_eval = await self.engine.evaluate_position(board)
             current_cp = current_eval['evaluation_cp'] or 0
             mate_in = current_eval['mate_in']
-            best_move = current_eval['best_move']
+            # The move the player should have considered is the best move of the
+            # position *before* this one — carried in from the previous evaluation.
+            best_move = prev_best_move
+            # ...and this evaluation's own best move becomes the alternative for the
+            # next ply, whose side to move is the one evaluated here.
+            prev_best_move = current_eval.get('best_move')
             
             # Determine whose move it was
             is_white_move = (move_number % 2 == 1)
