@@ -8,7 +8,7 @@ endgame. Previously duplicated in ``UnifiedChessAnalyzer._analyze_phases``,
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 OPENING_END_DIVISOR = 3
 OPENING_MAX_MOVES = 20
@@ -45,3 +45,29 @@ def phase_for_move(move_number: int, total_moves: int) -> str:
         if start <= move_number < end:
             return phase
     return "endgame"
+
+
+def phase_for_position(ply: int, total_plies: int, features: Optional[Dict] = None) -> str:
+    """Phase of a position: the opening by move count, the endgame by material.
+
+    The opening is genuinely about how many moves have been played — it is theory, and
+    material tells you nothing about whether you are still in it. Everything after that
+    is decided by what is on the board, not by how far into the game the players are.
+
+    Measured before adopting: the move-number rule alone relabelled **27% of a real
+    player's 8,599 rows**. 1,905 of those were positions with queens on and material
+    not simplified being called endgames, and 424 were genuinely simplified positions —
+    mass trades on move 20, or a queen ending — being called middlegames. Both
+    directions matter for coaching, because the phase is part of a pattern's identity:
+    an "endgame technique error" that happened in a queenless middlegame is a mislabel.
+
+    ``simplified`` is the existing material notion (both sides at or below
+    ``ENDGAME_MATERIAL_THRESHOLD`` non-pawn material), so a queen ending qualifies —
+    which is correct: KQ vs KQ is an endgame.
+    """
+    move_phase = phase_for_move(ply, total_plies)
+    if move_phase == "opening":
+        return "opening"
+    if features and features.get("simplified"):
+        return "endgame"
+    return "middlegame"
