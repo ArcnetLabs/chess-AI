@@ -8,6 +8,8 @@ requires an engine call or an LLM at detection time.
 import chess
 import pytest
 
+from pathlib import Path
+
 from app.models.game_move import GameMove
 from app.services.events import detect_events_for_game
 from app.services.events.event_types import (
@@ -335,43 +337,80 @@ class TestContextualDetectors:
         ) == []
 
 
+class TestImportOrder:
+    """The events package must be importable before the analysis package.
+
+    A module-scope import of ``move_facts`` from the detector closed a cycle
+    (``analysis`` → ``events`` → ``analysis``) and broke every entry point that
+    imports the events package first — production's path. The rest of the suite
+    imports in the other order, so it stayed green while the real entry point failed.
+    """
+
+    def test_events_package_imports_before_analysis(self):
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import app.services.events; import app.services.analysis; print('ok')",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(Path(__file__).resolve().parents[1]),
+        )
+        assert "ok" in result.stdout, result.stderr[-2000:]
+
+
 class TestMateRows:
-    def test_mate_rows_need_analyzer_agreement(self):
-        """A reconstructed mate evaluation alone must not create an event.
+    """Mate rows are gated on a *verified* reversal, not on the analyzer's label.
 
-        The analyzer flattens mate to 0 cp, so mate scores are rebuilt from
-        ``mate_in``; live data showed that reconstruction disagreeing with the
-        analyzer's own classification on most mate rows. Until it is verified
-        against the engine wrapper's sign convention, a mate row only produces
-        events when the analyzer independently calls the move a serious error.
-        """
+    The convention was checked against the games themselves: across 711 mate rows the
+    mating side it implies matched the eventual winner in 97 of 98 finished games. The
+    analyzer's classification, meanwhile, flattens mate to 0 cp and calls 602 of those
+    711 rows "best" — including both rows where a forced mate was thrown away. Gating
+    on that label admitted rows on a signal that cannot see mate and excluded the
+    clearest blunders in the library.
+    """
 
-        def mate_move(classification: str) -> GameMove:
-            row = move_row(
-                ply=40,
-                color="white",
-                is_user_move=True,
-                fen_before=AFTER_E4,
-                fen_after=AFTER_E4,
-                cp_loss=2400.0,
-                eval_before=1200.0,
-                eval_after=-1200.0,
-                classification=classification,
-                phase="endgame",
-            )
-            row.is_mate_score = True
-            return row
-
-        assert (
-            detect_events_for_game(
-                [mate_move("best")], game_result="black", user_color="white"
-            )
-            == []
+    def _mate_move(self, *, before: float, after: float, classification: str = "best"):
+        row = move_row(
+            ply=40,
+            color="white",
+            is_user_move=True,
+            fen_before=AFTER_E4,
+            fen_after=AFTER_E4,
+            cp_loss=max(0.0, before - after),
+            eval_before=before,
+            eval_after=after,
+            classification=classification,
+            phase="endgame",
         )
-        agreed = detect_events_for_game(
-            [mate_move("blunder")], game_result="black", user_color="white"
+        row.is_mate_score = True
+        return row
+
+    def test_throwing_away_a_forced_mate_produces_an_event(self):
+        """The case the old gate excluded: mate in hand, then losing — labelled best."""
+        row = self._mate_move(before=1200.0, after=-1200.0, classification="best")
+        events = detect_events_for_game([row], game_result="black", user_color="white")
+        assert EVENT_MAJOR_BLUNDER in types_of(events), types_of(events)
+
+    def test_getting_mated_produces_an_event(self):
+        row = self._mate_move(before=-200.0, after=-1200.0, classification="best")
+        assert EVENT_MAJOR_BLUNDER in types_of(
+            detect_events_for_game([row], game_result="black", user_color="white")
         )
-        assert EVENT_MAJOR_BLUNDER in types_of(agreed)
+
+    def test_a_slower_mate_is_not_a_blunder(self):
+        """Still mating after the move: converting more slowly is not an error."""
+        row = self._mate_move(before=1200.0, after=1200.0, classification="best")
+        assert detect_events_for_game([row], game_result="white", user_color="white") == []
+
+    def test_a_still_lost_position_is_not_an_event(self):
+        """Being mated before and after says nothing about *this* move."""
+        row = self._mate_move(before=-1200.0, after=-1200.0, classification="best")
+        assert detect_events_for_game([row], game_result="black", user_color="white") == []
 
     def test_non_mate_rows_are_unaffected(self):
         row = move_row(
