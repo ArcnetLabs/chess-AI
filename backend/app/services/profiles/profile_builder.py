@@ -12,6 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.game import Game, GameAnalysis
+from app.models.game_move import GameMove
 from app.models.profile import PlayerProfile
 from app.models.user import User
 from app.services.analysis.analysis_pipeline import AnalysisPipeline
@@ -34,6 +35,18 @@ _PHASE_LABELS = {
     "middlegame": "Middlegame",
     "endgame": "Endgame",
 }
+
+# The analyzer's own vocabulary for a move that cost something real. Kept as a set
+# so the opening view counts errors the same way the rest of the system does.
+SERIOUS_CLASSIFICATIONS = {"mistake", "blunder"}
+
+# How deep an opening sequence has to be before counting it as "a line you played".
+# Four plies is where a group still holds enough games to mean something on real
+# data; deeper and one player's 143 games split into 137 groups of one.
+REPERTOIRE_DEPTH_PLIES = 4
+# A repertoire counts as settled when one line is this common, or holds this share.
+REPERTOIRE_MIN_GAMES = 8
+REPERTOIRE_TOP_SHARE = 0.25
 
 
 def build_player_profile(
@@ -77,6 +90,18 @@ def build_player_profile(
 
     phase_performance = _build_phase_performance(aggregation)
     opening_repertoire = _build_opening_repertoire(aggregation.opening_by_game)
+    # Openings are also recorded by structure, which is the actionable view. The
+    # name-based lists above stay for compatibility with existing consumers.
+    opening_repertoire["by_structure"] = _build_opening_structures(
+        db,
+        user_id,
+        patterns,
+        {
+            row.get("game_id"): row.get("opening_name")
+            for row in aggregation.opening_by_game
+            if row.get("game_id") is not None
+        },
+    )
     pattern_summary_refs = _build_pattern_summary_refs(patterns)
     primary_strengths, primary_weaknesses = _derive_strengths_weaknesses(
         patterns, phase_performance
@@ -378,6 +403,242 @@ def _build_phase_performance(aggregation) -> Dict[str, int]:
             continue
         scores[phase] = round(AnalysisPipeline.map_acpl_to_accuracy(average))
     return scores
+
+
+def _structure_of_game(rows: List[Any]) -> Optional[str]:
+    """The structure the player had settled into by the end of the opening.
+
+    The *last* opening ply rather than the first: the first few moves are book and
+    nearly identical across games, so keying on them would group unrelated games
+    together. The structure at the end of the opening is what the player then has
+    to play, which is the thing coaching can act on.
+    """
+    keyed = [row for row in rows if row.structure_key]
+    if not keyed:
+        return None
+    return max(keyed, key=lambda row: row.ply).structure_key
+
+
+def _build_repertoire_stability(
+    by_game: Dict[int, List[Any]],
+    *,
+    depth: int = REPERTOIRE_DEPTH_PLIES,
+) -> Dict[str, Any]:
+    """How settled the player's openings are — measured, not assumed.
+
+    Exact structures turned out to be useless as an opening key at real data
+    volume: one player's 143 games reached **136 distinct structures**, so every
+    group was a single game and no claim could be supported. The useful question is
+    not "which structure" but "is there a repertoire at all?", and that is
+    answerable from the stored move sequences: count how concentrated the first few
+    plies are.
+
+    Measured for that player at the time of writing:
+
+    | Depth | Distinct lines | Largest group |
+    |---|---|---|
+    | 2 plies | 19 | 84 |
+    | 4 plies | 69 | 17 |
+    | 6 plies | 111 | 6 |
+    | 8 plies | 137 | 2 |
+
+    Depth 4 is the point where a group is still big enough to mean something, so
+    that is the default. When even that scatters, the honest coaching statement is
+    that there is no repertoire yet — which is exactly the gap ChessReps exists to
+    close, and is far more useful than a table of one-game groups.
+    """
+    lines: List[Tuple[str, ...]] = []
+    for game_rows in by_game.values():
+        ordered = sorted(game_rows, key=lambda row: row.ply)
+        moves = tuple(str(row.move_uci or "") for row in ordered[:depth])
+        if any(moves):
+            lines.append(moves)
+
+    if not lines:
+        return {"depth": depth, "games": 0, "distinct_lines": 0, "settled": False, "statement": None}
+
+    counts = defaultdict(int)
+    for moves in lines:
+        counts[moves] += 1
+    largest = max(counts.values())
+    top_share = round(largest / len(lines), 3)
+    distinct = len(counts)
+
+    # Two separate facts, because they mean different things and can disagree: a
+    # player can have a genuine main line (worth preparing) while the repertoire as
+    # a whole is scattered (worth consolidating). Real data showed exactly that —
+    # 17 games on one line, across 69 lines in 143 games — so a single boolean would
+    # have had to lie about one of them.
+    has_main_line = largest >= REPERTOIRE_MIN_GAMES
+    if top_share >= REPERTOIRE_TOP_SHARE:
+        verdict = "settled"
+    elif has_main_line:
+        verdict = "main_line_only"
+    else:
+        verdict = "no_repertoire"
+
+    if verdict == "settled":
+        statement = (
+            f"Your most-played opening line covers {largest} of your {len(lines)} games "
+            f"({round(top_share * 100)}%) — a repertoire worth preparing properly."
+        )
+    elif verdict == "main_line_only":
+        statement = (
+            f"You have one main opening line ({largest} games), but {distinct} different "
+            f"lines in {len(lines)} games overall — too spread out for openings to repeat "
+            f"and be corrected."
+        )
+    else:
+        statement = (
+            f"You have played {distinct} different opening lines in {len(lines)} games; "
+            f"your most common appears {largest} times. Openings repeat too little for a "
+            f"repertoire pattern to show up yet."
+        )
+
+    return {
+        "depth": depth,
+        "games": len(lines),
+        "distinct_lines": distinct,
+        "largest_group": largest,
+        "top_share": top_share,
+        "verdict": verdict,
+        "settled": verdict == "settled",
+        "statement": statement,
+    }
+
+
+def _build_opening_structures(
+    db: Session,
+    user_id: int,
+    patterns: List[Any],
+    opening_names_by_game: Dict[int, str],
+) -> Dict[str, Any]:
+    """Openings keyed by the structure the player actually reaches.
+
+    The name-string view (kept alongside this for compatibility) says "you score
+    badly in the French Defense", which is not actionable: one opening name covers
+    several structures with different plans, and the same structure arrives from
+    different names. Keying on ``structure_key`` — the pawn skeleton and side to
+    move, computed in the move layer — answers the question a coach would ask:
+    *in this kind of position, how do you actually do?*
+
+    Everything here is measured from stored rows: no engine call, no model.
+    """
+    rows = (
+        db.query(
+            GameMove.game_id,
+            GameMove.ply,
+            GameMove.move_uci,
+            GameMove.structure_key,
+            GameMove.color,
+            GameMove.is_user_move,
+            GameMove.classification,
+            Game.winner,
+        )
+        .join(Game, Game.id == GameMove.game_id)
+        .filter(GameMove.user_id == user_id, GameMove.phase == "opening")
+        .all()
+    )
+
+    by_game: Dict[int, List[Any]] = defaultdict(list)
+    for row in rows:
+        by_game[row.game_id].append(row)
+
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for game_id, game_rows in by_game.items():
+        structure = _structure_of_game(game_rows)
+        if structure is None:
+            continue
+        bucket = buckets.setdefault(
+            structure,
+            {
+                "structure_key": structure,
+                "games": 0,
+                "user_moves": 0,
+                "opening_errors": 0,
+                "_score_points": [],
+                "_names": defaultdict(int),
+            },
+        )
+        bucket["games"] += 1
+
+        user_rows = [row for row in game_rows if row.is_user_move]
+        bucket["user_moves"] += len(user_rows)
+        bucket["opening_errors"] += sum(
+            1 for row in user_rows if str(row.classification or "").lower() in SERIOUS_CLASSIFICATIONS
+        )
+
+        name = opening_names_by_game.get(game_id)
+        if name:
+            bucket["_names"][name] += 1
+
+        # Score from the player's own side, using the stored winner.
+        winner = (game_rows[0].winner or "").lower()
+        if winner == "draw":
+            bucket["_score_points"].append(0.5)
+        elif winner in ("white", "black"):
+            # The player's colour in this game, read from their own moves.
+            colour = _player_colour(game_rows)
+            if colour:
+                bucket["_score_points"].append(1.0 if winner == colour else 0.0)
+
+    structures: List[Dict[str, Any]] = []
+    for bucket in buckets.values():
+        points = bucket.pop("_score_points")
+        names = bucket.pop("_names")
+        moves = bucket["user_moves"] or 0
+        errors = bucket["opening_errors"]
+        structures.append(
+            {
+                **bucket,
+                "error_rate": round(errors / moves, 4) if moves else None,
+                "score_rate": round(sum(points) / len(points), 3) if points else None,
+                "opening_names": [name for name, _ in sorted(names.items(), key=lambda kv: -kv[1])][:3],
+                "pattern_ids": _pattern_ids_for_structure(patterns, bucket["structure_key"]),
+                "sample_sufficient": bucket["games"] >= MIN_OPENING_SAMPLE_GAMES,
+            }
+        )
+
+    structures.sort(key=lambda item: (item["games"], item["structure_key"]), reverse=True)
+    return {
+        "method": "structure_key",
+        "structures": structures,
+        # Why a structure table alone is not enough: at this data volume most groups
+        # hold a single game, so the honest framing is whether a repertoire exists.
+        "repertoire": _build_repertoire_stability(by_game),
+        "explanation": (
+            "Grouped by the position structure the player reaches by the end of the "
+            "opening, not by opening name: the same name covers different structures, "
+            "and the same structure arises from different names. Groups are flagged "
+            "when the sample is too thin to judge."
+        ),
+    }
+
+
+def _player_colour(rows: List[Any]) -> Optional[str]:
+    """The player's colour in a game, read from the moves they made."""
+    for row in rows:
+        if row.is_user_move and getattr(row, "color", None):
+            return str(row.color).lower()
+    return None
+
+
+def _pattern_ids_for_structure(patterns: List[Any], structure_key: str) -> List[int]:
+    """Patterns whose stored evidence names this structure.
+
+    The link already exists in the pattern evidence (``structures``), so this reads
+    it rather than re-deriving similarity: a pattern that never fired in this
+    structure must not be attached to it.
+    """
+    matches: List[int] = []
+    for pattern in patterns:
+        evidence = pattern.evidence or {}
+        for entry in evidence.get("structures") or []:
+            key = entry.get("structure_key") if isinstance(entry, dict) else None
+            if key == structure_key:
+                matches.append(pattern.id)
+                break
+    return matches
 
 
 def _build_opening_repertoire(opening_by_game: List[Dict[str, Any]]) -> Dict[str, List[str]]:
