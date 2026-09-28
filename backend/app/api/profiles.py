@@ -35,6 +35,7 @@ class ProfileResponse(BaseModel):
     tactical_themes: Optional[Any] = None
     pattern_summary_refs: Optional[List[Any]] = None
     rating_trends: Optional[Any] = None
+    behavioural_hypotheses: Optional[List[Any]] = None
     games_analyzed_count: int
     patterns_detected_count: int
     first_game_date: Optional[datetime] = None
