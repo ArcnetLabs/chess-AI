@@ -20,7 +20,7 @@ const PRO_FEATURES = [
   {
     icon: Sparkles,
     title: 'Deeper pattern engine',
-    body: 'Every recurring leak, phase weakness, and opening trap escalated to the full pattern library with drill recommendations.',
+    body: 'Every recurring leak, phase weakness, and opening trap escalated to the full pattern library, with the practice handed to ChessReps and ChessFlow.',
   },
   {
     icon: Clock,
@@ -104,7 +104,7 @@ function BillingBody() {
             <ul className="mt-6 space-y-3.5">
               {[
                 'Unlimited coach chats grounded in your games',
-                'Insights, patterns & drills pages',
+                'Insights, patterns & practice pages',
                 'Engine analysis of your most recent 200 games',
                 'Game-by-game chat on any analyzed game',
               ].map((item) => (
@@ -133,7 +133,7 @@ function BillingBody() {
             <ul className="mt-6 space-y-3.5">
               {[
                 'Full-history analysis — every game you ever played',
-                'Deeper pattern engine with drill recommendations',
+                'Deeper pattern engine, with practice routed to our partners',
                 'Priority analysis queue',
                 'Extended coach memory across weeks',
               ].map((item) => (
