@@ -8,7 +8,12 @@ from app.models.game import Game, GameAnalysis
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
 from app.models.user import User
-from app.services.profiles.profile_builder import MIN_GAMES_FOR_PROFILE, build_player_profile
+from app.services.profiles.profile_builder import (
+    MIN_GAMES_FOR_PROFILE,
+    REPERTOIRE_DEPTH_PLIES,
+    REPERTOIRE_MIN_GAMES,
+    build_player_profile,
+)
 
 
 def _create_user(db, **overrides) -> User:
@@ -101,6 +106,9 @@ def _create_pattern(db, user: User, **overrides) -> PlayerPattern:
         first_seen_at=now,
         last_seen_at=now,
         is_strength=overrides.get("is_strength", False),
+        # Was missing, so a test could pass `evidence=` and have it silently
+        # dropped — which made the pattern-link test assert against nothing.
+        evidence=overrides.get("evidence"),
     )
     db.add(row)
     db.commit()
@@ -257,3 +265,270 @@ class TestBuildPlayerProfileSnapshot:
         profile = build_player_profile(db, user.id)
 
         assert profile.archetype == "Strong Opening / Weak Endgame"
+
+
+def _add_opening_moves(
+    db,
+    game: Game,
+    *,
+    structure_key: str,
+    colour: str = "white",
+    errors: int = 0,
+    quiet: int = 6,
+    start_ply: int = 1,
+) -> None:
+    """Opening-phase plies for one game, with the structure reached by the end."""
+    from app.models.game_move import GameMove
+
+    ply = start_ply
+    for index in range(quiet):
+        db.add(
+            GameMove(
+                user_id=game.user_id,
+                game_id=game.id,
+                ply=ply,
+                move_number=(ply + 1) // 2,
+                color=colour,
+                is_user_move=True,
+                fen_before="8/8/8/8/8/8/8/8 w - - 0 1",
+                fen_after="8/8/8/8/8/8/8/8 w - - 0 1",
+                position_key=f"pos-{game.id}-{ply}",
+                # The last opening ply carries the structure the player settled into.
+                structure_key=structure_key,
+                move_uci="e2e4",
+                best_move_uci="e2e4",
+                eval_before_cp=20.0,
+                eval_after_cp=10.0,
+                cp_loss=10.0,
+                classification="blunder" if index < errors else "good",
+                phase="opening",
+                features={},
+            )
+        )
+        ply += 2
+    db.commit()
+
+
+def _set_first_moves(db, game: Game, moves: str) -> None:
+    """Write a specific opening move sequence for a game.
+
+    Used to make a repertoire either repeat or scatter, which is what the stability
+    measurement is about.
+    """
+    from app.models.game_move import GameMove
+
+    for offset, uci in enumerate(moves.split(), start=1):
+        db.add(
+            GameMove(
+                user_id=game.user_id,
+                game_id=game.id,
+                ply=offset,
+                move_number=(offset + 1) // 2,
+                color="white" if offset % 2 == 1 else "black",
+                is_user_move=offset % 2 == 1,
+                fen_before="8/8/8/8/8/8/8/8 w - - 0 1",
+                fen_after="8/8/8/8/8/8/8/8 w - - 0 1",
+                position_key=f"line-{game.id}-{offset}",
+                structure_key="chain",
+                move_uci=uci,
+                best_move_uci=uci,
+                eval_before_cp=20.0,
+                eval_after_cp=15.0,
+                cp_loss=5.0,
+                classification="good",
+                phase="opening",
+                features={},
+            )
+        )
+    db.commit()
+
+
+class TestOpeningStructures:
+    """Openings keyed by the structure reached, not by opening name.
+
+    The name view is kept for compatibility, but it is not actionable: one name
+    covers several structures with different plans, and one structure arrives from
+    several names. These tests pin that the structure view groups by the position
+    the player actually has to play.
+    """
+
+    def test_groups_by_structure_not_by_name(self, db):
+        """Both halves of the claim: one name, two structures; two names, one structure."""
+        user = _create_user(db)
+        total = MIN_GAMES_FOR_PROFILE
+        for index in range(total):
+            # Two games arrive at a different structure; one of the shared-structure
+            # games carries a different opening name.
+            structure = "isolated" if index >= total - 2 else "chain"
+            name = "Sicilian Defense" if index == 0 else "French Defense"
+            game, _ = _create_analyzed_game(
+                db, user, game_index=index, opening_name=name, opening_acpl=20.0
+            )
+            _add_opening_moves(db, game, structure_key=structure)
+
+        profile = build_player_profile(db, user.id)
+        structures = profile.opening_repertoire["by_structure"]["structures"]
+        by_key = {entry["structure_key"]: entry for entry in structures}
+
+        assert set(by_key) == {"chain", "isolated"}
+        # Two different opening names, one structure.
+        assert by_key["chain"]["games"] == total - 2
+        assert set(by_key["chain"]["opening_names"]) == {"French Defense", "Sicilian Defense"}
+        # One opening name, two structures — which is why the name is not the key.
+        assert by_key["isolated"]["games"] == 2
+        assert by_key["isolated"]["opening_names"] == ["French Defense"]
+        assert profile.opening_repertoire["by_structure"]["method"] == "structure_key"
+
+    def test_reports_error_rate_and_score_from_stored_rows(self, db):
+        user = _create_user(db)
+        game, _ = _create_analyzed_game(db, user, game_index=0, opening_acpl=20.0)
+        game.winner = "white"
+        _add_opening_moves(db, game, structure_key="chain", colour="white", errors=2, quiet=8)
+        for index in range(1, MIN_GAMES_FOR_PROFILE):
+            _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+
+        profile = build_player_profile(db, user.id)
+        entry = [
+            item
+            for item in profile.opening_repertoire["by_structure"]["structures"]
+            if item["structure_key"] == "chain"
+        ][0]
+
+        assert entry["user_moves"] == 8
+        assert entry["opening_errors"] == 2
+        assert entry["error_rate"] == 0.25
+        # The player was White and White won.
+        assert entry["score_rate"] == 1.0
+
+    def test_thin_samples_are_flagged_not_hidden(self, db):
+        user = _create_user(db)
+        game, _ = _create_analyzed_game(db, user, game_index=0, opening_acpl=20.0)
+        _add_opening_moves(db, game, structure_key="rare-structure")
+        for index in range(1, MIN_GAMES_FOR_PROFILE):
+            _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+
+        profile = build_player_profile(db, user.id)
+        entry = [
+            item
+            for item in profile.opening_repertoire["by_structure"]["structures"]
+            if item["structure_key"] == "rare-structure"
+        ][0]
+
+        assert entry["sample_sufficient"] is False
+
+    def test_links_only_patterns_that_actually_fired_there(self, db):
+        user = _create_user(db)
+        game, _ = _create_analyzed_game(db, user, game_index=0, opening_acpl=20.0)
+        _add_opening_moves(db, game, structure_key="chain")
+        for index in range(1, MIN_GAMES_FOR_PROFILE):
+            _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+
+        here = _create_pattern(
+            db,
+            user,
+            pattern_subtype="structure_slip_here",
+            pattern_description="Recurring slip in this structure.",
+            evidence={"structures": [{"structure_key": "chain", "occurrences": 4}]},
+        )
+        elsewhere = _create_pattern(
+            db,
+            user,
+            pattern_subtype="structure_slip_elsewhere",
+            pattern_description="Recurring slip somewhere else.",
+            evidence={"structures": [{"structure_key": "other", "occurrences": 4}]},
+        )
+
+        profile = build_player_profile(db, user.id)
+        entry = [
+            item
+            for item in profile.opening_repertoire["by_structure"]["structures"]
+            if item["structure_key"] == "chain"
+        ][0]
+
+        assert entry["pattern_ids"] == [here.id]
+        assert elsewhere.id not in entry["pattern_ids"]
+
+
+class TestRepertoireStability:
+    """Is there an opening repertoire at all? Measured, because it usually isn't.
+
+    Real data forced this: one player's 143 games reached 136 distinct structures, so
+    every structure group held a single game and the structure table could support no
+    claim. "You have no repertoire yet" is the useful, honest answer — and it is the
+    gap the ChessReps hand-off exists to close.
+    """
+
+    def test_scattered_openings_are_reported_as_no_repertoire(self, db):
+        user = _create_user(db)
+        # Five different lines across ten games: nothing repeats enough to prepare.
+        lines = [
+            "e2e4 e7e5 g1f3 b8c6",
+            "d2d4 d7d5 c2c4 e7e6",
+            "c2c4 e7e5 g1f3 b8c6",
+            "g1f3 d7d5 d2d4 g8f6",
+            "e2e4 c7c5 g1f3 d7d6",
+        ]
+        for index in range(MIN_GAMES_FOR_PROFILE):
+            game, _ = _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+            _set_first_moves(db, game, lines[index % len(lines)])
+
+        profile = build_player_profile(db, user.id)
+        repertoire = profile.opening_repertoire["by_structure"]["repertoire"]
+
+        assert repertoire["distinct_lines"] == len(lines)
+        assert repertoire["largest_group"] < REPERTOIRE_MIN_GAMES
+        assert repertoire["verdict"] == "no_repertoire"
+        assert repertoire["settled"] is False
+        assert "repertoire" in repertoire["statement"].lower()
+
+    def test_main_line_without_a_repertoire_says_both(self, db):
+        """The real case: one line played often, overall repertoire still scattered.
+
+        A single boolean had to lie about one of those facts, so the measurement
+        reports a verdict plus a statement naming both.
+        """
+        user = _create_user(db)
+        total = MIN_GAMES_FOR_PROFILE * 5
+        for index in range(total):
+            game, _ = _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+            # Eight games share a line; the rest are all distinct (the trailing token
+            # only has to differ — the measurement compares stored move strings).
+            moves = "e2e4 e7e5 g1f3 b8c6" if index < 8 else f"d2d4 d7d5 c2c4 {index:04d}"
+            _set_first_moves(db, game, moves)
+
+        profile = build_player_profile(db, user.id)
+        repertoire = profile.opening_repertoire["by_structure"]["repertoire"]
+
+        assert repertoire["largest_group"] == 8
+        assert repertoire["verdict"] == "main_line_only"
+        assert repertoire["settled"] is False
+        assert "main opening line" in repertoire["statement"]
+
+    def test_repeated_line_is_reported_as_settled(self, db):
+        user = _create_user(db)
+        total = MIN_GAMES_FOR_PROFILE
+        for index in range(total):
+            game, _ = _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+            _set_first_moves(db, game, "e2e4 e7e5 g1f3 b8c6")
+
+        profile = build_player_profile(db, user.id)
+        repertoire = profile.opening_repertoire["by_structure"]["repertoire"]
+
+        assert repertoire["distinct_lines"] == 1
+        assert repertoire["largest_group"] == total
+        assert repertoire["settled"] is True
+        assert repertoire["statement"]
+
+    def test_stability_uses_the_configured_depth(self, db):
+        user = _create_user(db)
+        game, _ = _create_analyzed_game(db, user, game_index=0, opening_acpl=20.0)
+        _set_first_moves(db, game, "e2e4 e7e5 g1f3 b8c6 f1b5 a7a6")
+        for index in range(1, MIN_GAMES_FOR_PROFILE):
+            _create_analyzed_game(db, user, game_index=index, opening_acpl=20.0)
+
+        profile = build_player_profile(db, user.id)
+        repertoire = profile.opening_repertoire["by_structure"]["repertoire"]
+
+        assert repertoire["depth"] == REPERTOIRE_DEPTH_PLIES
+        # Four plies of that line, not six: the depth is the documented one.
+        assert repertoire["distinct_lines"] == 1
