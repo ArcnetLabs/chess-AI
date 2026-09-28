@@ -712,6 +712,48 @@ export const trainingApi = {
   },
 };
 
+// Practice focus API (what to work on, and where to do the work)
+// ---------------------------------------------------------------------------
+//
+// ChessRun is the coach: practice happens on ChessReps and ChessFlow. No drill
+// content is returned, because the integration does not exist yet and inventing
+// it would be a claim we cannot stand behind.
+
+export interface PracticePartner {
+  key: string;
+  name: string;
+  focus: string;
+  status: string;
+  url: string | null;
+}
+
+export interface PracticeFocusItem {
+  pattern_id: number;
+  focus: string;
+  why: string;
+  context: string | null;
+  severity: string | null;
+  trend: string | null;
+  occurrences: number;
+  opportunities: number | null;
+  partner: PracticePartner | null;
+}
+
+export interface PracticeFocus {
+  focus: PracticeFocusItem[];
+  partners: PracticePartner[];
+}
+
+export const practiceApi = {
+  getFocus: async (userId: number, limit = 3): Promise<PracticeFocus> => {
+    const response = await apiClient.get<PracticeFocus>(
+      `/users/${userId}/practice-focus`,
+      { params: { limit } },
+    );
+    return response.data;
+  },
+};
+
 const api = {
   users: userApi,
   games: gamesApi,
@@ -722,6 +764,7 @@ const api = {
   chat: chatApi,
   memories: memoryApi,
   training: trainingApi,
+  practice: practiceApi,
   notifications: notificationsApi,
 };
 

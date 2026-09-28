@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { href: '/coach', label: 'Home', icon: Home },
   { href: '/coach/insights', label: 'Insights', icon: Brain },
   { href: '/coach/patterns', label: 'Patterns', icon: BarChart3 },
-  { href: '/coach/training', label: 'Drills', icon: Dumbbell },
+  { href: '/coach/training', label: 'Practice', icon: Dumbbell },
   { href: '/coach/billing', label: 'Billing', icon: CreditCard },
 ] as const;
 

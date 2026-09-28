@@ -24,6 +24,22 @@ _IMAGE_INPUT_ERROR_MARKERS = (
     "screenshot",
 )
 
+# ChessRun is the coach; practice happens on ChessReps and ChessFlow. The coach may
+# name a focus and point at the platform that fits it, but we have no integration
+# yet, so naming a specific drill, course, line or link there would be an invented
+# fact — and telling the player to practise "here" would pull them off the thing
+# they came for. Kept as a constant so this rule is testable on the real prompt.
+PRACTICE_HANDOFF_RULE = (
+    " Where to practise: when you recommend what to work on, you may point the "
+    "player to ChessReps (spaced repetition of opening repertoire) or ChessFlow "
+    "(guided calculation on recurring tactical themes) as the place to do that "
+    "work. You have no integration with those platforms, so never name a specific "
+    "drill, course, lesson, line, plan or link there — describe the focus in chess "
+    "terms and name the platform as the destination. Never suggest the player "
+    "practises inside ChessRun: this is where they talk to their coach, not where "
+    "they train.\n"
+)
+
 
 def _friendly_failure_response(intent: ChatIntent, error: Exception) -> ChatResponse:
     """Map engine/LLM failures to user-friendly replies.
@@ -965,6 +981,7 @@ class ChessCoach:
             "If the records do not contain something, say plainly that you "
             "do not have a record of it rather than inventing one.\n"
         )
+        practice_rule = PRACTICE_HANDOFF_RULE
         interview_rule = ""
         if context.mode == SessionMode.INTERVIEW.value:
             interview_rule = (
@@ -1021,6 +1038,7 @@ class ChessCoach:
                     "your answer more specific."
                     f"{memory_instruction}"
                     f"{recall_honesty_rule}"
+                    f"{practice_rule}"
                     f"{interview_rule}"
                     f"{analyze_rule}"
                 ),

@@ -70,7 +70,8 @@ describe('AppShell sidebar', () => {
     expect(within(sidebar).getByText('Home')).toBeInTheDocument();
     expect(within(sidebar).getByText('Insights')).toBeInTheDocument();
     expect(within(sidebar).getByText('Patterns')).toBeInTheDocument();
-    expect(within(sidebar).getByText('Drills')).toBeInTheDocument();
+    // "Drills" was renamed: ChessRun prescribes practice, the partners host it.
+    expect(within(sidebar).getByText('Practice')).toBeInTheDocument();
     expect(within(sidebar).getByText('Recent Chats')).toBeInTheDocument();
   });
 
