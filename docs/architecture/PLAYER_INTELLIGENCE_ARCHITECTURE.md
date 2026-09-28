@@ -329,9 +329,13 @@ Phases 2–3 are the critical path: until moves are relational and events exist,
 - **72 position keys recur across games** (the most common appears in 71 games, then 43 / 41 / 23 / 16), and the same pawn structures recur across 71 / 43 / 41 / 32 games — the substrate for "you keep reaching this position".
 - **1,129 events carry an opponent trigger**, e.g. *after opponent played h7h6 → major_blunder ×7*, *after g8f6 → threat_unanswered ×6*. The "you struggle when opponents do X" capability is now queryable data rather than an aspiration.
 
-### Two limits carried into Phase 3
+### Phase 3 limit resolved: the mate sign convention is verified
 
-- **Mate evaluations are reconstructed, not measured.** The analyzer flattens mate to 0 cp (`unified_analyzer.py:283`), so mate scores come from `mate_in`, and that reconstruction disagreed with the analyzer's own classification on **607 of 711** mate rows. Mate rows therefore produce no event unless the analyzer independently calls the move a mistake or blunder (103 rows qualified). Verifying the engine wrapper's mate sign convention is a small, bounded Phase 3 task; until then, precision was preferred over recall by design.
+- ~~Mate evaluations are reconstructed, not measured, and the sign convention is unverified.~~ **Verified, and the gate rewritten.** The analyzer still flattens mate to 0 cp, so mate scores are reconstructed from `mate_in` — but the convention that reconstruction assumes (`mate_in` is reported for the side to move *after* the move, i.e. the mover's opponent) was checked against the games themselves: across **711 mate rows the implied mating side matched the eventual winner in 97 of 98 finished games**, and in every mating sequence a positive `mate_in` on a Black move's row meant White was mating.
+
+  The old safety gate then turned out to be backwards. It admitted mate rows only when the analyzer *also* called the move a mistake or blunder — but the analyzer cannot see mate, and labels **602 of those 711 rows "best"**, including both rows where a forced mate was thrown away (`+1200 → −1200`, `cp_loss = 2400`, classified "best"). So it admitted rows on a signal blind to mate while excluding the clearest blunders in the library.
+
+  Mate rows now produce events when the position **reversed** — the mover was mating and no longer is, or was not being mated and now is. Measured on production: 33 rows newly admitted (producing events across five types), and **8 removed** — every one an already-lost position that the move did not change, with `cp_loss = 0.0`, which the analyzer nevertheless labelled "blunder". A mate that merely got slower is not a blunder, and neither is a move made in a position already lost.
 - **Phase is still the move-number rule.** `game_moves.phase` uses the canonical boundary so existing detectors stay consistent; the material-aware rule from §3 is not adopted yet. `simplified`, `material_band` and `queens_off` are stored per move precisely so it can be added later without re-deriving.
 
 ### The best-move defect, and what it says about the substrate
