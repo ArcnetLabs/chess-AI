@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -72,42 +72,81 @@ def _upsert_player_pattern(
     return row
 
 
-def _persist_occurrence(
+_OCCURRENCE_FIELDS = (
+    "game_phase",
+    "fen_before",
+    "fen_after",
+    "user_move",
+    "best_move",
+    "user_eval",
+    "best_eval",
+    "eval_delta",
+    "context_description",
+    "detector_metadata",
+    "move_id",
+    "event_id",
+)
+
+
+def _apply_occurrence(existing: PatternOccurrence, occurrence: PatternOccurrenceInput) -> bool:
+    """Copy a detected occurrence onto a stored row, and report whether it changed.
+
+    Only genuinely different fields are assigned. Assigning unconditionally marks the
+    row dirty, so a re-run with identical data emitted an UPDATE per occurrence — half
+    of the statements an already slow run was making.
+    """
+    metadata = occurrence.detector_metadata or {}
+    desired = {
+        "game_phase": occurrence.game_phase,
+        "fen_before": occurrence.fen_before,
+        "fen_after": occurrence.fen_after,
+        "user_move": occurrence.user_move,
+        "best_move": occurrence.best_move,
+        "user_eval": occurrence.user_eval,
+        "best_eval": occurrence.best_eval,
+        "eval_delta": occurrence.eval_delta,
+        "context_description": occurrence.context_description,
+        "detector_metadata": occurrence.detector_metadata,
+        "move_id": metadata.get("move_id"),
+        "event_id": metadata.get("event_id"),
+    }
+    changed = False
+    for field, value in desired.items():
+        if getattr(existing, field) != value:
+            setattr(existing, field, value)
+            changed = True
+    return changed
+
+
+def _persist_occurrences(
     db: Session,
     pattern_id: int,
     user_id: int,
-    occurrence: PatternOccurrenceInput,
-) -> None:
-    if occurrence.game_id <= 0:
-        return
+    occurrences: Sequence[PatternOccurrenceInput],
+    known: Dict[Tuple[int, int, int], PatternOccurrence],
+) -> Tuple[int, int]:
+    """Write one pattern's occurrences, reusing rows already loaded.
 
-    existing = (
-        db.query(PatternOccurrence)
-        .filter(
-            PatternOccurrence.pattern_id == pattern_id,
-            PatternOccurrence.game_id == occurrence.game_id,
-            PatternOccurrence.move_number == occurrence.move_number,
-        )
-        .first()
-    )
-    detector_metadata = occurrence.detector_metadata or {}
-    if existing:
-        # Refresh everything a re-run can change. Previously only phase, context
-        # and metadata were updated, so stale FENs and evaluations survived.
-        existing.game_phase = occurrence.game_phase
-        existing.fen_before = occurrence.fen_before
-        existing.fen_after = occurrence.fen_after
-        existing.user_move = occurrence.user_move
-        existing.best_move = occurrence.best_move
-        existing.user_eval = occurrence.user_eval
-        existing.best_eval = occurrence.best_eval
-        existing.eval_delta = occurrence.eval_delta
-        existing.context_description = occurrence.context_description
-        existing.detector_metadata = occurrence.detector_metadata
-        return
+    ``known`` is keyed ``(pattern_id, game_id, move_number)`` and shared across the
+    whole run, so this costs no queries: the previous version issued one SELECT per
+    occurrence, which is what made a pattern run take minutes against a pooled remote
+    database instead of seconds.
+    """
+    written = unchanged = 0
+    for occurrence in occurrences:
+        if occurrence.game_id <= 0:
+            continue
+        key = (pattern_id, occurrence.game_id, occurrence.move_number)
+        existing = known.get(key)
+        if existing is not None:
+            if _apply_occurrence(existing, occurrence):
+                written += 1
+            else:
+                unchanged += 1
+            continue
 
-    db.add(
-        PatternOccurrence(
+        metadata = occurrence.detector_metadata or {}
+        row = PatternOccurrence(
             pattern_id=pattern_id,
             user_id=user_id,
             game_id=occurrence.game_id,
@@ -122,10 +161,13 @@ def _persist_occurrence(
             eval_delta=occurrence.eval_delta,
             context_description=occurrence.context_description,
             detector_metadata=occurrence.detector_metadata,
-            move_id=detector_metadata.get("move_id"),
-            event_id=detector_metadata.get("event_id"),
+            move_id=metadata.get("move_id"),
+            event_id=metadata.get("event_id"),
         )
-    )
+        db.add(row)
+        known[key] = row
+        written += 1
+    return written, unchanged
 
 
 def persist_pattern_snapshots(
@@ -145,6 +187,10 @@ def persist_pattern_snapshots(
     """
     saved: List[PlayerPattern] = []
 
+    # One query for every occurrence this run could touch, instead of one per
+    # occurrence. The pattern rows are upserted first because their ids key the map.
+    known: Dict[Tuple[int, int, int], PatternOccurrence] = {}
+    pattern_rows: List[Tuple[object, PlayerPattern]] = []
     for detected in result.patterns:
         existing = (
             db.query(PlayerPattern)
@@ -157,11 +203,29 @@ def persist_pattern_snapshots(
         )
         row = _upsert_player_pattern(db, user_id, detected, existing)
         db.flush()
-
-        for occurrence in detected.occurrences:
-            _persist_occurrence(db, row.id, user_id, occurrence)
-
+        pattern_rows.append((detected, row))
         saved.append(row)
+
+    pattern_ids = [row.id for _, row in pattern_rows]
+    if pattern_ids:
+        for stored in (
+            db.query(PatternOccurrence)
+            .filter(PatternOccurrence.pattern_id.in_(pattern_ids))
+            .all()
+        ):
+            known[(stored.pattern_id, stored.game_id, stored.move_number)] = stored
+
+    written = unchanged = 0
+    for detected, row in pattern_rows:
+        row_written, row_unchanged = _persist_occurrences(
+            db, row.id, user_id, detected.occurrences, known
+        )
+        written += row_written
+        unchanged += row_unchanged
+    logger.debug(
+        f"pattern occurrences for user_id={user_id}: {written} written, "
+        f"{unchanged} already current"
+    )
 
     removed = _prune_stale_event_patterns(db, user_id, result)
     _record_run(db, user_id, result, removed)
