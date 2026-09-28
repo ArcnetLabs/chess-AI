@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.models.game_move import GameMove
 
-from .phase_boundaries import phase_for_move
+from .phase_boundaries import phase_for_position
 from .position_features import (
     extract_features,
     material_balance,
@@ -145,7 +145,7 @@ def build_move_facts(
                 "is_mate_score": move.mate_in is not None,
                 "engine_depth": engine_depth,
                 "classification": move.classification,
-                "phase": phase_for_move(ply, total_plies),
+                "phase": phase_for_position(ply, total_plies, features),
                 "features": features,
                 "prev_ply": ply - 1 if ply > 1 else None,
             }
