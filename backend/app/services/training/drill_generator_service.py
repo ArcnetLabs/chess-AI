@@ -255,4 +255,21 @@ def generate_training_plan(
         f"Generated training plan id={plan.id} user_id={user_id} "
         f"version={version} drills={plan.drill_count}"
     )
+
+    # The generated plan is coaching delivered, so it is recorded in the ledger
+    # here. This path builds its own plan row rather than going through
+    # create_manual_plan, so it needs its own hook — otherwise a player coached
+    # only by the generator would have no coaching history at all.
+    from app.services.coaching.interventions import record_delivered_coaching
+
+    for pattern in selected:
+        record_delivered_coaching(
+            db,
+            user_id,
+            pattern_id=pattern.id,
+            title=f"Generated plan: {plan.title}",
+            payload={"plan_id": plan.id, "generator": "drill_generator_service"},
+            commit=False,
+        )
+    db.commit()
     return plan
