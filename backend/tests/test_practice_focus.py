@@ -127,6 +127,55 @@ class TestFocusBuilding:
             pattern(db, user, subtype=subtype, occurrences=30 - index)
         assert len(build_practice_focus(db, user.id, limit=2)) == 2
 
+    def test_the_same_advice_in_two_situations_is_one_line(self, db, user):
+        """Real data produced "your endgame technique" twice, from two contexts.
+
+        The engine is right to keep them apart — different situations, measured
+        separately — but a player reading "what to work on" must not see the same
+        advice listed twice.
+        """
+        first = pattern(
+            db,
+            user,
+            subtype="endgame_technique_failure__endgame|level|complex|triggered",
+            occurrences=29,
+            opportunities=79,
+            rate=0.367,
+        )
+        second = pattern(
+            db,
+            user,
+            subtype="endgame_technique_failure__endgame|behind_slight|complex|triggered",
+            occurrences=11,
+            opportunities=30,
+            rate=0.367,
+        )
+
+        items = build_practice_focus(db, user.id)
+        assert len(items) == 1
+        assert items[0]["focus"] == "your endgame technique"
+        assert items[0]["situations"] == 2
+        assert set(items[0]["pattern_ids"]) == {first.id, second.id}
+        # The strongest situation supplies the evidence that is shown.
+        assert items[0]["pattern_id"] == first.id
+
+    def test_collapsing_still_records_every_situation(self, db, user):
+        """One line of advice, but each pattern keeps its own measurable row."""
+        first = pattern(
+            db,
+            user,
+            subtype="endgame_technique_failure__endgame|level|complex|triggered",
+        )
+        second = pattern(
+            db,
+            user,
+            subtype="endgame_technique_failure__endgame|behind_slight|complex|triggered",
+        )
+
+        offer_practice_focus(db, user.id)
+        recorded = {row.pattern_id for row in db.query(CoachingIntervention).all()}
+        assert recorded == {first.id, second.id}
+
 
 class TestPartnerRouting:
     def test_openings_go_to_chessreps(self, db, user):

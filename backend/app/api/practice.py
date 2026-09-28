@@ -37,6 +37,10 @@ class PracticePartnerResponse(BaseModel):
 
 class PracticeFocusItem(BaseModel):
     pattern_id: int
+    # Every situation behind this one line of advice. They stay separate rows in
+    # the ledger, where outcomes are measured per pattern.
+    pattern_ids: List[int]
+    situations: int
     focus: str
     why: str
     context: Optional[str] = None
