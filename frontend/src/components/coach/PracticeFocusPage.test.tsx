@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import PracticePage from './training';
+// Kept out of `src/pages/`: Next.js treats every file there as a route, so a test
+// in that directory becomes a page — this one broke `next build`, and with it two
+// production deploys, with "Failed to collect page data for /coach/training.test".
+import PracticePage from '@/pages/coach/training';
 
 const mocks = vi.hoisted(() => ({
   useCurrentUser: vi.fn(),
