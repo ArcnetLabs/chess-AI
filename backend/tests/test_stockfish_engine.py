@@ -13,6 +13,27 @@ import chess
 from app.services.engine.stockfish_engine import StockfishEngine, StockfishEngineError
 
 
+def _stockfish_available() -> bool:
+    """The binary is deliberately not committed (downloaded per environment).
+
+    Without it these tests fail on every fresh checkout, which buries real
+    failures in noise: a full-suite run showed 12 failures and 8 errors here and
+    nowhere else. Skips are honest about *why* nothing was verified; a green
+    "pass" that never ran the engine would not be.
+    """
+    try:
+        StockfishEngine()
+    except StockfishEngineError:
+        return False
+    return True
+
+
+pytestmark = pytest.mark.skipif(
+    not _stockfish_available(),
+    reason="Stockfish binary not installed (run scripts/render_install_stockfish.sh)",
+)
+
+
 @pytest.mark.asyncio
 async def test_engine_initialization():
     """Test that engine initializes correctly."""
