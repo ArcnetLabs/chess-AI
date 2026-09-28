@@ -44,6 +44,9 @@ from app.services.patterns.event_pattern_detector import (
     load_decisions,
 )
 
+# The synthetic player the harness owns. Stable so repeated runs reuse one row.
+HARNESS_USER_ID = "coach-eval-harness"
+
 # ---------------------------------------------------------------------------
 # Fixture cases
 # ---------------------------------------------------------------------------
@@ -65,6 +68,11 @@ class FixtureMove:
     opponent_hanging: Tuple[str, ...] = ()
     classification: str = "good"
     event_types: Tuple[str, ...] = ()
+    # Which game this ply belongs to. Fixtures that care about *ordering between
+    # plies* (an opponent's error and the reply that fails to punish it) must set
+    # this: the trigger is found by looking at ply-1 in the same game, so a
+    # round-robin split silently deletes the very thing the case is about.
+    game_key: Optional[str] = None
     # Retained deliberately: the harness must be able to plant wrong evidence and
     # check that the system does not accept it.
     serious: bool = True
@@ -240,27 +248,46 @@ def build_cases() -> List[EvalCase]:
 
     # 4. Opponent-induced: the error always follows an opponent's own mistake, so
     #    the coaching signal is "failed to punish", not "blundered".
+    #
+    #    Each opponent blunder and the reply that fails to punish it share a game
+    #    (game_key), because the trigger is read from ply-1 of the same game — and
+    #    each game holds a second trigger/safe-reply pair so the situation reaches
+    #    the opportunity floor while still spanning four distinct games.
     induced = []
     for index in range(4):
+        key = f"induced-{index}"
         induced.append(
             FixtureMove(
-                ply=2 + index * 3,
+                ply=2,
                 is_user_move=False,
                 cp_loss=300.0,
                 phase="middlegame",
                 context=MIDDLEGAME_CONTEXT,
                 classification="blunder",
+                game_key=key,
             )
         )
         induced.append(
             _error_move(
-                3 + index * 3,
+                3,
                 context=MIDDLEGAME_CONTEXT,
                 event_type="failed_to_punish",
                 cp_loss=250.0,
+                game_key=key,
             )
         )
-    induced.extend(_quiet_move(200 + index, context=MIDDLEGAME_CONTEXT) for index in range(8))
+        induced.append(
+            FixtureMove(
+                ply=4,
+                is_user_move=False,
+                cp_loss=300.0,
+                phase="middlegame",
+                context=MIDDLEGAME_CONTEXT,
+                classification="blunder",
+                game_key=key,
+            )
+        )
+        induced.append(_quiet_move(5, context=MIDDLEGAME_CONTEXT, game_key=key))
     cases.append(
         EvalCase(
             name="opponent_induced",
@@ -357,14 +384,26 @@ class CaseResult:
 
 
 def _seed_case(db: Session, user: User, case: EvalCase) -> None:
-    """Materialise a case as games, moves and events."""
+    """Materialise a case as games, moves and events.
+
+    Game assignment is either explicit (``FixtureMove.game_key``) or round-robin.
+    Round-robin exists so a case whose occurrences must clear the *distinct games*
+    gate can spread them cheaply; it is the wrong choice for any case where the
+    meaning lives in the adjacency of two plies, which is why the key exists.
+    """
     from app.services.analysis.position_features import extract_features  # noqa: F401
     import chess
 
-    # Two games per case keeps game-level gates (min distinct games) meaningful
-    # without needing one game per occurrence.
-    game_ids: List[int] = []
-    for index in range(3):
+    explicit = [move.game_key for move in case.moves if move.game_key is not None]
+    if explicit:
+        keys: List[Optional[str]] = [move.game_key for move in case.moves]
+        distinct = list(dict.fromkeys(keys))  # first-appearance order
+    else:
+        keys = [f"rr-{index % 3}" for index in range(len(case.moves))]
+        distinct = ["rr-0", "rr-1", "rr-2"]
+
+    game_ids: Dict[Optional[str], int] = {}
+    for index, key in enumerate(distinct):
         game = Game(
             user_id=user.id,
             chesscom_game_id=f"eval-{case.name}-{index}",
@@ -374,21 +413,10 @@ def _seed_case(db: Session, user: User, case: EvalCase) -> None:
         )
         db.add(game)
         db.flush()
-        game_ids.append(game.id)
+        game_ids[key] = game.id
 
-    total = max(1, len(case.moves))
     for move_index, fixture in enumerate(case.moves):
-        # Round-robin across games, so occurrences clear the distinct-games gate.
-        #
-        # KNOWN LIMITATION (measured, not assumed): this splits an opponent move
-        # from the reply that answers it, so the detector cannot see that the
-        # opponent's error created the situation and the "opponent_induced" case
-        # fails for a fixture reason rather than a system reason. Chunked and
-        # pair-preserving seeding were both tried and scored worse overall (3/7 vs
-        # 5/7), because they starve the distinct-games gate instead. Fixing this
-        # properly needs explicit per-case game assignment with the opponent ply
-        # placed immediately before its reply inside one game.
-        game_id = game_ids[move_index % len(game_ids)]
+        game_id = game_ids[keys[move_index]]
         board = chess.Board()
         move = GameMove(
             user_id=user.id,
@@ -570,8 +598,17 @@ def run_harness(db: Session, *, user: Optional[User] = None) -> Dict:
     """Run every case and return the report."""
     owner = user
     if owner is None:
+        # Reuse the harness player if it exists. Creating it unconditionally made a
+        # second run fail on the unique chesscom username, which would have made the
+        # baseline a once-only measurement — the opposite of what a baseline is for.
+        owner = (
+            db.query(User)
+            .filter(User.supabase_user_id == HARNESS_USER_ID)
+            .one_or_none()
+        )
+    if owner is None:
         owner = User(
-            supabase_user_id="coach-eval-harness",
+            supabase_user_id=HARNESS_USER_ID,
             email="coach-eval@chessrun.local",
             chesscom_username="coach_eval_player",
         )
