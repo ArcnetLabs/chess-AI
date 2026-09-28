@@ -4,7 +4,26 @@ import pytest
 import chess
 from app.services.moves.move_recommender import MoveRecommender
 from app.services.moves import TacticalTheme, MoveDifficulty
-from app.services.engine.stockfish_engine import StockfishEngine
+from app.services.engine.stockfish_engine import StockfishEngine, StockfishEngineError
+
+
+def _stockfish_available() -> bool:
+    """The binary is not committed, so these tests skip rather than error.
+
+    They error at fixture setup without it, which reads as eight broken tests
+    instead of one missing dependency.
+    """
+    try:
+        StockfishEngine()
+    except StockfishEngineError:
+        return False
+    return True
+
+
+pytestmark = pytest.mark.skipif(
+    not _stockfish_available(),
+    reason="Stockfish binary not installed (run scripts/render_install_stockfish.sh)",
+)
 
 
 @pytest.fixture

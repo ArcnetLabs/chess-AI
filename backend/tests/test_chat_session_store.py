@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
-from app.models import ChatSessionRecord, User
+from app.models import User  # noqa: F401 - import registers the model metadata
 from app.services.chat import ChatContext, ChatIntent, ChatMessage, MessageRole
 from app.services.chat.session_store import (
     CHAT_SESSION_KEY_PREFIX,
@@ -49,10 +49,11 @@ def chat_db():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    Base.metadata.create_all(
-        engine,
-        tables=[User.__table__, ChatSessionRecord.__table__],
-    )
+    # Every table, not a hand-listed subset: the integration test drives the real
+    # ChessCoach.process_message, which reads the profile, so a narrow list made it
+    # fail with "no such table: player_profiles" — a fixture gap reported as a
+    # product failure. Importing app.models registers the metadata.
+    Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
     session.add(User(id=42, email="coach@example.com"))
     session.commit()
