@@ -139,7 +139,12 @@ function FocusRow({ item }: { item: PracticeFocusItem }) {
         </p>
         {trend && <span className="text-[12px] text-content-muted">{trend}</span>}
       </div>
-      <p className="mt-2 text-sm leading-6 text-content-muted">{item.why}</p>
+      <p className="mt-2 text-sm leading-6 text-content-muted">
+        {item.why}
+        {item.situations > 1
+          ? ` You meet it in ${item.situations} different kinds of position.`
+          : ''}
+      </p>
       <p className="mt-3 flex items-center gap-1.5 text-[13px] text-content-muted">
         {item.partner ? (
           <>

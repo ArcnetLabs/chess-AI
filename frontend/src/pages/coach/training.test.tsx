@@ -25,6 +25,8 @@ const FOCUS = {
   focus: [
     {
       pattern_id: 119,
+      pattern_ids: [119, 137],
+      situations: 2,
       focus: 'your endgame technique',
       why: 'It came up in 37% of the 79 times you were in that kind of position, across 18 games.',
       context: 'endgame|level|complex|triggered',
@@ -81,6 +83,14 @@ describe('Practice focus page', () => {
       screen.getByText(/37% of the 79 times you were in that kind of position/),
     ).toBeTruthy();
     expect(screen.getByText('Keeps happening')).toBeTruthy();
+  });
+
+  it('says when the same advice covers several situations', async () => {
+    renderPage();
+
+    expect(
+      await screen.findByText(/You meet it in 2 different kinds of position/),
+    ).toBeTruthy();
   });
 
   it('hands practice off to the partner rather than hosting it', async () => {
