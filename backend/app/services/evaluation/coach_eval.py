@@ -537,16 +537,26 @@ _ENGINE_NUMBER = re.compile(r"[+-]\d+\.\d\d\b")
 
 
 def verify_grounding(
-    context: str, *, allowed_game_ids: Sequence[int], allowed_pattern_ids: Sequence[int]
+    text: str, *, allowed_game_ids: Sequence[int], allowed_pattern_ids: Sequence[int]
 ) -> List[str]:
-    """Every referenced id must exist in the evidence the context was built from."""
+    """Every referenced id must exist in the evidence the text was built from.
+
+    ``text`` is a rendered context when a case is checked, and a model *reply* when
+    reply scoring calls it — the parameter used to be named ``context``, so a reply that
+    cited a game it had been given was reported as "context cites game N", which sent me
+    looking at the context builder instead of at this function.
+    """
     violations: List[str] = []
-    for game_id in _GAME_ID.findall(context):
+    for game_id in _GAME_ID.findall(text):
         if int(game_id) not in set(allowed_game_ids):
-            violations.append(f"context cites game {game_id} that is not in its evidence")
-    for pattern_id in _PATTERN_ID.findall(context):
+            violations.append(
+                f"cites game {game_id}, which is not in the evidence it was given"
+            )
+    for pattern_id in _PATTERN_ID.findall(text):
         if int(pattern_id) not in set(allowed_pattern_ids):
-            violations.append(f"context cites pattern {pattern_id} that is not in its evidence")
+            violations.append(
+                f"cites pattern {pattern_id}, which is not in the evidence it was given"
+            )
     return violations
 
 

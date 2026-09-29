@@ -45,6 +45,27 @@ def coaching_system_prompt(question: str) -> str:
 COACH_SYSTEM_PROMPT = coaching_system_prompt("What should I work on?")
 
 
+def games_cited_in(context: str) -> tuple:
+    """Game ids the supplied context cites, which a reply is therefore allowed to cite.
+
+    Derived from the context rather than hand-listed, so every block that legitimately
+    names a game — similar decisions, and the games-recall block added later — is covered
+    automatically instead of needing the probe to be updated alongside it.
+    """
+    import re
+
+    return tuple(sorted({int(match) for match in re.findall(r"\bGame (\d+)\b", context)}))
+
+
+def pattern_ids_cited_in(context: str) -> tuple:
+    """Pattern ids the supplied context cites."""
+    import re
+
+    return tuple(
+        sorted({int(match) for match in re.findall(r"pattern_id=(\d+)", context)})
+    )
+
+
 def build_probes(db: Session, user_id: int) -> List[Probe]:
     """Assemble probes from the player's real context."""
     probes: List[Probe] = []
@@ -65,6 +86,13 @@ def build_probes(db: Session, user_id: int) -> List[Probe]:
                 context=context,
                 expects_history=has_history,
                 expects_uncertainty=not has_history,
+                # The games and patterns the context actually cites are the ones a reply
+                # may cite back. This list used to be left empty, which made the
+                # grounding check refuse *any* game number — so a reply correctly citing
+                # a game from its own context was reported as ungrounded, and the check
+                # was stricter than its own message claimed.
+                allowed_game_ids=games_cited_in(context),
+                allowed_pattern_ids=pattern_ids_cited_in(context),
                 notes="context assembled by the production path",
             )
         )
