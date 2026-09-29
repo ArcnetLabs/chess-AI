@@ -161,6 +161,63 @@ def test_queue_skips_games_with_no_moves(mock_batch_task, db, user):
 
 
 @patch("app.tasks.analysis_tasks.analyze_batch_games_task")
+def test_queue_skips_a_game_the_player_never_moved_in(mock_batch_task, db, user):
+    """Game 2750: one ply, played by the opponent.
+
+    The player had Black in a game abandoned after ``1. d4``, so there is no
+    move of theirs to analyze. It was queued anyway, scored 0.0 ACPL / 99.0%
+    accuracy, and counted as one of the 50 analysed games.
+    """
+    mock_batch_task.delay.return_value = MagicMock(id="celery-task-oneply")
+
+    abandoned = Game(
+        user_id=user.id,
+        chesscom_game_id="one-ply-abandoned",
+        white_username="FranckRE",
+        black_username="testplayer",
+        pgn="1. d4 1-0",
+        is_analyzed=False,
+        end_time=datetime.now(timezone.utc),
+    )
+    db.add(abandoned)
+    db.commit()
+    db.refresh(abandoned)
+
+    result = queue_new_games_for_analysis(db, user, [abandoned.id], source="test")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "no_eligible_games"
+    assert result["games_queued"] == 0
+    assert result["games_skipped_no_moves"] == 1
+    mock_batch_task.delay.assert_not_called()
+
+
+@patch("app.tasks.analysis_tasks.analyze_batch_games_task")
+def test_queue_keeps_a_one_ply_game_the_player_did_move_in(mock_batch_task, db, user):
+    """The same single ply, seen from White's side, is a real move to score."""
+    mock_batch_task.delay.return_value = MagicMock(id="celery-task-oneply-white")
+
+    game = Game(
+        user_id=user.id,
+        chesscom_game_id="one-ply-white",
+        white_username="testplayer",
+        black_username="FranckRE",
+        pgn="1. d4 1-0",
+        is_analyzed=False,
+        end_time=datetime.now(timezone.utc),
+    )
+    db.add(game)
+    db.commit()
+    db.refresh(game)
+
+    result = queue_new_games_for_analysis(db, user, [game.id], source="test")
+
+    assert result["status"] == "queued"
+    assert result["games_queued"] == 1
+    assert result["games_skipped_no_moves"] == 0
+
+
+@patch("app.tasks.analysis_tasks.analyze_batch_games_task")
 def test_queue_reports_zero_skips_when_every_game_has_moves(mock_batch_task, db, user):
     mock_batch_task.delay.return_value = MagicMock(id="celery-task-allgood")
     game = Game(
