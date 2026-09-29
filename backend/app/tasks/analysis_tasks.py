@@ -16,6 +16,7 @@ from app.services.analysis.analysis_service import (
     persist_move_layer,
 )
 from app.services.analysis.analysis_job_store import get_analysis_job_store
+from app.services.analysis.pgn_preflight import NO_MOVES_ERROR, has_analyzable_moves
 from app.services.analysis.unified_analyzer import AnalysisCancelledError
 from app.services.engine.engine_pool import StockfishEnginePool
 from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
@@ -41,6 +42,30 @@ async def _analyze_with_engine_cleanup(
         )
     finally:
         await StockfishEnginePool.shutdown()
+
+
+def _force_final_passes(user_id: int, log_prefix: str) -> None:
+    """End-of-batch trigger for the pattern and profile snapshots.
+
+    Per-game triggers are debounced, so without an explicit end-of-batch signal
+    the snapshots the reveal headlines can lag the finished run by the whole
+    debounce window. A batch whose last game *failed* or was skipped ends just
+    as surely as one whose last game succeeded, so it needs the same trigger.
+    """
+    logger.info(
+        f"{log_prefix}Job finished — forcing final pattern detection "
+        f"and profile build for user {user_id}"
+    )
+    schedule_pattern_detection_for_user(user_id, countdown=5, force=True)
+    # The profile build is debounced separately, so the build the last
+    # detection scheduled mid-run suppresses the final one. Queue it behind the
+    # detection (solo worker, ETA order) so the snapshot the reveal headlines
+    # reflects the completed run.
+    schedule_profile_build_for_user(
+        user_id,
+        countdown=PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS,
+        force=True,
+    )
 
 
 @celery_app.task(
@@ -86,13 +111,28 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
         game = db.query(Game).filter(Game.id == game_id).first()
         if not game or not game.pgn:
             logger.warning(f"❌ {log_prefix}Game {game_id} not found or has no PGN")
-            job_store.mark_game_failed(job_id, game_id, error="Game not found or has no PGN")
+            if job_store.mark_game_failed(
+                job_id, game_id, error="Game not found or has no PGN"
+            ):
+                _force_final_passes(user_id, log_prefix)
             return {"status": "failed", "reason": "Game not found or no PGN"}
 
         if game.is_analyzed:
             logger.info(f"{log_prefix}Game {game_id} is already analyzed; marking complete")
             job_store.mark_game_completed(job_id, game_id)
             return {"status": "already_analyzed", "game_id": game_id}
+
+        # Chess.com stores a row for games that never produced a move (aborted
+        # tournament pairings). Nothing to analyze — and that is deterministic,
+        # so it must not enter the 3-attempt / 60s retry ladder: the retries
+        # cost ~2 minutes of worker time and fail identically each time.
+        if not has_analyzable_moves(game.pgn):
+            logger.warning(
+                f"⏭️ {log_prefix}Game {game_id} has no moves to analyze; skipping"
+            )
+            if job_store.mark_game_failed(job_id, game_id, error=NO_MOVES_ERROR):
+                _force_final_passes(user_id, log_prefix)
+            return {"status": "skipped", "game_id": game_id, "reason": "no_moves"}
 
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -161,20 +201,7 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
         # while the UI already reports the full game count.
         job_finished = job_store.mark_game_completed(job_id, game_id)
         if job_finished:
-            logger.info(
-                f"{log_prefix}Job {job_id} finished — forcing final pattern detection "
-                f"and profile build for user {user_id}"
-            )
-            schedule_pattern_detection_for_user(user_id, countdown=5, force=True)
-            # The profile build is debounced separately, so the build the last
-            # detection scheduled mid-run suppresses the final one. Queue it
-            # behind the detection (solo worker, ETA order) so the snapshot the
-            # reveal headlines reflects the completed run.
-            schedule_profile_build_for_user(
-                user_id,
-                countdown=PROFILE_BUILD_DEBOUNCE_COUNTDOWN_SECONDS,
-                force=True,
-            )
+            _force_final_passes(user_id, log_prefix)
         else:
             schedule_pattern_detection_for_user(user_id)
 
@@ -204,7 +231,8 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             raise self.retry(exc=e)
         else:
             logger.error(f"💀 {log_prefix}Max retries reached for game {game_id}")
-            job_store.mark_game_failed(job_id, game_id, error=str(e))
+            if job_store.mark_game_failed(job_id, game_id, error=str(e)):
+                _force_final_passes(user_id, log_prefix)
             return {
                 "status": "failed",
                 "game_id": game_id,

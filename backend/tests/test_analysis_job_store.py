@@ -108,6 +108,32 @@ def test_get_job_missing_returns_none(store):
     assert store.get_active_job(999) is None
 
 
+def test_mark_game_failed_reports_the_finishing_edge(store):
+    """A batch can end on a failure, and the caller needs to know.
+
+    The end-of-batch signal forces the final pattern detection + profile build.
+    ``mark_game_completed`` returned it; ``mark_game_failed`` did not, so a
+    batch whose last game failed (or was skipped as unanalyzable) ended without
+    the pass that makes the reveal's snapshots current.
+    """
+    store.create_job(job_id="job-edge", user_id=60, game_ids=[50, 51], source="manual")
+
+    assert store.mark_game_failed("job-edge", 50, error="no moves") is False
+    assert store.mark_game_failed("job-edge", 51, error="no moves") is True
+
+    job = store.get_job("job-edge")
+    assert job["status"] == AnalysisJobStatus.FAILED.value
+    assert job["failed_games"] == 2
+    assert job["pending_game_ids"] == []
+
+
+def test_mark_game_failed_ignores_unknown_game(store):
+    store.create_job(job_id="job-unknown", user_id=61, game_ids=[70], source="manual")
+
+    assert store.mark_game_failed("job-unknown", 999) is False
+    assert store.get_job("job-unknown")["failed_games"] == 0
+
+
 def test_get_last_job_survives_terminal_status(store):
     """Active pointer clears on completion, but last-job stays for diagnostics."""
     store.create_job(job_id="job-6", user_id=55, game_ids=[40], source="single")

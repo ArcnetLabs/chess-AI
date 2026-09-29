@@ -71,8 +71,8 @@ The substrate. One row per ply, written during analysis, backfilled from the exi
 
 **Two corrections this layer forces on the existing pipeline:**
 
-- **`eval_before` is required.** Today `evaluation_change` is a delta between consecutive *post-move* evaluations (`unified_analyzer.py:298`), so a move's loss is contaminated by the opponent's reply. `cp_loss` must be `eval_before(best) − eval_before(played)`.
-- **Mate positions must not count as 0 cp.** The current `or 0` fallback (`unified_analyzer.py:261,283`) silently flattens decisive positions and biases ACPL.
+- **`eval_before` is required.** `evaluation_change` used to be a delta between consecutive *post-move* evaluations, and `evaluate_position` scores from the side to move (`score.relative`), so the frames alternated every ply and the analyzer's in-place sign flip left later plies comparing two different frames — measured at 4x the true ACPL on average (35x in the worst game), 38.6% mean accuracy instead of 71.4%, and blunder counts wrong in both directions. Fixed at the source (`unified_analyzer.py`, `fix/analysis-eval-frames`): `evaluation_change` is now the mover's own centipawn loss, clamped at zero, computed exactly as `cp_loss` (`eval_before − eval_after` in the mover's frame). The ideal `eval_before(best) − eval_before(played)` refinement remains open.
+- **Mate positions must not count as 0 cp.** The current `or 0` fallback (`unified_analyzer.py:261,283`) silently flattens decisive positions and biases ACPL. The *loss* calculation now substitutes a bounded `MATE_SCORE` from `mate_in` (matching `move_facts`); the stored `evaluation_cp` still flattens to 0 for readers that rebuild mates themselves.
 
 `position_key` is deliberately cheap: piece placement + side to move + castling rights, normalised, hashed. It supports exact and near-exact recurrence ("the same structure again") without any model. Feature columns support *similar* (not identical) recurrence and are the inputs to Layer 3's context matching.
 

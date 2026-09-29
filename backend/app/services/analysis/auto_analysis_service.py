@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.models.game import Game
 from app.models.user import User
 from app.services.analysis.analysis_job_store import get_analysis_job_store
+from app.services.analysis.pgn_preflight import has_analyzable_moves
 
 AUTO_ANALYZE_PREF_KEY = "auto_analyze_on_sync"
 DEFAULT_AUTO_ANALYZE = True
@@ -49,6 +50,7 @@ def queue_new_games_for_analysis(
             "status": "skipped",
             "reason": "auto_analyze_disabled",
             "games_queued": 0,
+            "games_skipped_no_moves": 0,
         }
 
     ids: List[int] = [game_id for game_id in game_ids if game_id]
@@ -57,11 +59,11 @@ def queue_new_games_for_analysis(
             "status": "skipped",
             "reason": "no_games",
             "games_queued": 0,
+            "games_skipped_no_moves": 0,
         }
 
-    eligible_ids = [
-        row[0]
-        for row in db.query(Game.id)
+    eligible_rows = (
+        db.query(Game.id, Game.pgn)
         .filter(
             Game.id.in_(ids),
             Game.user_id == user.id,
@@ -71,7 +73,27 @@ def queue_new_games_for_analysis(
         )
         .order_by(Game.end_time.desc())
         .all()
-    ]
+    )
+
+    # Chess.com keeps a row for games that never produced a move (aborted
+    # tournament pairings): headers only, no movetext. They cannot be analyzed,
+    # and the engine pass fails them deterministically — which is how a
+    # 50-game window reported "49 games analyzed" with nothing on screen to
+    # explain the missing game. Drop them here and report the count so the UI
+    # can say so out loud.
+    eligible_ids: List[int] = []
+    no_move_ids: List[int] = []
+    for game_id, pgn in eligible_rows:
+        if has_analyzable_moves(pgn):
+            eligible_ids.append(game_id)
+        else:
+            no_move_ids.append(game_id)
+
+    if no_move_ids:
+        logger.info(
+            f"Auto-analysis skipped {len(no_move_ids)} game(s) with no moves "
+            f"for user {user.id} ({source}): {no_move_ids[:10]}"
+        )
 
     # Onboarding duration is decided here, not by the import: the fetch keeps the
     # full library for Insights and the coach, while the bounded engine pass is
@@ -91,6 +113,7 @@ def queue_new_games_for_analysis(
             "status": "skipped",
             "reason": "no_eligible_games",
             "games_queued": 0,
+            "games_skipped_no_moves": len(no_move_ids),
         }
 
     from app.tasks.analysis_tasks import analyze_batch_games_task
@@ -117,6 +140,7 @@ def queue_new_games_for_analysis(
     return {
         "status": "queued",
         "games_queued": len(eligible_ids),
+        "games_skipped_no_moves": len(no_move_ids),
         "task_id": task.id,
         "job_id": job_id,
     }

@@ -11,7 +11,56 @@ from loguru import logger
 
 from ..engine.engine_pool import get_pooled_engine
 from ..engine.stockfish_engine import StockfishEngine, StockfishEngineError
+from .move_facts import MATE_SCORE
 from .phase_boundaries import phase_boundaries
+
+# Move classification thresholds (centipawn loss). Module level so the analyzer
+# and anything rebuilding stored metrics from ``game_moves`` classify a move the
+# same way — one definition, one truth.
+CLASSIFICATION_THRESHOLDS = {
+    'brilliant': -50,     # Exceptional move (sacrifice, etc.)
+    'great': -25,         # Very strong move
+    'best': 0,            # Engine's top choice
+    'excellent': 25,      # Near-optimal
+    'good': 50,           # Reasonable
+    'inaccuracy': 100,    # Minor error
+    'mistake': 200,       # Significant error
+    'blunder': 300        # Major blunder
+}
+
+
+def classify_move(
+    cp_loss: float,
+    is_best: bool,
+    thresholds: Optional[Dict[str, int]] = None,
+) -> str:
+    """Classify one move from its centipawn loss."""
+    limits = thresholds or CLASSIFICATION_THRESHOLDS
+    if is_best or cp_loss <= limits['best']:
+        return 'best'
+    if cp_loss <= limits['excellent']:
+        return 'excellent'
+    if cp_loss <= limits['good']:
+        return 'good'
+    if cp_loss <= limits['inaccuracy']:
+        return 'inaccuracy'
+    if cp_loss <= limits['mistake']:
+        return 'mistake'
+    return 'blunder'
+
+
+def acpl_to_accuracy(acpl: float) -> float:
+    """Convert ACPL to accuracy percentage (0-100), piecewise linear."""
+    if acpl < 10:
+        return 99.0
+    elif acpl < 20:
+        return 95.0 + (20 - acpl)
+    elif acpl < 50:
+        return 80.0 + (50 - acpl) / 2
+    elif acpl < 100:
+        return 60.0 + (100 - acpl) / 2.5
+    else:
+        return max(0, 60.0 - (acpl - 100) / 5)
 
 
 class AnalysisCancelledError(Exception):
@@ -109,17 +158,10 @@ class UnifiedChessAnalyzer:
     - Critical position identification
     """
     
-    # Move classification thresholds (centipawn loss)
-    THRESHOLDS = {
-        'brilliant': -50,     # Exceptional move (sacrifice, etc.)
-        'great': -25,         # Very strong move
-        'best': 0,            # Engine's top choice
-        'excellent': 25,      # Near-optimal
-        'good': 50,           # Reasonable
-        'inaccuracy': 100,    # Minor error
-        'mistake': 200,       # Significant error
-        'blunder': 300        # Major blunder
-    }
+    # Move classification thresholds (centipawn loss). Kept as a class attribute
+    # for callers that read it off the analyzer; the definition lives at module
+    # level so stored metrics can be rebuilt with the same rules.
+    THRESHOLDS = CLASSIFICATION_THRESHOLDS
     
     def __init__(self, engine: Optional[StockfishEngine] = None):
         """
@@ -290,8 +332,20 @@ class UnifiedChessAnalyzer:
             
             # Evaluate position after move
             current_eval = await self.engine.evaluate_position(board)
-            current_cp = current_eval['evaluation_cp'] or 0
             mate_in = current_eval['mate_in']
+            # ``evaluate_position`` scores from the side to move's own point of
+            # view (``score.relative``), so this value is in the *opponent's*
+            # frame: they are the ones to move now that our move is on the board.
+            pov_cp = current_eval['evaluation_cp']
+            if pov_cp is None:
+                # Mate: there is no centipawn score, and ``mate_in`` is signed
+                # from that same opponent frame. Bound it the way the move-facts
+                # layer does so one mate cannot swamp every average.
+                pov_cp = MATE_SCORE if (mate_in or 0) > 0 else -MATE_SCORE
+            # Stored evaluations keep their existing meaning: black-centric
+            # centipawns with mate flattened to 0 (``move_facts`` rebuilds the
+            # truth from ``mate_in``).
+            current_cp = current_eval['evaluation_cp'] or 0
             # The move the player should have considered is the best move of the
             # position *before* this one — carried in from the previous evaluation.
             best_move = prev_best_move
@@ -304,13 +358,27 @@ class UnifiedChessAnalyzer:
             is_user_move = (user_color == 'white' and is_white_move) or \
                           (user_color == 'black' and not is_white_move)
             
-            # Calculate evaluation change from player's perspective
-            # Flip evaluation if it's black's turn
+            # Centipawn loss for the move just played, in the mover's own frame.
+            #
+            # ``prev_cp`` is the mover's view of the position they were facing
+            # (that evaluation was taken with *them* to move), while the eval we
+            # just took is the opponent's view — so it is negated to compare like
+            # with like. Flipping the running ``prev_cp`` in place, which is what
+            # this used to do, left every following ply comparing two different
+            # frames: the "loss" came out at roughly twice the evaluation
+            # itself. Live evidence: game 2535 reported an ACPL of 865 where the
+            # per-move facts say 30, with 26 "blunders" on moves that lost
+            # nothing.
+            #
+            # Clamped at zero because a move that improves the evaluation cannot
+            # be a loss — and unclamped negatives made the ``abs()`` in the ACPL
+            # sum count improving moves as errors.
+            eval_change = max(0.0, prev_cp - (-pov_cp))
+            prev_cp = pov_cp
+
+            # Black-centric storage, unchanged for downstream readers.
             if not is_white_move:
-                prev_cp = -prev_cp
                 current_cp = -current_cp
-            
-            eval_change = prev_cp - current_cp  # Loss in centipawns
             
             # Classify move
             is_best = (move_uci == best_move)
@@ -338,18 +406,7 @@ class UnifiedChessAnalyzer:
     
     def _classify_single_move(self, cp_loss: float, is_best: bool) -> str:
         """Classify a single move based on centipawn loss."""
-        if is_best or cp_loss <= self.THRESHOLDS['best']:
-            return 'best'
-        elif cp_loss <= self.THRESHOLDS['excellent']:
-            return 'excellent'
-        elif cp_loss <= self.THRESHOLDS['good']:
-            return 'good'
-        elif cp_loss <= self.THRESHOLDS['inaccuracy']:
-            return 'inaccuracy'
-        elif cp_loss <= self.THRESHOLDS['mistake']:
-            return 'mistake'
-        else:
-            return 'blunder'
+        return classify_move(cp_loss, is_best, self.THRESHOLDS)
     
     def _classify_moves(self, moves: List[MoveAnalysis]) -> Dict[str, int]:
         """Count move classifications."""
@@ -374,17 +431,7 @@ class UnifiedChessAnalyzer:
     
     def _acpl_to_accuracy(self, acpl: float) -> float:
         """Convert ACPL to accuracy percentage (0-100)."""
-        # Piecewise linear mapping
-        if acpl < 10:
-            return 99.0
-        elif acpl < 20:
-            return 95.0 + (20 - acpl)
-        elif acpl < 50:
-            return 80.0 + (50 - acpl) / 2
-        elif acpl < 100:
-            return 60.0 + (100 - acpl) / 2.5
-        else:
-            return max(0, 60.0 - (acpl - 100) / 5)
+        return acpl_to_accuracy(acpl)
     
     def _analyze_phases(
         self,
