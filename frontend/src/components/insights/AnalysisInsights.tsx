@@ -31,6 +31,14 @@ export interface AnalysisInsightsProps {
    * run and bounced the player straight back here.
    */
   onGrow?: () => void | Promise<void>;
+  /**
+   * Games the analysis window pulled but could not analyze because Chess.com
+   * stored them with no moves at all (aborted pairings).
+   *
+   * Shown next to the count: without it the player sees "49 games" after a
+   * 50-game run and has no way to tell a real shortfall from a clean run.
+   */
+  skippedNoMoves?: number;
 }
 
 /** Real, human-readable pattern from the persisted analysis — no filler copy. */
@@ -46,6 +54,7 @@ export function AnalysisInsights({
   user: linkedUser,
   showOnboardingExtras = false,
   onGrow,
+  skippedNoMoves = 0,
 }: AnalysisInsightsProps) {
   const router = useRouter();
 
@@ -159,6 +168,13 @@ export function AnalysisInsights({
             </button>
             .
           </p>
+          {skippedNoMoves > 0 && (
+            <p className="mt-3 text-[13px] leading-5 text-content-muted/80">
+              {skippedNoMoves === 1
+                ? 'One more game in that window had no moves to analyze — an aborted game, not a gap in the analysis.'
+                : `${skippedNoMoves} more games in that window had no moves to analyze — aborted games, not gaps in the analysis.`}
+            </p>
+          )}
         </div>
         <div className="rounded-2xl border border-surface-bright/30 bg-surface-container/70 px-7 py-6">
           <p className="text-[15px] text-content-muted">Win rate</p>

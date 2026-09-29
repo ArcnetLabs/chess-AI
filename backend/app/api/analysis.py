@@ -13,6 +13,7 @@ from ..services.tier_service import get_tier_service
 from ..services.analysis.analysis_job_store import get_analysis_job_store
 from ..services.analysis.analysis_status_stream import stream_job_status_events
 from ..services.analysis.pipeline_diagnostics import collect_pipeline_status
+from ..services.analysis.pgn_preflight import has_analyzable_moves
 from ..core.config import settings
 from ..tasks.analysis_tasks import analyze_game_task, analyze_batch_games_task
 from loguru import logger
@@ -261,8 +262,19 @@ async def analyze_user_games(
             )
     
     # Queue analysis tasks with Celery
-    game_ids_to_analyze = [game.id for game in games_to_analyze if game.pgn]
-    skipped_no_pgn = len(games_to_analyze) - len(game_ids_to_analyze)
+    # A game Chess.com stored without a single move (aborted pairings) can never
+    # be analyzed. Counted separately from "no PGN" so the client can explain a
+    # shortfall instead of just reporting fewer games than it asked for.
+    skipped_no_pgn = 0
+    skipped_no_moves = 0
+    game_ids_to_analyze: List[int] = []
+    for game in games_to_analyze:
+        if not game.pgn:
+            skipped_no_pgn += 1
+        elif has_analyzable_moves(game.pgn):
+            game_ids_to_analyze.append(game.id)
+        else:
+            skipped_no_moves += 1
 
     # The import path already queues the games it fetched (auto-analysis), so a
     # client that fetches and then calls this endpoint used to queue the same
@@ -298,6 +310,7 @@ async def analyze_user_games(
             "message": "Analysis already in progress",
             "games_queued": 0,
             "skipped_no_pgn": skipped_no_pgn,
+            "skipped_no_moves": skipped_no_moves,
             "task_id": None,
             "job_id": running_job_id,
             "analysis_mode": analysis_mode,
@@ -328,6 +341,7 @@ async def analyze_user_games(
         "message": f"Queued {len(game_ids_to_analyze)} games for analysis",
         "games_queued": len(game_ids_to_analyze),
         "skipped_no_pgn": skipped_no_pgn,
+        "skipped_no_moves": skipped_no_moves,
         "skipped_already_queued": skipped_already_queued,
         "task_id": task_id,
         "job_id": job_id,

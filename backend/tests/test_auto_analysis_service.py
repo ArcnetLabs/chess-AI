@@ -114,6 +114,73 @@ def test_queue_skips_already_analyzed_games(mock_batch_task, db, user):
 
 
 @patch("app.tasks.analysis_tasks.analyze_batch_games_task")
+def test_queue_skips_games_with_no_moves(mock_batch_task, db, user):
+    """A headers-only game must not take a slot in the analysis window.
+
+    This is the "49 games analyzed instead of 50" class: the queue counted the
+    game, the engine found no moves, and the run reported one game short with
+    no explanation on screen.
+    """
+    mock_batch_task.delay.return_value = MagicMock(id="celery-task-nomoves")
+
+    playable = Game(
+        user_id=user.id,
+        chesscom_game_id="playable-1",
+        pgn="1. e4 e5 2. Nf3 Nc6 1-0",
+        is_analyzed=False,
+        end_time=datetime.now(timezone.utc),
+    )
+    aborted = Game(
+        user_id=user.id,
+        chesscom_game_id="aborted-1",
+        pgn=(
+            '[Event "Live Chess"]\n'
+            '[White "GH_Wilder"]\n'
+            '[Black "000ZAKARIA000"]\n'
+            '[Result "0-1"]\n'
+            '[CurrentPosition "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]\n'
+        ),
+        is_analyzed=False,
+        end_time=datetime.now(timezone.utc),
+    )
+    db.add_all([playable, aborted])
+    db.commit()
+    db.refresh(playable)
+    db.refresh(aborted)
+
+    result = queue_new_games_for_analysis(
+        db, user, [playable.id, aborted.id], source="test"
+    )
+
+    assert result["status"] == "queued"
+    assert result["games_queued"] == 1
+    assert result["games_skipped_no_moves"] == 1
+    mock_batch_task.delay.assert_called_once_with(
+        [playable.id], user.id, source="test", job_id=result["job_id"]
+    )
+
+
+@patch("app.tasks.analysis_tasks.analyze_batch_games_task")
+def test_queue_reports_zero_skips_when_every_game_has_moves(mock_batch_task, db, user):
+    mock_batch_task.delay.return_value = MagicMock(id="celery-task-allgood")
+    game = Game(
+        user_id=user.id,
+        chesscom_game_id="all-good",
+        pgn="1. e4 e5 1-0",
+        is_analyzed=False,
+        end_time=datetime.now(timezone.utc),
+    )
+    db.add(game)
+    db.commit()
+    db.refresh(game)
+
+    result = queue_new_games_for_analysis(db, user, [game.id], source="test")
+
+    assert result["games_queued"] == 1
+    assert result["games_skipped_no_moves"] == 0
+
+
+@patch("app.tasks.analysis_tasks.analyze_batch_games_task")
 def test_queue_is_capped_at_max_games_per_analysis(mock_batch_task, db, user, monkeypatch):
     """Onboarding length is set by the queue cap, not by the import size.
 

@@ -71,48 +71,97 @@ async def root():
     }
 
 
+#: How long a single readiness dependency probe may take before it is reported
+#: as unhealthy. Kept well under Render's 5s health-check budget.
+_HEALTH_PROBE_TIMEOUT_SECONDS = 2.0
+
+
 @app.get("/health")
 @app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint with database connectivity test."""
-    from .core.database import SessionLocal
-    from sqlalchemy import text
-    import redis
-    
-    health_status = {
+    """Liveness probe — is this instance able to serve requests?
+
+    Deliberately does **not** touch Postgres or Redis. Render evicts an instance
+    whose health check times out (5s), and this path used to run a synchronous
+    ``SELECT 1`` plus a Redis ``PING`` with a fresh client on every call. A
+    dependency blip therefore looked like a dead app: on 2026-09-29 11:54:35Z an
+    otherwise healthy instance was evicted by exactly that, and every request
+    in flight while it restarted came back without CORS headers (the browser
+    reported them as "blocked by CORS policy"), breaking progress polling
+    mid-analysis. Restarting an instance cannot fix a database outage anyway —
+    it only adds one.
+
+    Dependency detail lives in ``/health/ready``, which reports it without
+    putting the instance's life on the line.
+    """
+    return {
         "status": "healthy",
         "version": settings.VERSION,
         "service": "chess-insight-backend",
-        "checks": {}
     }
-    
-    # Check database connectivity
-    try:
+
+
+@app.get("/api/v1/health/ready")
+@app.get("/health/ready")
+async def readiness_check():
+    """Readiness probe — can this instance reach its dependencies right now?
+
+    Each probe is bounded by a short timeout and runs off the event loop, so a
+    hung dependency cannot stall the app or the Render health check.
+    """
+    from sqlalchemy import text
+
+    from .core.database import SessionLocal
+
+    timeout_seconds = _HEALTH_PROBE_TIMEOUT_SECONDS
+
+    def _check_database() -> str:
         db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
-        health_status["checks"]["database"] = "healthy"
-    except Exception as e:
-        logger.error(f"Database health check failed: {e}")
-        health_status["checks"]["database"] = f"unhealthy: {str(e)}"
-        health_status["status"] = "degraded"
-    
-    # Check Redis connectivity
-    try:
-        redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-        redis_client.ping()
-        redis_client.close()
-        health_status["checks"]["redis"] = "healthy"
-    except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
-        health_status["checks"]["redis"] = f"unhealthy: {str(e)}"
-        health_status["status"] = "degraded"
-    
-    # Return 503 if any critical service is down
-    if health_status["status"] == "degraded":
-        raise HTTPException(status_code=503, detail=health_status)
-    
-    return health_status
+        try:
+            db.execute(text("SELECT 1"))
+            return "healthy"
+        finally:
+            db.close()
+
+    def _check_redis() -> str:
+        import redis
+
+        client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=1,
+            socket_timeout=1,
+        )
+        try:
+            client.ping()
+            return "healthy"
+        finally:
+            client.close()
+
+    async def _probe(name: str, fn) -> tuple[str, str]:
+        try:
+            return name, await asyncio.wait_for(
+                asyncio.to_thread(fn), timeout=timeout_seconds
+            )
+        except Exception as exc:  # noqa: BLE001 — the report *is* the check
+            return name, f"unhealthy: {exc}"
+
+    (db_name, db_state), (redis_name, redis_state) = await asyncio.gather(
+        _probe("database", _check_database),
+        _probe("redis", _check_redis),
+    )
+
+    report = {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "service": "chess-insight-backend",
+        "checks": {db_name: db_state, redis_name: redis_state},
+    }
+    if db_state != "healthy" or redis_state != "healthy":
+        # Readiness may fail loudly: nothing kills the instance over it.
+        report["status"] = "degraded"
+        raise HTTPException(status_code=503, detail=report)
+    return report
 
 
 if __name__ == "__main__":
