@@ -83,13 +83,20 @@ def _provider_from_settings() -> Optional[Provider]:
     def provider(system_prompt: str, user_prompt: str) -> str:
         import asyncio
 
-        from app.services.integration.ai_client import chat_completion_with_fallback
+        # The client is a class with a fallback method, not a module-level function.
+        # The first version imported `chat_completion_with_fallback` directly, which
+        # does not exist — and nothing caught it, because the provider path had never
+        # executed: there are no credentials in a local checkout or CI, so the harness
+        # was only ever exercised with a fake provider. It failed on all three probes
+        # the first time it ran in production, which is where the credentials are.
+        from app.services.integration.ai_client import get_ai_client
 
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_prompt})
-        result = asyncio.run(chat_completion_with_fallback(messages))
+        client = get_ai_client()
+        result = asyncio.run(client.chat_completion_with_fallback(messages))
         if isinstance(result, dict):
             return result.get("content") or ""
         return str(result)
