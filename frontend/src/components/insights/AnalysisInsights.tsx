@@ -23,6 +23,14 @@ export interface AnalysisInsightsProps {
   patterns: PlayerPattern[];
   user?: User;
   showOnboardingExtras?: boolean;
+  /**
+   * What the "Grow With ChessRun" CTA does instead of navigating blindly.
+   *
+   * Onboarding needs this: the dashboard gate reads the cached user, so leaving
+   * straight after a completed analysis used the `analyzed_games: 0` from before the
+   * run and bounced the player straight back here.
+   */
+  onGrow?: () => void | Promise<void>;
 }
 
 /** Real, human-readable pattern from the persisted analysis — no filler copy. */
@@ -37,6 +45,7 @@ export function AnalysisInsights({
   patterns,
   user: linkedUser,
   showOnboardingExtras = false,
+  onGrow,
 }: AnalysisInsightsProps) {
   const router = useRouter();
 
@@ -230,7 +239,7 @@ export function AnalysisInsights({
           {/* CTA (12908) */}
           <button
             type="button"
-            onClick={() => void router.push('/coach')}
+            onClick={() => void (onGrow ? onGrow() : router.push('/coach'))}
             className="w-full rounded-full bg-brand-primary px-6 py-5 text-[18px] font-semibold text-brand-on-primary shadow-brand-glow transition-opacity hover:opacity-90"
           >
             Grow With ChessRun
