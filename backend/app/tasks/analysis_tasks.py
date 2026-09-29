@@ -14,9 +14,10 @@ from app.services.analysis.analysis_service import (
     analyze_game_for_user,
     persist_game_analysis,
     persist_move_layer,
+    resolve_user_color,
 )
 from app.services.analysis.analysis_job_store import get_analysis_job_store
-from app.services.analysis.pgn_preflight import NO_MOVES_ERROR, has_analyzable_moves
+from app.services.analysis.pgn_preflight import preflight_error
 from app.services.analysis.unified_analyzer import AnalysisCancelledError
 from app.services.engine.engine_pool import StockfishEnginePool
 from app.tasks.pattern_tasks import schedule_pattern_detection_for_user
@@ -122,24 +123,31 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
             job_store.mark_game_completed(job_id, game_id)
             return {"status": "already_analyzed", "game_id": game_id}
 
-        # Chess.com stores a row for games that never produced a move (aborted
-        # tournament pairings). Nothing to analyze — and that is deterministic,
-        # so it must not enter the 3-attempt / 60s retry ladder: the retries
-        # cost ~2 minutes of worker time and fail identically each time.
-        if not has_analyzable_moves(game.pgn):
-            logger.warning(
-                f"⏭️ {log_prefix}Game {game_id} has no moves to analyze; skipping"
-            )
-            if job_store.mark_game_failed(job_id, game_id, error=NO_MOVES_ERROR):
-                _force_final_passes(user_id, log_prefix)
-            return {"status": "skipped", "game_id": game_id, "reason": "no_moves"}
-
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             logger.warning(f"❌ {log_prefix}User {user_id} not found")
             job_store.mark_game_failed(job_id, game_id, error="User not found")
             return {"status": "failed", "reason": "User not found"}
-        
+
+        # Chess.com stores a row for games that never produced a move (aborted
+        # tournament pairings). Nothing to analyze — and that is deterministic,
+        # so it must not enter the 3-attempt / 60s retry ladder: the retries
+        # cost ~2 minutes of worker time and fail identically each time.
+        #
+        # The same applies to a game with movetext but none of it the player's:
+        # a one-ply aborted game the player had Black in has nothing of theirs
+        # to score, and analysing it anyway stored 0.0 ACPL / 99.0% accuracy for
+        # a game they never moved in (game 2750). Which colour the player had is
+        # needed to tell that from a normal short game, hence the user lookup
+        # above this check.
+        user_color = resolve_user_color(game, user)
+        refusal = preflight_error(game.pgn, user_color)
+        if refusal:
+            logger.warning(f"⏭️ {log_prefix}Game {game_id}: {refusal}; skipping")
+            if job_store.mark_game_failed(job_id, game_id, error=refusal):
+                _force_final_passes(user_id, log_prefix)
+            return {"status": "skipped", "game_id": game_id, "reason": "no_moves"}
+
         logger.info(
             f"🧠 {log_prefix}Analyzing game {game_id} with UnifiedChessAnalyzer "
             f"(depth={settings.STOCKFISH_DEPTH})..."

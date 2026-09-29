@@ -363,17 +363,35 @@ class UnifiedChessAnalyzer:
             # ``prev_cp`` is the mover's view of the position they were facing
             # (that evaluation was taken with *them* to move), while the eval we
             # just took is the opponent's view — so it is negated to compare like
-            # with like. Flipping the running ``prev_cp`` in place, which is what
-            # this used to do, left every following ply comparing two different
-            # frames: the "loss" came out at roughly twice the evaluation
-            # itself. Live evidence: game 2535 reported an ACPL of 865 where the
-            # per-move facts say 30, with 26 "blunders" on moves that lost
-            # nothing.
-            #
-            # Clamped at zero because a move that improves the evaluation cannot
-            # be a loss — and unclamped negatives made the ``abs()`` in the ACPL
-            # sum count improving moves as errors.
+            # with like. Clamped at zero because a move that improves the
+            # evaluation cannot be a loss, and unclamped negatives made the
+            # ``abs()`` in the ACPL sum count improving moves as errors.
             eval_change = max(0.0, prev_cp - (-pov_cp))
+            # Carry the frame forward. The next ply is played by the side to move
+            # *here*, so ``pov_cp`` — this position from their point of view,
+            # mate-bounded — is exactly what the next ply's loss needs.
+            #
+            # This carry used to be overwritten at the bottom of the loop with
+            # ``current_cp``: the black-centric stored value, with mates flattened
+            # to 0. That is the next mover's own frame only when the ply just
+            # played was White's, so Black's own moves (the even plies, always
+            # preceded by a White ply) came out right while every one of White's
+            # moves from ply 3 on was compared against a black-centric
+            # evaluation. Subtracting two frames is not a scale error: it turns
+            # ``max(0, before - after)`` into ``max(0, -before + after)``, so a
+            # real loss reads as 0 and a real gain reads as a loss.
+            #
+            # Live evidence (user 34, 50 analyses from one production run): stored
+            # ACPL missed ``game_moves.cp_loss`` by 223.0cp on average across the
+            # 25 White games, with 0 of 25 within 1cp, against 15.9cp for the 24
+            # Black games (18 of 24 within 1cp) — and every one of the 8 games
+            # recorded at 0.0% accuracy was White. Rebuilt ply by ply from the
+            # stored data, this carry reproduces all 50 stored ACPLs exactly, and
+            # the corrected one puts 25/25 White and 24/24 Black games within 1cp
+            # (bit-exact for Black, and for White on every ply but the first).
+            # Mate rows had diverged for the same reason, which is what made the
+            # analyzer's own classification disagree with the mate-aware
+            # ``cp_loss`` reconstruction: 0 was carried out of every mate ply.
             prev_cp = pov_cp
 
             # Black-centric storage, unchanged for downstream readers.
@@ -400,7 +418,6 @@ class UnifiedChessAnalyzer:
             )
             
             moves_analysis.append(move_analysis)
-            prev_cp = current_cp
         
         return moves_analysis
     
