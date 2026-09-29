@@ -206,21 +206,27 @@ class AnalysisJobStore:
         job_id: Optional[str],
         game_id: int,
         error: Optional[str] = None,
-    ) -> None:
+    ) -> bool:
+        """Count one failed game. Returns True when it finished the job.
+
+        Mirrors :meth:`mark_game_completed`: a batch whose last game failed ends
+        exactly like one whose last game succeeded, and the caller needs the
+        same end-of-batch edge to force the final pattern/profile pass.
+        """
         if not job_id:
-            return
+            return False
         if self.is_cancelled(job_id):
-            return
+            return False
 
         job = self.get_job(job_id)
         if not job:
-            return
+            return False
         if job.get("status") == AnalysisJobStatus.CANCELLED.value:
-            return
+            return False
 
         pending_before = list(job.get("pending_game_ids", []))
         if game_id not in pending_before:
-            return
+            return False
 
         pending = [gid for gid in pending_before if gid != game_id]
         job["pending_game_ids"] = pending
@@ -234,6 +240,11 @@ class AnalysisJobStore:
         job["updated_at"] = _utc_now_iso()
         self._finalize_status(job)
         self._save_job(job)
+        return job.get("status") in (
+            AnalysisJobStatus.COMPLETED.value,
+            AnalysisJobStatus.PARTIAL.value,
+            AnalysisJobStatus.FAILED.value,
+        )
 
     def is_cancelled(self, job_id: Optional[str]) -> bool:
         if not job_id:

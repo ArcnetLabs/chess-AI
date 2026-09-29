@@ -48,6 +48,7 @@ function AnalyzeOnboardingBody() {
   const [patterns, setPatterns] = useState<PlayerPattern[]>([]);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
   const [liveCounts, setLiveCounts] = useState<{ completed: number; total: number } | null>(null);
+  const [skippedNoMoves, setSkippedNoMoves] = useState(0);
   const [startError, setStartError] = useState<string | null>(null);
 
   const TERMINAL_STATUSES = ['completed', 'partial', 'failed', 'cancelled'];
@@ -172,6 +173,10 @@ function AnalyzeOnboardingBody() {
       const fetchResult = await api.games.fetchRecent(user.id, { count: 200 });
       const queued = fetchResult?.analysis_queue;
       const queuedGames = Number(queued?.games_queued ?? 0);
+      // Chess.com keeps a row for games that never produced a move. The queue
+      // drops them, so the run is legitimately shorter than the window it
+      // pulled — carried through to the reveal so the count explains itself.
+      setSkippedNoMoves(Number(queued?.games_skipped_no_moves ?? 0));
       const fetchJobId = queued?.job_id;
       if (typeof fetchJobId === 'string' && fetchJobId) {
         if (queuedGames > 0) setLiveCounts({ completed: 0, total: queuedGames });
@@ -321,6 +326,13 @@ function AnalyzeOnboardingBody() {
             Deeper libraries take longer — the engine evaluates every move, so a 200-game run
             can take up to ~20 minutes. You can leave this page; progress is saved.
           </p>
+          {skippedNoMoves > 0 && (
+            <p className="text-sm text-content-muted/80">
+              {skippedNoMoves === 1
+                ? 'One game in this window had no moves to analyze (an aborted game), so it is not in the count.'
+                : `${skippedNoMoves} games in this window had no moves to analyze (aborted games), so they are not in the count.`}
+            </p>
+          )}
         </div>
       </Page>
     );
@@ -385,6 +397,7 @@ function AnalyzeOnboardingBody() {
         profile={profile}
         patterns={patterns}
         user={user ?? undefined}
+        skippedNoMoves={skippedNoMoves}
         onGrow={async () => {
           // Read the user again before leaving: the gate on the other side decides
           // from this object, so entering the dashboard with a pre-analysis copy
@@ -430,12 +443,14 @@ function Reveal({
   profile,
   patterns,
   user: linkedUser,
+  skippedNoMoves,
   onGrow,
 }: {
   games: Game[];
   profile: PlayerProfile | undefined;
   patterns: PlayerPattern[];
   user: User | undefined;
+  skippedNoMoves: number;
   onGrow: () => Promise<void>;
 }) {
   return (
@@ -446,6 +461,7 @@ function Reveal({
           profile={profile}
           patterns={patterns}
           user={linkedUser}
+          skippedNoMoves={skippedNoMoves}
           showOnboardingExtras
           onGrow={onGrow}
         />
