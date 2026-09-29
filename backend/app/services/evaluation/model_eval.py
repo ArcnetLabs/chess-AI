@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Union
 
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -163,9 +163,13 @@ def run_probes(
     probes: Sequence[Probe],
     *,
     provider: Optional[Provider] = None,
-    system_prompt: str = "",
+    system_prompt: Union[str, Callable[[Probe], str]] = "",
 ) -> Dict:
     """Run every probe, scoring replies when a provider is available.
+
+    ``system_prompt`` may be a callable, which is how the harness sends the *real*
+    coaching instructions: they echo the question, so they differ per probe. A single
+    fixed string is still accepted for tests and simple arms.
 
     Without a provider the report still contains each assembled context and the
     exact prompt that would be sent, so an unmeasured model is visible rather than
@@ -194,7 +198,12 @@ def run_probes(
             )
             continue
         try:
-            reply = provider(system_prompt, f"{probe.context}\n\nQuestion: {probe.question}")
+            prompt_for_probe = (
+                system_prompt(probe) if callable(system_prompt) else system_prompt
+            )
+            reply = provider(
+                prompt_for_probe, f"{probe.context}\n\nQuestion: {probe.question}"
+            )
         except Exception as exc:  # noqa: BLE001 - a provider fault is data, not a crash
             logger.error(f"probe {probe.name} provider failed: {exc}")
             results.append(

@@ -41,6 +41,24 @@ PRACTICE_HANDOFF_RULE = (
 )
 
 
+# The fixed instruction block every coaching reply is held to. Extracted from the
+# assembled prompt so the evaluation harness can send *this* text rather than a
+# paraphrase of it: the first model baseline measured a three-sentence stand-in, which
+# meant the arm being measured was not the prompt any user receives.
+COACH_ANSWER_INSTRUCTIONS = (
+    "You are the user's personal chess improvement coach.\n"
+    "The user's current question is: \"{question}\"\n"
+    "Answer THAT question directly and specifically first. "
+    "Do not fall back to a generic improvement plan unless "
+    "the question is actually asking for one. Use the facts "
+    "above only where they are relevant to the question. "
+    "Never compute or invent chess engine evaluations. If "
+    "the facts above do not cover the question, answer from "
+    "general chess principles and name what data would make "
+    "your answer more specific."
+)
+
+
 def _friendly_failure_response(intent: ChatIntent, error: Exception) -> ChatResponse:
     """Map engine/LLM failures to user-friendly replies.
 
@@ -1026,16 +1044,7 @@ class ChessCoach:
                     f"{grounding_block}\n\n"
                     f"{thread_summary_block}"
                     f"{position_line}"
-                    "You are the user's personal chess improvement coach.\n"
-                    f"The user's current question is: \"{message}\"\n"
-                    "Answer THAT question directly and specifically first. "
-                    "Do not fall back to a generic improvement plan unless "
-                    "the question is actually asking for one. Use the facts "
-                    "above only where they are relevant to the question. "
-                    "Never compute or invent chess engine evaluations. If "
-                    "the facts above do not cover the question, answer from "
-                    "general chess principles and name what data would make "
-                    "your answer more specific."
+                    f"{COACH_ANSWER_INSTRUCTIONS.format(question=message)}"
                     f"{memory_instruction}"
                     f"{recall_honesty_rule}"
                     f"{practice_rule}"
