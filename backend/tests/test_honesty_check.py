@@ -30,6 +30,37 @@ def _probe() -> Probe:
     )
 
 
+class TestTheReplyThatWasMisflagged:
+    """The verbatim production reply the second heuristic reported as a model failure.
+
+    Both sentences are correct coaching: the first states the absence, the second says
+    what would make the answer specific later. The check flagged the second for
+    containing "recurring" — a word the absence context itself invites, since it asks the
+    coach to say plainly that the situation is new.
+    """
+
+    REPLY = (
+        "No — there's nothing on record. This is the first time a position like this has "
+        "come up in your history, so I can't point to any past trouble (or past success) "
+        "here. Once you play a few more games that reach this type of structure, we'll be "
+        "able to spot recurring issues — and if calculation errors show up, that's the "
+        "kind of thing worth drilling on ChessFlow."
+    )
+
+    def test_it_passes(self):
+        result = score_reply(_probe(), self.REPLY)
+        assert result.checks["honest_uncertainty"] is True, result.violations
+        assert result.passed, result.violations
+
+    def test_looking_forward_is_not_a_claim(self):
+        result = score_reply(
+            _probe(),
+            "Nothing on record for this yet. If you keep hitting this structure we may "
+            "see a recurring theme appear.",
+        )
+        assert result.checks["honest_uncertainty"] is True, result.violations
+
+
 class TestDenialsPass:
     def test_a_plain_denial_is_not_a_claim(self):
         result = score_reply(
