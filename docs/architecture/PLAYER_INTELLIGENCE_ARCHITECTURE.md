@@ -263,24 +263,37 @@ Fine-tuning is Phase 7 and is **not** assumed. The order is fixed:
 
 Only if the baseline shows the model failing *despite correct context* does Phase 7 proceed — starting with PEFT (LoRA/QLoRA) on an open-weight model, keeping the current hosted model as the serving path until a measured win exists.
 
-### The model baseline (measured 2026-09-29)
+### The model baseline, and the prompt arm (measured 2026-09-29)
 
 Run against the production provider on user 1's real context. **Correct context is a precondition, and it holds**: the same contexts pass 12/12 on the context-quality checks, and the fixture harness passes 7/7 with recall 1.0.
+
+**Arm A — the arm first measured, and it was the wrong arm.** The harness sent a three-sentence stand-in system prompt, not the instructions production sends. Against that prompt:
 
 | | Result |
 |---|---|
 | Provider | configured |
-| Probes scored | 3 of 3 |
-| Probes passed | **0 of 3** |
-| `grounding` (claims supported by the supplied facts) | **1/3** |
-| `uses_player_history` | 3/3 |
-| `no_invented_evaluations` | 3/3 |
-| `no_engine_jargon` | 3/3 |
+| Probes scored / passed | 3 of 3 / **0 of 3** |
+| `grounding` | **1/3** |
+| `uses_player_history`, `no_invented_evaluations`, `no_engine_jargon` | 3/3 each |
 | `honest_uncertainty` | 2/3 |
 
-**What this does and does not say.** The model is not inventing engine evaluations, not using engine vocabulary, and does use the player's history — those are the failures that would have been fatal, and they do not occur. The failure is concentrated in **grounding**: in two of three probes the reply makes claims the supplied facts do not support. That satisfies the letter of the gate ("failing despite correct context"), but the gate's own ladder is *base → prompt+context → fine-tuned*, and grounding is a behavioural failure that a stronger prompt may well fix. Fine-tuning is therefore **not** adopted yet: the next measurement is the prompt arm, holding the contexts fixed and comparing the same five checks. A fine-tuned model is justified only if grounding still fails there.
+A repeat of that same arm scored `grounding` 2/3 and 1 of 3 probes passed, with no code change between the runs. **The instrument is noisy**: three probes at temperature 0.7 cannot separate a real difference from variation, and any conclusion drawn from one run of it would have been over-read. That caveat applies to every number in this section.
 
-**How the credential-backed half is run without a shell.** The agent working on this repository has no interactive shell on Render (the MCP exposes service, deploy, env and log operations), and the LLM credentials exist only in the Render environment, so `run_model_eval.py` cannot execute from a local checkout. It therefore runs **in the worker build**, where those credentials are already present, and the report is read out of the build log. That step is gated on `RUN_MODEL_EVAL_ON_BUILD=true` and inert by default, so no deploy runs an LLM evaluation by accident:
+**Arm B — the prompt the product actually sends.** The harness now imports the coach's own instruction block and practice rule, so the two cannot drift apart.
+
+| | Arm A (stand-in) | Arm B (real instructions) |
+|---|---|---|
+| `grounding` | 1/3 (repeat: 2/3) | **3/3** |
+| Probes passed | 0/3 (repeat: 1/3) | **2/3** |
+| `honest_uncertainty` | 2/3 | 2/3 |
+
+**Decision: fine-tuning is not indicated on this evidence.** The gate's ladder is *base → prompt+context → fine-tuned*, and moving from a stand-in prompt to the real one recovered grounding to 3/3 — the cheap rung did measurable work, so the expensive one is not justified yet. What remains is one specific failure, and it is instructive: the single failing check is `honest_uncertainty`, on the **absence path** ("claimed a pattern although no history was supplied"). The model does not invent facts or evaluations; it asserts a *pattern* where it has none. That is a prompt/context defect with a known shape, not a capability gap that needs training.
+
+**What would change the decision.** (1) An explicit do-not-claim instruction on the absence path, re-measured. (2) More probes and repeated runs, because three probes at temperature 0.7 is too blunt an instrument for a decision of this weight — the 1/3-versus-2/3 spread within arm A is the evidence for that. Only if the specific failure survives both would Phase 7 be worth opening.
+
+**Known fidelity gap, stated rather than implied.** The harness sends the assembled context in the *user* turn, while production puts it in the *system* turn with the instructions. The instruction text, the rules and the question-echo now match production exactly; the placement of the context block does not.
+
+**How the credential-backed half is run without a shell.** The agent working on this repository has no interactive shell on Render (the MCP exposes service, deploy, env and log operations), and the LLM credentials exist only in the Render environment, so `run_model_eval.py` cannot execute from a local checkout. It therefore runs **in the worker build**, where those credentials are already present, and the report is read out of the build log. That step is gated on `RUN_MODEL_EVAL_ON_BUILD=true`, and the variable is currently `false` — no ordinary deploy runs an LLM evaluation.
 
 **How the gate is run today.** The question splits into two halves, and only one of them needs credentials — so the credential-free half is a shippable check rather than a parked task:
 
