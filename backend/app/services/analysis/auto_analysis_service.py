@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.models.game import Game
 from app.models.user import User
 from app.services.analysis.analysis_job_store import get_analysis_job_store
+from app.services.analysis.analysis_service import user_color_from_usernames
 from app.services.analysis.pgn_preflight import has_analyzable_moves
 
 AUTO_ANALYZE_PREF_KEY = "auto_analyze_on_sync"
@@ -63,7 +64,7 @@ def queue_new_games_for_analysis(
         }
 
     eligible_rows = (
-        db.query(Game.id, Game.pgn)
+        db.query(Game.id, Game.pgn, Game.white_username)
         .filter(
             Game.id.in_(ids),
             Game.user_id == user.id,
@@ -81,10 +82,16 @@ def queue_new_games_for_analysis(
     # 50-game window reported "49 games analyzed" with nothing on screen to
     # explain the missing game. Drop them here and report the count so the UI
     # can say so out loud.
+    #
+    # A one-ply aborted game the player had Black in is the same problem wearing
+    # a different hat: there is movetext, but none of it is theirs. Scoring it
+    # stored 0.0 ACPL / 99.0% accuracy for a game they never moved in (game
+    # 2750), so the check is colour-aware.
     eligible_ids: List[int] = []
     no_move_ids: List[int] = []
-    for game_id, pgn in eligible_rows:
-        if has_analyzable_moves(pgn):
+    for game_id, pgn, white_username in eligible_rows:
+        user_color = user_color_from_usernames(white_username, user.chesscom_username)
+        if has_analyzable_moves(pgn, user_color):
             eligible_ids.append(game_id)
         else:
             no_move_ids.append(game_id)
