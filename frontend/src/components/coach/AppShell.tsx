@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BarChart3,
   Brain,
@@ -95,6 +95,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     void router.push('/coach');
   };
 
+  /**
+   * Onboarding gate.
+   *
+   * The coach has nothing to say without analysed games — every claim it makes is
+   * grounded in the player's own games — so the dashboard is closed until there is
+   * something to talk about. This lives in the shell because every `/coach/*` route
+   * renders through it: one rule covers the whole dashboard, where a banner per page
+   * was advisory and could be ignored (which it was — a user with no analysis could
+   * browse every page, and the sidebar merely offered a button).
+   */
+  const needsChesscom = !loading && !!user && !user.chesscom_username;
+  const needsAnalysis = !loading && !!user && !!user.chesscom_username && (user.analyzed_games ?? 0) === 0;
+  const signedOut = !loading && !user;
+
+  useEffect(() => {
+    if (loading) return;
+    if (signedOut) {
+      // Remember where they were headed; the confirm flow uses it after sign-in.
+      void router.replace(`/auth/login?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    if (needsChesscom) {
+      void router.replace('/onboarding/link-chesscom');
+      return;
+    }
+    if (needsAnalysis) {
+      void router.replace('/onboarding/analyze');
+    }
+  }, [loading, signedOut, needsChesscom, needsAnalysis, pathname, router]);
+
+  if (signedOut || needsChesscom || needsAnalysis) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface text-content-muted">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-brand-primary" />
+        {signedOut ? 'Taking you to sign in...' : 'Taking you to game analysis...'}
+      </div>
+    );
+  }
+
   const sidebarBody = (
     <nav className="flex min-h-0 flex-1 flex-col">
       <div className="space-y-1.5">
@@ -163,15 +202,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="mt-auto space-y-2 [&>*+*]:mt-0">
-      {user?.analyzed_games === 0 && !loading && (
-        <button
-          type="button"
-          onClick={() => void router.push('/onboarding/analyze')}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary/15 px-4 py-3 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary/25"
-        >
-          Analyze your games
-        </button>
-      )}
+      {/* The "Analyze your games" prompt that used to sit here is gone: it advised a
+          user with no analysis to go and analyse, while letting them browse the whole
+          dashboard meanwhile. The gate above sends them there instead. */}
 
       <button
         type="button"

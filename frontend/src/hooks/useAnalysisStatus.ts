@@ -139,7 +139,9 @@ export function useAnalysisStatus(userId: number | undefined) {
     const restoreActiveJob = async () => {
       try {
         const activeJob = await api.analysis.getActiveJobStatus(userId);
-        if (!active) return;
+        // `active` is this effect's cancellation flag; `activeJob` is null when nothing
+        // is running, which is the normal case rather than an error.
+        if (!active || !activeJob) return;
         setStatus(activeJob);
         if (!isTerminal(activeJob.status)) watchJob(activeJob.job_id);
       } catch (requestError: unknown) {

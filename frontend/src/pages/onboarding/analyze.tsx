@@ -93,7 +93,12 @@ function AnalyzeOnboardingBody() {
     try {
       const active = await api.analysis.getActiveJobStatus(user.id);
       const activeStatus = active?.status;
-      if (active && active.job_id && !TERMINAL_STATUSES.includes(activeStatus)) {
+      if (
+        active &&
+        active.job_id &&
+        activeStatus &&
+        !TERMINAL_STATUSES.includes(activeStatus)
+      ) {
         setPhase('analyzing');
         setProgress(30);
         watchJob(active.job_id, { onComplete: handleComplete, onError: recoverAnalysis });
