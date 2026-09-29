@@ -64,6 +64,10 @@ def main() -> int:
         print(f"  [{status}] {result['name']}")
         for violation in result["violations"]:
             print(f"      - {violation}")
+        if not result["passed"] and result.get("reply_excerpt"):
+            # Print what the model actually said, so a failure in a build log can be
+            # judged rather than trusted.
+            print(f"      reply: {result['reply_excerpt'][:400]}")
     if report.get("checks"):
         print("\nper-check pass counts:")
         for check, count in report["checks"].items():
