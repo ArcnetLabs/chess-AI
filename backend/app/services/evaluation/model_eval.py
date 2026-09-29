@@ -80,13 +80,42 @@ UNCERTAINTY_SIGNALS = (
     "do not have",
 )
 
-# A reply claiming a pattern when none was supplied is the failure this catches — but
-# the *word* is not the claim. The absence context the coach is given contains
-# "patterns" (in the admissibility rule) and "new" (in the honest answer it asks for),
-# and the correct reply denies having one: "I don't have a pattern on record for this
-# yet — this looks new to me." Matching the word alone failed that reply, which is how
-# this check reported a model failure that was really a check failure.
-PATTERN_CLAIM = re.compile(r"\b(recurring|pattern|you (always|often|keep))\b", re.I)
+# What this check is for: a reply asserting the player has a history when none was
+# supplied. Two heuristics were tried and both produced false positives on *correct*
+# replies, which is why the third matches the assertion rather than the vocabulary:
+#
+#   1. matching the word "pattern" — the absence context itself contains "patterns", and
+#      the right answer denies having one ("I don't have a pattern on record for this");
+#   2. matching "recurring" — the right answer may look forward ("once you play more
+#      games, we'll be able to spot recurring issues"), which claims nothing about the
+#      past. That sentence was reported as a model failure against a reply whose other
+#      sentence was "there's nothing on record".
+#
+# Fabricated specifics remain the business of the id-based grounding check; this one
+# covers prose claims, and treats forward-looking or conditional framing as not a claim.
+_PATTERN_ASSERTION = re.compile(
+    r"("
+    r"you (always|often|keep|kept|usually|tend to|have a habit)"
+    r"|this (recurs|keeps (happening|coming back))"
+    r"|you'?ve (done|made|played) this"
+    r"|a (recurring|repeated|consistent) (problem|issue|mistake|weakness|pattern)"
+    r")",
+    re.I,
+)
+
+# Framing that makes a mention forward-looking or conditional rather than a claim.
+_NON_CLAIM_FRAMING = (
+    "once you",
+    "we'll",
+    "we will",
+    "will be able",
+    "if you",
+    "as you play",
+    "may ",
+    "might ",
+    "would ",
+    "could ",
+)
 
 # A sentence containing any of these is denying or declining to claim, not asserting.
 _DENIAL_MARKERS = (
@@ -110,17 +139,19 @@ _DENIAL_MARKERS = (
 
 
 def _pattern_claim(reply: str) -> Optional[str]:
-    """The sentence that asserts a recurring pattern, or ``None`` if none does.
+    """The sentence asserting the player has a recurring problem, or ``None``.
 
-    Returns the offending sentence rather than a boolean so the violation can quote
-    its evidence: a check that says "claimed a pattern" without showing the sentence
-    cannot be audited by the person reading the report, and this one was wrong.
+    Returns the offending sentence rather than a boolean so the violation can quote its
+    evidence: a check that says "claimed a pattern" without showing the sentence cannot
+    be audited by whoever reads the report — and this one was wrong twice, invisibly.
     """
     for sentence in re.split(r"(?<=[.!?])\s+", reply):
-        if not PATTERN_CLAIM.search(sentence):
+        if not _PATTERN_ASSERTION.search(sentence):
             continue
         lowered = sentence.lower()
         if any(marker in lowered for marker in _DENIAL_MARKERS):
+            continue
+        if any(marker in lowered for marker in _NON_CLAIM_FRAMING):
             continue
         return sentence.strip()
     return None
