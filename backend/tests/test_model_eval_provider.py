@@ -17,8 +17,39 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.evaluation.coach_probes import _provider_from_settings
+from app.services.evaluation.coach_probes import (
+    _provider_from_settings,
+    coaching_system_prompt,
+)
 from app.services.integration import ai_client
+
+
+class TestThePromptUnderTestIsTheRealOne:
+    """The harness must send the coaching instructions the product sends.
+
+    The first baseline measured a three-sentence stand-in, so the arm it reported was
+    not the prompt any player receives — and grounding was the check that failed. These
+    tests keep the harness tied to the coach's own text instead of a paraphrase.
+    """
+
+    def test_the_instructions_come_from_the_coach(self):
+        from app.services.chat.chess_coach import COACH_ANSWER_INSTRUCTIONS
+
+        prompt = coaching_system_prompt("How do I improve my endgames?")
+        head = COACH_ANSWER_INSTRUCTIONS.split("{question}")[0]
+        assert head.strip() in prompt
+        assert "How do I improve my endgames?" in prompt
+
+    def test_the_practice_rule_travels_with_it(self):
+        from app.services.chat.chess_coach import PRACTICE_HANDOFF_RULE
+
+        assert PRACTICE_HANDOFF_RULE.strip() in coaching_system_prompt("anything")
+
+    def test_the_no_invention_instruction_is_present(self):
+        assert (
+            "Never compute or invent chess engine evaluations"
+            in coaching_system_prompt("What did I get wrong?")
+        )
 
 
 class TestProviderWiring:

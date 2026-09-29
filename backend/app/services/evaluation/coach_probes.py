@@ -24,11 +24,25 @@ from app.services.evaluation.model_eval import Probe, Provider, run_probes
 MIDDLEGAME_FEN = "r1bqkb1r/pp2pppp/2n2n2/3p4/3P4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 7"
 ENDGAME_FEN = "8/5pk1/6p1/8/8/6P1/5PK1/8 w - - 0 40"
 
-COACH_SYSTEM_PROMPT = (
-    "You are ChessRun's chess coach. Stockfish is the only source of chess truth; "
-    "explain and prioritise, never invent evaluations. Use the player's own "
-    "history when it is provided, and say plainly when it is not."
-)
+def coaching_system_prompt(question: str) -> str:
+    """The instructions the product actually sends, for one question.
+
+    The first model baseline used a three-sentence stand-in
+    (``COACH_SYSTEM_PROMPT``), which meant the arm being measured was not the prompt a
+    player receives. The real instruction block and the practice rule are imported from
+    the coach, so the two cannot drift apart: if the coaching prompt changes, the
+    evaluation measures the change rather than an older paraphrase of it.
+    """
+    from app.services.chat.chess_coach import COACH_ANSWER_INSTRUCTIONS, PRACTICE_HANDOFF_RULE
+
+    return (
+        f"{COACH_ANSWER_INSTRUCTIONS.format(question=question)}"
+        f"{PRACTICE_HANDOFF_RULE}"
+    )
+
+
+# Kept for callers that just want a fixed string (and for tests).
+COACH_SYSTEM_PROMPT = coaching_system_prompt("What should I work on?")
 
 
 def build_probes(db: Session, user_id: int) -> List[Probe]:
@@ -111,7 +125,13 @@ def run_model_eval(db: Session, user_id: int, *, provider: Optional[Provider] = 
         return {"provider": "unavailable", "probes": 0, "results": [], "reason": "no probes"}
 
     resolved = provider if provider is not None else _provider_from_settings()
-    report = run_probes(db, probes, provider=resolved, system_prompt=COACH_SYSTEM_PROMPT)
+    # A callable, because the real instructions echo the question they answer.
+    report = run_probes(
+        db,
+        probes,
+        provider=resolved,
+        system_prompt=lambda probe: coaching_system_prompt(probe.question),
+    )
     if resolved is None:
         report["reason"] = (
             "no LLM credentials in this environment (LLM_LOCAL_API_KEY / "
