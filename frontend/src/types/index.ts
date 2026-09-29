@@ -224,6 +224,12 @@ export interface FetchGamesResponse {
     status?: string;
     reason?: string;
     games_queued?: number;
+    /**
+     * Games dropped from the queue because Chess.com stored them without a
+     * single move (aborted pairings). Reported so the reveal can explain why
+     * the analyzed count can be smaller than the window it pulled.
+     */
+    games_skipped_no_moves?: number;
     task_id?: string;
     job_id?: string;
   } | null;
