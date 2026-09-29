@@ -153,12 +153,14 @@ def assemble_coach_context(
     if not top:
         lines.append("Detected patterns: none persisted yet.")
     else:
-        lines.append("Top detected patterns (severity, then confidence):")
+        lines.append("Top detected patterns (most serious first):")
         for pattern in top:
+            # "severity" is an internal field name; it is handed to the coach as context
+            # and was one more word for a reply to echo back. The ranking is already
+            # reflected by the order, so the label carries no information a reply needs.
             lines.append(
                 f"- pattern_id={pattern.id} "
                 f"type={pattern.pattern_type}/{pattern.pattern_subtype} "
-                f"severity={pattern.severity} "
                 f"confidence={pattern.confidence_score:.2f}: "
                 f"{pattern.pattern_description}"
             )

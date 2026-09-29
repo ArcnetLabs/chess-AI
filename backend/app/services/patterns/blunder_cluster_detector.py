@@ -216,10 +216,15 @@ def _detect_legacy_high_blunder_rate(data: PatternAggregationInput) -> List[Dete
             affected_games_ratio=round(
                 min(1.0, affected / max(data.total_analyzed_games, 1)), 4
             ),
+            # Coach voice. This text is shown to the player and handed to the coach as
+            # context, so internal vocabulary does not belong in it: the previous wording
+            # ("High blunder rate: ... (threshold 1.5)") put the phrase "blunder rate"
+            # into the model's context, and a reply echoed it back at the player — the
+            # exact leak the vocabulary rule exists to prevent. Numbers stay in
+            # ``evidence``, where they are auditable without being quoted.
             pattern_description=(
-                f"High blunder rate: averages {avg_rate:.1f} blunders per game "
-                f"across {len(stats)} analyzed games "
-                f"(threshold {LEGACY_BLUNDER_RATE_THRESHOLD:.1f})."
+                f"Serious mistakes come in bunches: about {avg_rate:.1f} per game "
+                f"across {len(stats)} analyzed games."
             ),
             occurrences=occurrences,
             recommended_drill_type="calculation_drills",

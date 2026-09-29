@@ -66,7 +66,7 @@ def _build_phase_pattern(
                 move_number=0,
                 game_phase=phase,
                 context_description=(
-                    f"{phase.capitalize()} ACPL {phase_acpl:.1f} exceeds threshold {threshold:.1f}"
+                    f"A {phase} where you lost ground"
                 ),
                 detector_metadata={
                     "phase_acpl": phase_acpl,
@@ -103,21 +103,22 @@ def _build_phase_pattern(
     affected = len([o for o in occurrences if o.game_id > 0]) or games_count
     ratio = min(1.0, affected / max(total_games, 1))
 
+    # Coach voice. This description is shown to the player and handed to the coach as
+    # context, so it names no internal measure; the average and threshold stay in
+    # ``evidence``, where they are auditable without being quoted at a player.
     descriptions = {
         "opening": (
-            f"Opening-phase ACPL averages {acpl:.1f} across {games_count} games "
-            f"(threshold {threshold:.1f}). Recurring inaccuracies in the first phase "
-            f"suggest preparation or opening-principle gaps."
+            f"Your openings are where you give ground: problems in the first phase of "
+            f"{games_count} games, which points at preparation or opening principles."
         ),
         "middlegame": (
-            f"Middlegame ACPL averages {acpl:.1f} across {games_count} games "
-            f"(threshold {threshold:.1f}). Complex middlegame positions show "
-            f"recurring calculation or planning errors."
+            f"Your middlegame play is where you give ground: problems in complex "
+            f"positions across {games_count} games, which points at calculation or "
+            f"planning."
         ),
         "endgame": (
-            f"Endgame ACPL averages {acpl:.1f} across {games_count} games "
-            f"(threshold {threshold:.1f}). Technique in simplified positions "
-            f"needs structured study."
+            f"Your endgames are where you give ground: problems in simplified positions "
+            f"across {games_count} games, which points at endgame technique."
         ),
     }
 
