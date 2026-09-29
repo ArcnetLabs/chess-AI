@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { AppShell } from './AppShell';
 
 const push = vi.fn();
+// The onboarding gate redirects with `replace`, so it leaves no history entry to
+// bounce back to — a redirect that pushes traps the user in a loop.
+const replace = vi.fn();
 
 const mocks = vi.hoisted(() => ({
   useCurrentUser: vi.fn(),
@@ -22,7 +25,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/router', () => ({
-  useRouter: () => ({ pathname: '/coach', push }),
+  useRouter: () => ({ pathname: '/coach', push, replace, events: { on: vi.fn(), off: vi.fn() } }),
 }));
 
 vi.mock('@/hooks', () => ({
@@ -46,9 +49,20 @@ function resetStore() {
       display_name: 'Nimzo Regular',
       chesscom_username: 'nimzo',
       chesscom_avatar: 'https://example.com/pic.png',
+      // The dashboard is gated on having analysed games, so the default fixture is an
+      // account that has some — otherwise every shell test would be measuring the gate.
+      analyzed_games: 143,
     },
     loading: false,
     refetchUser: vi.fn(),
+  });
+}
+
+function userStub(overrides: Record<string, unknown>) {
+  const base = mocks.useCurrentUser();
+  mocks.useCurrentUser.mockReturnValue({
+    ...base,
+    user: { ...base.user, ...overrides },
   });
 }
 
@@ -85,19 +99,55 @@ describe('AppShell sidebar', () => {
     expect(within(sidebar).queryAllByText(/chess/).length).toBe(0);
   });
 
-  it('shows the stale-account path to the analyze onboarding when nothing is analyzed', () => {
-    mocks.useCurrentUser.mockReturnValue({
-      user: { id: 7, display_name: 'New', chesscom_username: 'new', analyzed_games: 0 },
-      loading: false,
-      refetchUser: vi.fn(),
-    });
+  it('gates the dashboard when nothing has been analyzed', () => {
+    userStub({ analyzed_games: 0 });
     render(
       <AppShell>
         <p>chat body</p>
       </AppShell>,
     );
-    const sidebar = screen.getByRole('complementary');
-    expect(within(sidebar).getByText('Analyze your games')).toBeInTheDocument();
+
+    // Refused, not advised: the coach has nothing to say without analysed games, so the
+    // dashboard does not render at all and the user is sent to analyse.
+    expect(replace).toHaveBeenCalledWith('/onboarding/analyze');
+    expect(screen.queryByText('chat body')).not.toBeInTheDocument();
+  });
+
+  it('sends an unlinked account to the chess.com step instead', () => {
+    userStub({ chesscom_username: null, analyzed_games: 0 });
+    render(
+      <AppShell>
+        <p>chat body</p>
+      </AppShell>,
+    );
+
+    expect(replace).toHaveBeenCalledWith('/onboarding/link-chesscom');
+    expect(screen.queryByText('chat body')).not.toBeInTheDocument();
+  });
+
+  it('sends a signed-out visitor to sign in, remembering where they were', () => {
+    mocks.useCurrentUser.mockReturnValue({ user: null, loading: false, refetchUser: vi.fn() });
+    render(
+      <AppShell>
+        <p>chat body</p>
+      </AppShell>,
+    );
+
+    expect(replace).toHaveBeenCalledWith(
+      `/auth/login?next=${encodeURIComponent('/coach')}`,
+    );
+    expect(screen.queryByText('chat body')).not.toBeInTheDocument();
+  });
+
+  it('waits for the profile before deciding, so a slow load is not a redirect', () => {
+    mocks.useCurrentUser.mockReturnValue({ user: null, loading: true, refetchUser: vi.fn() });
+    render(
+      <AppShell>
+        <p>chat body</p>
+      </AppShell>,
+    );
+
+    expect(replace).not.toHaveBeenCalledWith(expect.stringContaining('/auth/login'));
   });
 
   it('starts a new coach chat from the sidebar mode list', async () => {

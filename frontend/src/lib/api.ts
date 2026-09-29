@@ -1,4 +1,4 @@
-import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosResponse, InternalAxiosRequestConfig, isAxiosError } from 'axios';
 import {
   User,
   UserCreate,
@@ -311,9 +311,21 @@ export const analysisApi = {
     return response.data;
   },
 
-  getActiveJobStatus: async (userId: number): Promise<AnalysisJobStatus> => {
-    const response = await apiClient.get<AnalysisJobStatus>(`/analysis/${userId}/status`);
-    return response.data;
+  /**
+   * The user's active analysis job, or `null` when nothing is running.
+   *
+   * The endpoint answers 404 for "no active job", which is a normal state, not an
+   * error — reading it as one put a red console error on every dashboard load
+   * (`GET /analysis/1/status 404`) and made "is anything running?" look like a fault.
+   */
+  getActiveJobStatus: async (userId: number): Promise<AnalysisJobStatus | null> => {
+    try {
+      const response = await apiClient.get<AnalysisJobStatus>(`/analysis/${userId}/status`);
+      return response.data;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 404) return null;
+      throw error;
+    }
   },
 
   /**
