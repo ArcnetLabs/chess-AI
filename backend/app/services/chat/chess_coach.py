@@ -56,6 +56,14 @@ COACH_ANSWER_INSTRUCTIONS = (
     "the facts above do not cover the question, answer from "
     "general chess principles and name what data would make "
     "your answer more specific."
+    # Named because a reply used one of them at a player: the context carries engine
+    # numbers, and the fastest way to mention a number is to borrow the engine's word
+    # for it. Chess language describes the same fact and is what a player can act on.
+    " Speak in chess, not in engine statistics: never use the terms ACPL, "
+    "centipawn, centipawn loss, evaluation bar, blunder rate, threshold or severity, "
+    "and do not state a statistic as a percentage of mistakes. Describe the chess "
+    "instead — 'you give away a pawn here', 'you miss the tactic', 'you lose ground "
+    "in the endgame'."
 )
 
 
@@ -1340,15 +1348,21 @@ class ChessCoach:
             f"- opening: {_fmt(analysis.opening_name)} "
             f"({_fmt(analysis.opening_eco)}), "
             f"{_fmt(analysis.opening_moves)} opening moves",
-            f"- your accuracy: {_fmt(analysis.accuracy_percentage)}%, "
-            f"ACPL {_fmt(analysis.user_acpl)} vs opponent "
-            f"{_fmt(analysis.opponent_acpl)}",
+            # Engine facts the coach may use, described in words a player could hear.
+            # These lines label ACPL directly, and a reply echoed the vocabulary back at
+            # the player ("blunder rate" in one probe), which the coach-voice rule bans.
+            # The numbers stay — they are the engine's evidence — but the internal names
+            # for them do not.
+            f"- your accuracy: {_fmt(analysis.accuracy_percentage)}%",
+            f"- your average loss per move: {_fmt(analysis.user_acpl)}, "
+            f"opponent's: {_fmt(analysis.opponent_acpl)}",
             f"- blunders: {_fmt(analysis.blunders)}, "
             f"mistakes: {_fmt(analysis.mistakes)}, "
             f"inaccuracies: {_fmt(analysis.inaccuracies)}",
-            f"- phase ACPL: opening {_fmt(analysis.opening_acpl)}, "
-            f"middlegame {_fmt(analysis.middlegame_acpl)}, "
-            f"endgame {_fmt(analysis.endgame_acpl)}",
+            f"- average loss per move by phase: opening "
+            f"{_fmt(analysis.opening_acpl)}, middlegame "
+            f"{_fmt(analysis.middlegame_acpl)}, endgame "
+            f"{_fmt(analysis.endgame_acpl)}",
         ]
         for item in (analysis.critical_positions or [])[:3]:
             if isinstance(item, dict):

@@ -87,8 +87,7 @@ def detect_opening_weaknesses(data: PatternAggregationInput) -> List[DetectedPat
                     move_number=0,
                     game_phase="opening",
                     context_description=(
-                        f"Opening '{opening_name}' ACPL {acpl:.1f} "
-                        f"(threshold {OPENING_SPECIFIC_ACPL_THRESHOLD:.1f})"
+                        f"An opening where you lost ground early: {opening_name}"
                     ),
                     detector_metadata={
                         "opening_name": opening_name,
@@ -122,11 +121,12 @@ def detect_opening_weaknesses(data: PatternAggregationInput) -> List[DetectedPat
                 affected_games_ratio=round(
                     min(1.0, affected / max(total_games, 1)), 4
                 ),
+                # Coach voice: this text reaches the player and the coach, so it names no
+                # internal measure. The average stays in ``evidence`` for auditing.
                 pattern_description=(
-                    f"Recurring weakness in {opening_name}"
-                    f"{f' ({eco})' if eco else ''}: opening ACPL averages "
-                    f"{average_acpl:.1f} over {len(games)} games "
-                    f"(threshold {OPENING_SPECIFIC_ACPL_THRESHOLD:.1f})."
+                    f"Your openings keep going wrong in the {opening_name}"
+                    f"{f' ({eco})' if eco else ''}: you lose ground early in "
+                    f"{len(games)} of these games."
                 ),
                 example_positions=example_positions,
                 occurrences=occurrences,
