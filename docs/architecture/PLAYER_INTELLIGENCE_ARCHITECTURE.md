@@ -263,6 +263,25 @@ Fine-tuning is Phase 7 and is **not** assumed. The order is fixed:
 
 Only if the baseline shows the model failing *despite correct context* does Phase 7 proceed — starting with PEFT (LoRA/QLoRA) on an open-weight model, keeping the current hosted model as the serving path until a measured win exists.
 
+### The model baseline (measured 2026-09-29)
+
+Run against the production provider on user 1's real context. **Correct context is a precondition, and it holds**: the same contexts pass 12/12 on the context-quality checks, and the fixture harness passes 7/7 with recall 1.0.
+
+| | Result |
+|---|---|
+| Provider | configured |
+| Probes scored | 3 of 3 |
+| Probes passed | **0 of 3** |
+| `grounding` (claims supported by the supplied facts) | **1/3** |
+| `uses_player_history` | 3/3 |
+| `no_invented_evaluations` | 3/3 |
+| `no_engine_jargon` | 3/3 |
+| `honest_uncertainty` | 2/3 |
+
+**What this does and does not say.** The model is not inventing engine evaluations, not using engine vocabulary, and does use the player's history — those are the failures that would have been fatal, and they do not occur. The failure is concentrated in **grounding**: in two of three probes the reply makes claims the supplied facts do not support. That satisfies the letter of the gate ("failing despite correct context"), but the gate's own ladder is *base → prompt+context → fine-tuned*, and grounding is a behavioural failure that a stronger prompt may well fix. Fine-tuning is therefore **not** adopted yet: the next measurement is the prompt arm, holding the contexts fixed and comparing the same five checks. A fine-tuned model is justified only if grounding still fails there.
+
+**How the credential-backed half is run without a shell.** The agent working on this repository has no interactive shell on Render (the MCP exposes service, deploy, env and log operations), and the LLM credentials exist only in the Render environment, so `run_model_eval.py` cannot execute from a local checkout. It therefore runs **in the worker build**, where those credentials are already present, and the report is read out of the build log. That step is gated on `RUN_MODEL_EVAL_ON_BUILD=true` and inert by default, so no deploy runs an LLM evaluation by accident:
+
 **How the gate is run today.** The question splits into two halves, and only one of them needs credentials — so the credential-free half is a shippable check rather than a parked task:
 
 | Question | Command | Needs a provider |
@@ -271,6 +290,7 @@ Only if the baseline shows the model failing *despite correct context* does Phas
 | Do the pattern layer and grounding hold on labelled fixtures? | `python scripts/run_coach_eval.py --user-id 1` | no |
 | Are the stored per-ply facts internally consistent? | `python scripts/audit_move_facts.py --user-id 1` | no |
 | What does the model do with correct context? | `python scripts/run_model_eval.py --user-id 1` | yes |
+| The same, where the credentials are (no shell needed) | set `RUN_MODEL_EVAL_ON_BUILD=true` on the worker, deploy, read the build log, then unset it | yes |
 
 A model baseline only means something if the context under it is right, so the first two are gates on the third, not alternatives to it. The context check runs the same probes as `run_model_eval`, scores the rendered blocks the coach actually receives, and exits non-zero on any violation: missing grounding rule, engine vocabulary in player-facing text, a "recurring pattern" with no citable id, or an unstated absence. Because it is deterministic, it can also score the fallback coaching text a player sees when no provider is configured — text that is just as user-visible as model output and was previously unmeasured.
 

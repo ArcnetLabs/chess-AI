@@ -97,13 +97,16 @@ services:
       bash scripts/render_install_stockfish.sh .
       test -x stockfish/stockfish
       pip install -r requirements.txt
-      # TEMPORARY — remove once the report has been read. The agent driving this repo
-      # has no shell on Render, so the model-side baseline is run here and its report
-      # is read out of the build log. `|| true` means it can never fail a deploy, and
-      # the script itself only reads and calls the model.
-      echo "=== MODEL EVAL REPORT (temporary, remove from render.yaml) ==="
-      python scripts/run_model_eval.py --user-id 1 --json /tmp/model_eval.json || true
-      echo "=== END MODEL EVAL REPORT ==="
+      # Model-side baseline, gated and inert by default. The agent working on this
+      # repository has no shell on Render and the LLM credentials exist only here, so
+      # the evaluation runs where the credentials are and its report is read out of the
+      # build log. Set RUN_MODEL_EVAL_ON_BUILD=true on this service to arm it for one
+      # deploy, then unset it — an LLM evaluation must not run on every build.
+      if [ "$RUN_MODEL_EVAL_ON_BUILD" = "true" ]; then
+        echo "=== MODEL EVAL REPORT (RUN_MODEL_EVAL_ON_BUILD=true) ==="
+        python scripts/run_model_eval.py --user-id 1 --json /tmp/model_eval.json || true
+        echo "=== END MODEL EVAL REPORT ==="
+      fi
     # Render did not retain the generated binary in one deploy. Re-running the
     # idempotent installer at startup guarantees the worker never starts without it.
     # `-B` embeds Celery beat: the worker also runs the scheduled sync + weekly
