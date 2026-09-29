@@ -34,7 +34,7 @@ export default function AnalyzeOnboardingPage() {
 
 function AnalyzeOnboardingBody() {
   const router = useRouter();
-  const { user, loading } = useCurrentUser();
+  const { user, loading, refetchUser } = useCurrentUser();
   const { data: profile, refetch: refetchProfile } = usePlayerProfile(user?.id);
   const {
     watchJob,
@@ -147,6 +147,11 @@ function AnalyzeOnboardingBody() {
   const handleComplete = async () => {
     setProgress(100);
     setStageIndex(STAGES.length - 1);
+    // Refresh the user as well as the profile: `analyzed_games` and `current_ratings`
+    // both live on it, and both were read before the run started. Without this the
+    // insights showed blank ratings and the "Grow With ChessRun" CTA hit the dashboard
+    // gate with a stale `analyzed_games: 0` and bounced straight back here.
+    void refetchUser();
     void refetchProfile();
     await loadResults();
   };
@@ -374,7 +379,21 @@ function AnalyzeOnboardingBody() {
   }
 
   if (phase === 'done') {
-    return <Reveal games={games} profile={profile} patterns={patterns} user={user ?? undefined} />;
+    return (
+      <Reveal
+        games={games}
+        profile={profile}
+        patterns={patterns}
+        user={user ?? undefined}
+        onGrow={async () => {
+          // Read the user again before leaving: the gate on the other side decides
+          // from this object, so entering the dashboard with a pre-analysis copy
+          // sends the player straight back here.
+          await refetchUser();
+          await router.push('/coach');
+        }}
+      />
+    );
   }
 
   return (
@@ -411,11 +430,13 @@ function Reveal({
   profile,
   patterns,
   user: linkedUser,
+  onGrow,
 }: {
   games: Game[];
   profile: PlayerProfile | undefined;
   patterns: PlayerPattern[];
   user: User | undefined;
+  onGrow: () => Promise<void>;
 }) {
   return (
     <div className="min-h-screen bg-surface px-5 pb-24 pt-14 sm:px-8">
@@ -426,6 +447,7 @@ function Reveal({
           patterns={patterns}
           user={linkedUser}
           showOnboardingExtras
+          onGrow={onGrow}
         />
       </div>
     </div>
