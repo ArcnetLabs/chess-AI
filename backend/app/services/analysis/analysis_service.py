@@ -57,15 +57,29 @@ def _extract_critical_positions(result: GameAnalysisResult) -> list[dict]:
     return [_serialize_move_analysis(m) for m in result.critical_positions]
 
 
-def resolve_user_color(game: Game, user: User) -> str:
-    """Determine which side the linked Chess.com user played."""
+def user_color_from_usernames(
+    white_username: Optional[str],
+    chesscom_username: Optional[str],
+) -> str:
+    """Which side of a game the Chess.com account named ``chesscom_username`` had.
+
+    Split out from :func:`resolve_user_color` because the queue-time checks can
+    only afford to select the one column they need (``Game.white_username``)
+    rather than loading whole ``Game`` rows, and the rule must not be written
+    twice: it is what decides which of the player's moves get scored.
+    """
     if (
-        game.white_username
-        and user.chesscom_username
-        and game.white_username.lower() == user.chesscom_username.lower()
+        white_username
+        and chesscom_username
+        and white_username.lower() == chesscom_username.lower()
     ):
         return "white"
     return "black"
+
+
+def resolve_user_color(game: Game, user: User) -> str:
+    """Determine which side the linked Chess.com user played."""
+    return user_color_from_usernames(game.white_username, user.chesscom_username)
 
 
 def persist_game_analysis(

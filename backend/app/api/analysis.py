@@ -11,6 +11,7 @@ from ..middleware.auth_middleware import get_current_user, require_ownership
 from ..models import User, Game, GameAnalysis
 from ..services.tier_service import get_tier_service
 from ..services.analysis.analysis_job_store import get_analysis_job_store
+from ..services.analysis.analysis_service import user_color_from_usernames
 from ..services.analysis.analysis_status_stream import stream_job_status_events
 from ..services.analysis.pipeline_diagnostics import collect_pipeline_status
 from ..services.analysis.pgn_preflight import has_analyzable_moves
@@ -264,14 +265,20 @@ async def analyze_user_games(
     # Queue analysis tasks with Celery
     # A game Chess.com stored without a single move (aborted pairings) can never
     # be analyzed. Counted separately from "no PGN" so the client can explain a
-    # shortfall instead of just reporting fewer games than it asked for.
+    # shortfall instead of just reporting fewer games than it asked for. The same
+    # bucket holds games with movetext but none of it the player's — a one-ply
+    # aborted game they had Black in, which the engine pass used to score as 0.0
+    # ACPL / 99.0% accuracy for a game they never moved in.
     skipped_no_pgn = 0
     skipped_no_moves = 0
     game_ids_to_analyze: List[int] = []
     for game in games_to_analyze:
         if not game.pgn:
             skipped_no_pgn += 1
-        elif has_analyzable_moves(game.pgn):
+        elif has_analyzable_moves(
+            game.pgn,
+            user_color_from_usernames(game.white_username, user.chesscom_username),
+        ):
             game_ids_to_analyze.append(game.id)
         else:
             skipped_no_moves += 1
