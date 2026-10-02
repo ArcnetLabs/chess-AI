@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -61,13 +61,24 @@ class ProfileBuildResponse(BaseModel):
     message: str
 
 
-@router.get("/{user_id}/profile", response_model=ProfileResponse)
+@router.get(
+    "/{user_id}/profile",
+    response_model=Optional[ProfileResponse],
+    responses={204: {"description": "No profile snapshot for this user yet"}},
+)
 async def get_user_profile(
     user_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return the latest PlayerProfile snapshot for a user."""
+    """Return the latest PlayerProfile snapshot for a user.
+
+    No snapshot yet is the normal state for a brand-new account mid-onboarding,
+    so it answers ``204 No Content`` rather than a 404 — the 404 appeared as
+    ``GET /users/{id}/profile 404`` in a healthy onboarding page's console and
+    in error monitoring. A genuinely unknown user id is still a 404, and asking
+    for someone else's profile still fails the ownership check (403).
+    """
     require_ownership(current_user, user_id)
 
     user = db.query(User).filter(User.id == user_id).first()
@@ -76,7 +87,7 @@ async def get_user_profile(
 
     profile = get_latest_profile(db, user_id)
     if profile is None:
-        raise HTTPException(status_code=404, detail="No profile snapshot found")
+        return Response(status_code=204)
 
     return _profile_response_with_progress(db, user_id, profile)
 

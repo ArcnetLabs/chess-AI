@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -380,13 +380,24 @@ async def get_analysis_pipeline_status(
     return await collect_pipeline_status(db, user)
 
 
-@router.get("/{user_id}/status", response_model=AnalysisJobStatusResponse)
+@router.get(
+    "/{user_id}/status",
+    response_model=Optional[AnalysisJobStatusResponse],
+    responses={204: {"description": "No active analysis job for this user"}},
+)
 async def get_active_analysis_status(
     user_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return the user's active analysis job, if any."""
+    """Return the user's active analysis job, if any.
+
+    Nothing running is a normal state — a dashboard load, a user between runs —
+    so it answers ``204 No Content`` rather than a 404. The 404 put a red
+    ``GET /analysis/{id}/status 404`` in every healthy page's console and in
+    error monitoring, where it read as a missing resource instead of "no job".
+    A genuinely unknown user id is still a 404.
+    """
     require_ownership(current_user, user_id)
 
     user = db.query(User).filter(User.id == user_id).first()
@@ -395,7 +406,7 @@ async def get_active_analysis_status(
 
     job = get_analysis_job_store().get_active_job(user_id)
     if not job:
-        raise HTTPException(status_code=404, detail="No active analysis job")
+        return Response(status_code=204)
 
     return _job_status_response(job)
 
