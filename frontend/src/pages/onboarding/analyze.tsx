@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Loader2,
   Search,
@@ -28,6 +28,20 @@ const STAGES = [
   'Building your profile',
 ];
 
+// The reveal reads `patterns` and the profile, but the backend produces both
+// *after* the job ends: the final pattern detection is queued 5s behind the last
+// game and the profile snapshot ~60s behind that, and a 200-game detection pass
+// measured 267s on the worker. The job reports `completed` the instant the last
+// game is persisted, so the one-shot reads in `loadResults`/`handleComplete` saw
+// an empty pattern list and no profile — which is why the reveal showed neither
+// "Your Superpower" nor the profile headline while /coach/patterns, visited
+// later, showed both.
+const REVEAL_REFRESH_FIRST_MS = 5_000;
+const REVEAL_REFRESH_MAX_MS = 30_000;
+// Long enough for the whole deferred chain (detection run included); after it
+// the reveal's own fallbacks take over rather than polling forever.
+const REVEAL_REFRESH_BUDGET_MS = 8 * 60_000;
+
 export default function AnalyzeOnboardingPage() {
   return <AnalyzeOnboardingBody />;
 }
@@ -50,6 +64,12 @@ function AnalyzeOnboardingBody() {
   const [liveCounts, setLiveCounts] = useState<{ completed: number; total: number } | null>(null);
   const [skippedNoMoves, setSkippedNoMoves] = useState(0);
   const [startError, setStartError] = useState<string | null>(null);
+
+  // The reveal's wait-loop below owns this one timer: it is held in a ref so the
+  // pending retry can be cleared if the page unmounts mid-wait (leaving the
+  // onboarding flow for the dashboard is the normal case, not an edge one).
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userId = user?.id;
 
   const TERMINAL_STATUSES = ['completed', 'partial', 'failed', 'cancelled'];
 
@@ -77,6 +97,60 @@ function AnalyzeOnboardingBody() {
       });
     }
   }, [jobStatus]);
+
+  // The reveal is rendered from `patterns` and `profile`, but the backend
+  // produces both only *after* the job reports `completed`: pattern detection is
+  // queued 5s behind the last game and the profile snapshot ~60s behind that, so
+  // the one-shot reads in `loadResults`/`handleComplete` were systematically
+  // early — the player saw no superpower, no opportunity and no profile headline
+  // here, then saw all three on /coach/patterns a minute later. Re-read on a
+  // schedule until both have landed.
+  //
+  // First retry at 5s, doubling to a 30s ceiling (the detection pass runs for
+  // minutes, so finer polling buys nothing), and give up at the 8-minute budget
+  // rather than polling forever — a player with no patterns at all must not leave
+  // a request loop running behind the reveal. Each pass drives the loaders that
+  // already exist rather than a second fetch path, and the loop ends the moment
+  // both are present.
+  const hasRevealData = patterns.length > 0 && !!profile;
+
+  useEffect(() => {
+    if (phase !== 'done' || !userId || hasRevealData) return;
+
+    let cancelled = false;
+    const deadline = Date.now() + REVEAL_REFRESH_BUDGET_MS;
+    let delay = REVEAL_REFRESH_FIRST_MS;
+
+    const refresh = async () => {
+      refreshTimerRef.current = null;
+      if (cancelled || Date.now() >= deadline) return;
+      // `refresh: true` keeps this pass silent and non-destructive: it must not
+      // re-toast on every retry, nor trade a rendered reveal for the error page
+      // because one background request blipped.
+      await loadResults({ refresh: true });
+      await refetchProfile();
+      if (cancelled) return;
+      delay = Math.min(delay * 2, REVEAL_REFRESH_MAX_MS);
+      refreshTimerRef.current = setTimeout(() => void refresh(), delay);
+    };
+
+    refreshTimerRef.current = setTimeout(() => void refresh(), REVEAL_REFRESH_FIRST_MS);
+
+    return () => {
+      cancelled = true;
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+    // `loadResults`/`refetchProfile` take a new identity every render, and a tick
+    // re-renders this page (it sets `games`/`patterns`): depending on them would
+    // restart the schedule — and reset the budget — on every poll, which is a loop
+    // that never gives up. The schedule belongs to the reveal, so it is keyed on
+    // what the reveal is waiting for instead. The captured closures read `user`
+    // only through `userId`, which is a dependency here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, userId, hasRevealData]);
 
   // Recovery: before ever showing the error page, look at what the backend
   // is actually doing. Three sources, in order of directness:
@@ -224,7 +298,14 @@ function AnalyzeOnboardingBody() {
 
   // Re-read live data after the pipeline: the reveal must show what actually
   // happened, not a stale profile snapshot.
-  const loadResults = async () => {
+  //
+  // `refresh` marks the background pass the reveal's wait-loop drives. Same reads
+  // either way, but a background pass is silent — one "Your games are analyzed"
+  // toast per retry would be noise — and non-destructive: the reveal is already on
+  // screen, so a tick that comes back empty or fails leaves it alone instead of
+  // swapping it for the empty or error page. The loop is what gets the last word,
+  // not a single unlucky request.
+  const loadResults = async ({ refresh = false }: { refresh?: boolean } = {}) => {
     if (!user) return;
     try {
       const [list, patternList] = await Promise.all([
@@ -235,6 +316,7 @@ function AnalyzeOnboardingBody() {
       setGames(analyzed);
       setPatterns(patternList);
       if (analyzed.length === 0) {
+        if (refresh) return;
         setEmptyReason(
           'No games were found in the period we pulled (or none have ratings to analyze yet). Link your Chess.com account and play a few games, then retry.',
         );
@@ -242,8 +324,9 @@ function AnalyzeOnboardingBody() {
         return;
       }
       setPhase('done');
-      toast.success('Your games are analyzed');
+      if (!refresh) toast.success('Your games are analyzed');
     } catch {
+      if (refresh) return;
       // "Self-heal": the worker may have kept going even though a request
       // failed (proxy timeout, redeploy blip). Before showing an error, check
       // the real state once more.

@@ -3,6 +3,14 @@
 **Date:** 2026-05-26  
 **Scope:** Profile read/build HTTP API (`backend/app/api/profiles.py`)
 
+> **Superseded in part (2026-10-02):** `GET /users/{user_id}/profile` now answers
+> `204 No Content` when the user has no snapshot yet. "Nothing built yet" is a
+> normal onboarding state (the snapshot lands ~60s behind the analysis job), and
+> the 404 was filling healthy pages' consoles with red errors. A genuinely
+> unknown user id is still a 404 and another user's id is still a 403, so the
+> ownership row below stands. The table entry marked *(superseded)* records this
+> report's state on its own date.
+
 ## Summary
 
 Thin FastAPI routes under `/api/v1/users/{user_id}/profile*` mirror the patterns API: ownership checks via `get_current_user` + `require_ownership`, DB reads delegated to `profile_service`, and profile builds queued through existing `build_profile_task` (P1-PP-02).
@@ -11,7 +19,7 @@ Thin FastAPI routes under `/api/v1/users/{user_id}/profile*` mirror the patterns
 
 | Method | Path | Behavior |
 |--------|------|----------|
-| GET | `/api/v1/users/{user_id}/profile` | Latest snapshot by `profile_version` desc; 404 if none |
+| GET | `/api/v1/users/{user_id}/profile` | Latest snapshot by `profile_version` desc; 404 if none *(superseded — now 204, see above)* |
 | GET | `/api/v1/users/{user_id}/profile/history` | Paginated snapshots (`skip`/`limit`), version desc |
 | POST | `/api/v1/users/{user_id}/profile/build` | Celery `build_profile_task.delay`; returns `task_id` |
 
@@ -33,7 +41,7 @@ Thin FastAPI routes under `/api/v1/users/{user_id}/profile*` mirror the patterns
 
 ## Tests
 
-`backend/tests/test_profiles_api.py` — 8 API tests covering latest/history/build, 404 cases, and 403 ownership denials. Celery enqueue mocked via `patch` on `build_profile_task.delay`.
+`backend/tests/test_profiles_api.py` — 8 API tests covering latest/history/build, the no-snapshot case (404 then; 204 since 2026-10-02), and 403 ownership denials. Celery enqueue mocked via `patch` on `build_profile_task.delay`.
 
 ## Out of scope (per ticket)
 

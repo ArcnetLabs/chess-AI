@@ -170,6 +170,78 @@ def _persist_occurrences(
     return written, unchanged
 
 
+def _prune_stale_occurrences(
+    db: Session,
+    user_id: int,
+    pattern_rows: Sequence[Tuple[object, PlayerPattern]],
+    considered_game_ids: Optional[Sequence[int]],
+    known: Dict[Tuple[int, int, int], PatternOccurrence],
+) -> int:
+    """Delete stored occurrences this run no longer produces.
+
+    An upsert alone only ever adds or updates: when the underlying analysis data
+    is corrected, the games that stopped qualifying stayed behind as rows that
+    contradicted their own pattern's ``affected_games_count`` (which feeds the
+    player-facing copy and the coach's evidence). This makes a run's stored
+    occurrences equal to what the run detected.
+
+    Three boundaries, all required:
+
+    * **Patterns** — only patterns *this run persisted* are considered, so a
+      pattern the run never evaluated keeps every row it had. A pattern pruned
+      in this same run is absent from ``pattern_rows`` (it is not in the result
+      either), so its occurrences are removed once, by the existing cascade.
+    * **Games** — only ``considered_game_ids``. A rerun with ``game_limit``
+      considered the most recent games only and must not reach outside them.
+    * **User** — rows whose ``user_id`` is not this user's are never touched.
+
+    ``known`` already holds every stored occurrence of every pattern in
+    ``pattern_rows`` (one batched read per run), so this comparison costs no
+    additional queries regardless of how many rows it removes.
+    """
+    if considered_game_ids is None:
+        # No declared scope: refuse to guess. Under-removing is recoverable,
+        # deleting another window's rows is not.
+        logger.debug(
+            f"pattern occurrences for user_id={user_id}: run declared no game "
+            f"scope, skipping stale-occurrence removal"
+        )
+        return 0
+
+    scope = set(considered_game_ids)
+    if not scope:
+        return 0
+
+    # What this run produced, per stored pattern row. Two entries in one result whose
+    # key resolves to the same row share that row, so their occurrence sets are
+    # unioned: removing something the run did detect is never this function's job.
+    produced: Dict[int, set] = {}
+    for detected, row in pattern_rows:
+        keys = produced.setdefault(row.id, set())
+        keys.update(
+            (occurrence.game_id, occurrence.move_number)
+            for occurrence in detected.occurrences
+            # Mirrors the writer's guard: non-positive ids never become rows.
+            if occurrence.game_id > 0
+        )
+
+    removed = 0
+    for key, stored in list(known.items()):
+        pattern_id, game_id, move_number = key
+        if pattern_id not in produced:
+            continue
+        if game_id not in scope:
+            continue
+        if stored.user_id != user_id:
+            continue
+        if (game_id, move_number) in produced[pattern_id]:
+            continue
+        db.delete(stored)
+        del known[key]
+        removed += 1
+    return removed
+
+
 def persist_pattern_snapshots(
     db: Session,
     user_id: int,
@@ -180,6 +252,12 @@ def persist_pattern_snapshots(
 
     Designed for Celery retry safety: unique constraints prevent duplicate
     pattern keys and occurrence (pattern_id, game_id, move_number) tuples.
+
+    The write is a *replacement* of what this run detected, not an accumulation:
+    occurrences the run no longer produces are removed by
+    :func:`_prune_stale_occurrences` before the single commit. Everything here —
+    upserts, removals, and the run record — shares one transaction, so a run that
+    raises part-way leaves the previous state intact rather than a half-pruned one.
 
     Patterns produced by the context-aware detector that no longer fire are
     removed. Without that, a weakness the player has fixed would stay on their
@@ -222,18 +300,25 @@ def persist_pattern_snapshots(
         )
         written += row_written
         unchanged += row_unchanged
+
+    # After the upserts: rows written above are by definition current, and the
+    # comparison below skips them anyway.
+    stale_removed = _prune_stale_occurrences(
+        db, user_id, pattern_rows, result.considered_game_ids, known
+    )
     logger.debug(
         f"pattern occurrences for user_id={user_id}: {written} written, "
-        f"{unchanged} already current"
+        f"{unchanged} already current, {stale_removed} stale removed"
     )
 
     removed = _prune_stale_event_patterns(db, user_id, result)
-    _record_run(db, user_id, result, removed)
+    _record_run(db, user_id, result, removed, stale_removed)
 
     db.commit()
     logger.info(
         f"Persisted {len(saved)} pattern snapshots for user_id={user_id} "
-        f"(run patterns={result.pattern_count}, pruned={removed})"
+        f"(run patterns={result.pattern_count}, pruned={removed}, "
+        f"stale occurrences removed={stale_removed})"
     )
     return saved
 
@@ -281,6 +366,7 @@ def _record_run(
     user_id: int,
     result: PatternRunResult,
     pruned: int,
+    stale_occurrences_removed: int = 0,
 ) -> None:
     """Append a row describing what this detection run saw."""
     strengths = sum(1 for pattern in result.patterns if pattern.is_strength)
@@ -294,6 +380,9 @@ def _record_run(
             strengths_detected=strengths,
             summary={
                 "pruned": pruned,
+                # Audit trail for the repair: a run that corrected stale rows
+                # says so, so the fix can be confirmed from stored history.
+                "stale_occurrences_removed": stale_occurrences_removed,
                 "types": sorted({p.pattern_type for p in result.patterns}),
                 "trends": sorted(
                     {p.trend_direction for p in result.patterns if p.trend_direction}
