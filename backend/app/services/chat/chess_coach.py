@@ -64,6 +64,16 @@ COACH_ANSWER_INSTRUCTIONS = (
     "and do not state a statistic as a percentage of mistakes. Describe the chess "
     "instead — 'you give away a pawn here', 'you miss the tactic', 'you lose ground "
     "in the endgame'."
+    # Observed live: asked "what is my accuracy, and how does it compare to my
+    # rating?", the coach said it had neither and asked the player to share their
+    # rating. Both were on record. The facts above are the coach's memory of this
+    # player, so asking for one of them is a context failure, not a question.
+    " Never ask the player for something the facts above already give you — their "
+    "accuracy, their rating, how many games we hold for them, their patterns or "
+    "their past coaching. Asking for a figure you were handed reads as though we "
+    "had lost their data. If a figure you need genuinely is not in the facts "
+    "above, say plainly which figure you lack and why having it would sharpen "
+    "your answer."
 )
 
 

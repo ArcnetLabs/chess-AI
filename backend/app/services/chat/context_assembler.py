@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.game import Game, GameAnalysis
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
+from app.models.user import User
 from app.services.coaching.retrieval_service import (
     RetrievedMemory,
     format_retrieved_memories_for_context,
@@ -87,6 +88,98 @@ def _live_game_counts(db: Session, user_id: int) -> dict:
     return {"total": int(total), "analyzed": int(analyzed)}
 
 
+def _accuracy_summary(db: Session, user_id: int) -> dict | None:
+    """Accuracy across the player's analysed games: sample size, mean, median.
+
+    The median is carried alongside the mean because a handful of disasters drag
+    the mean down, and the coach was reading "average" as "how accurate you are".
+
+    Returns ``None`` when no analysis carries an accuracy figure — an absent
+    figure is reported by saying nothing, never by implying zero.
+    """
+    rows = (
+        db.query(GameAnalysis.accuracy_percentage)
+        .join(Game, Game.id == GameAnalysis.game_id)
+        .filter(
+            Game.user_id == user_id,
+            Game.is_analyzed.is_(True),
+            GameAnalysis.accuracy_percentage.isnot(None),
+        )
+        .all()
+    )
+    values = sorted(
+        float(value) for (value,) in rows if value is not None
+    )
+    if not values:
+        return None
+    middle = len(values) // 2
+    median = (
+        values[middle]
+        if len(values) % 2
+        else (values[middle - 1] + values[middle]) / 2
+    )
+    return {
+        "games": len(values),
+        "mean": sum(values) / len(values),
+        "median": median,
+    }
+
+
+# Chess.com stats payload keys, in the order a player sees them on the reveal.
+_RATING_TIME_CONTROLS = (
+    ("rapid", "chess_rapid"),
+    ("blitz", "chess_blitz"),
+    ("bullet", "chess_bullet"),
+    ("daily", "chess_daily"),
+)
+
+
+def _current_rating_parts(current_ratings: object) -> List[str]:
+    """Time-control-labelled ratings from the stored Chess.com stats payload.
+
+    Shape is ``{"chess_rapid": {"last": {"rating": 1420}}, ...}``. Anything the
+    payload does not carry is left out rather than rendered as 0 — a missing time
+    control must not read as a rating of zero.
+    """
+    if not isinstance(current_ratings, dict):
+        return []
+    parts: List[str] = []
+    for label, key in _RATING_TIME_CONTROLS:
+        entry = current_ratings.get(key)
+        if not isinstance(entry, dict):
+            continue
+        last = entry.get("last")
+        rating = last.get("rating") if isinstance(last, dict) else None
+        if isinstance(rating, (int, float)) and not isinstance(rating, bool) and rating:
+            parts.append(f"{label} {int(rating)}")
+    return parts
+
+
+def _player_numbers_lines(db: Session, user_id: int) -> List[str]:
+    """The figures the product already shows the player, as coach facts.
+
+    Both of these are rendered to the player elsewhere in the product (the
+    accuracy figure on game analysis, the four rating cards on the onboarding
+    reveal), so a coach that asks for them looks like it lost the player's data.
+    """
+    lines: List[str] = []
+    accuracy = _accuracy_summary(db, user_id)
+    if accuracy is not None:
+        games = accuracy["games"]
+        lines.append(
+            f"- Your accuracy across your analysed games: average "
+            f"{accuracy['mean']:.1f}%, median {accuracy['median']:.1f}% "
+            f"(from {games} analysed game{'' if games == 1 else 's'})."
+        )
+    user = db.query(User).filter(User.id == user_id).one_or_none()
+    rating_parts = _current_rating_parts(user.current_ratings if user else None)
+    if rating_parts:
+        lines.append(
+            "- Your current rating by time control: " + ", ".join(rating_parts) + "."
+        )
+    return lines
+
+
 def assemble_coach_context(
     db: Session,
     user_id: int,
@@ -118,6 +211,23 @@ def assemble_coach_context(
         "line, not from the profile snapshot below (snapshots lag the analysis run)."
     )
     lines.append("")
+    # The player's own headline numbers, which the product already renders to them.
+    # Without these the coach answered "I don't have your accuracy or your rating"
+    # and asked the player to supply them (live end-to-end failure), because the
+    # context it was given held patterns and phase averages but not these two.
+    number_lines = _player_numbers_lines(db, user_id)
+    if number_lines:
+        lines.extend(
+            [
+                "## Player Numbers (read-only facts from this player's account)",
+                "",
+                *number_lines,
+                "",
+                "These figures are on record for this player. Never ask them for a "
+                "number listed here.",
+                "",
+            ]
+        )
     if profile is None:
         lines.extend(
             [

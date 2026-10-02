@@ -41,4 +41,8 @@ def build_pattern_run_result(data: PatternAggregationInput) -> PatternRunResult:
         user_id=data.user_id,
         patterns=patterns,
         games_considered=data.total_analyzed_games,
+        # ``opening_by_game`` holds one row per loaded analysis — including games
+        # whose phase ACPL is NULL — so it is exactly the set of games this run
+        # considered, not merely the ones that fired.
+        considered_game_ids=[row["game_id"] for row in data.opening_by_game],
     )

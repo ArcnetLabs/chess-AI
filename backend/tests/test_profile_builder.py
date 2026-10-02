@@ -146,9 +146,12 @@ class TestBuildPlayerProfileSnapshot:
         assert profile.patterns_detected_count == 1
         assert profile.profile_summary is not None
         assert f"{MIN_GAMES_FOR_PROFILE} analyzed games" in profile.profile_summary
+        # The headline states the phase ranking as a comparison, not as a verdict
+        # about either phase: see TestTheSummaryNeverCallsOnePhaseBothWays.
         assert (
-            "Strongest area" in profile.profile_summary
-            or "Main leak" in profile.profile_summary
+            "Compared with your other phases" in profile.profile_summary
+            or "Where you hold up" in profile.profile_summary
+            or "Where it costs you" in profile.profile_summary
             or "No dominant" in profile.profile_summary
         )
         # Card-scale copy: the insights card renders this as its headline.
@@ -264,7 +267,7 @@ class TestBuildPlayerProfileSnapshot:
 
         profile = build_player_profile(db, user.id)
 
-        assert profile.archetype == "Strong Opening / Weak Endgame"
+        assert profile.archetype == "Least Costly Opening / Costliest Endgame"
 
 
 def _add_opening_moves(

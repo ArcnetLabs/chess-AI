@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import { profileApi } from '@/lib/api';
 import { PlayerProfile } from '@/types/profile.types';
 
@@ -9,14 +8,10 @@ export function usePlayerProfile(userId: number | undefined) {
   return useQuery({
     queryKey: ['player-profile', userId],
     queryFn: async (): Promise<PlayerProfile | undefined> => {
-      try {
-        return await profileApi.getLatest(userId!);
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          return undefined;
-        }
-        throw error;
-      }
+      // `null` is "no snapshot yet" — the backend answers 204 No Content while a
+      // brand-new account is still onboarding, so this resolves with no data
+      // instead of erroring the query on a normal state.
+      return (await profileApi.getLatest(userId!)) ?? undefined;
     },
     enabled: !!userId,
     staleTime: STALE_TIME_MS,

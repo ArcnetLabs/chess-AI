@@ -106,19 +106,36 @@ def _build_phase_pattern(
     # Coach voice. This description is shown to the player and handed to the coach as
     # context, so it names no internal measure; the average and threshold stay in
     # ``evidence``, where they are auditable without being quoted at a player.
+    #
+    # Two rules the wording has to keep, both of them shipped defects:
+    #
+    # 1. The game count in the sentence is ``affected`` — the games this pattern
+    #    actually covers — not ``games_count``, which is every game that had a
+    #    figure for this phase. Those differ whenever some games sit below the
+    #    threshold, and the card showed the difference: a badge reading "26 games"
+    #    above a body reading "the first phase of 50 games". The badge is the
+    #    specific, defensible claim, so the body has to state it too.
+    # 2. The claim is a *magnitude*, scoped to the games it happened in ("cost you
+    #    dearly in 26 games"), never an unscoped verdict about the phase. This
+    #    detector measures the average loss per move; the phase-strength detector on
+    #    the same profile measures how *often* significant errors happen. "Your
+    #    openings are where you give ground" read as a verdict, and next to a profile
+    #    summary that called the same opening the player's strongest area it was one
+    #    of two mutually exclusive claims. A magnitude claim carries no verdict about
+    #    the phase as a whole, so a rate claim about the same phase stays free to be
+    #    true as well.
     descriptions = {
         "opening": (
-            f"Your openings are where you give ground: problems in the first phase of "
-            f"{games_count} games, which points at preparation or opening principles."
+            f"Your opening play cost you dearly in {affected} games, which points at "
+            f"preparation or opening principles."
         ),
         "middlegame": (
-            f"Your middlegame play is where you give ground: problems in complex "
-            f"positions across {games_count} games, which points at calculation or "
-            f"planning."
+            f"Your middlegame play cost you dearly in {affected} games, which points "
+            f"at calculation or planning."
         ),
         "endgame": (
-            f"Your endgames are where you give ground: problems in simplified positions "
-            f"across {games_count} games, which points at endgame technique."
+            f"Your endgame play cost you dearly in {affected} games, which points at "
+            f"endgame technique."
         ),
     }
 

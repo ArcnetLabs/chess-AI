@@ -314,13 +314,17 @@ export const analysisApi = {
   /**
    * The user's active analysis job, or `null` when nothing is running.
    *
-   * The endpoint answers 404 for "no active job", which is a normal state, not an
-   * error — reading it as one put a red console error on every dashboard load
-   * (`GET /analysis/1/status 404`) and made "is anything running?" look like a fault.
+   * "No active job" is a normal state, not an error, so the backend answers
+   * `204 No Content`. It used to answer 404, which put a red
+   * `GET /analysis/1/status 404` on every dashboard load and read as a missing
+   * resource in error monitoring. The 404 branch stays for the deploy window
+   * where the running backend has not shipped the 204 yet.
    */
   getActiveJobStatus: async (userId: number): Promise<AnalysisJobStatus | null> => {
     try {
-      const response = await apiClient.get<AnalysisJobStatus>(`/analysis/${userId}/status`);
+      // 204 carries no body, so axios hands back an empty string for `data`.
+      const response = await apiClient.get<AnalysisJobStatus | ''>(`/analysis/${userId}/status`);
+      if (response.status === 204 || !response.data) return null;
       return response.data;
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 404) return null;
@@ -476,9 +480,24 @@ export const patternApi = {
 // ---------------------------------------------------------------------------
 
 export const profileApi = {
-  getLatest: async (userId: number): Promise<PlayerProfile> => {
-    const response = await apiClient.get<PlayerProfile>(`/users/${userId}/profile`);
-    return response.data;
+  /**
+   * The newest profile snapshot, or `null` before the first one exists.
+   *
+   * A brand-new account has no snapshot yet — the backend answers
+   * `204 No Content`, a normal onboarding state rather than an error (the old
+   * 404 was logged as `GET /users/1/profile 404` in a healthy page's console).
+   * The 404 branch covers a backend that has not shipped that change yet.
+   */
+  getLatest: async (userId: number): Promise<PlayerProfile | null> => {
+    try {
+      // 204 carries no body, so axios hands back an empty string for `data`.
+      const response = await apiClient.get<PlayerProfile | ''>(`/users/${userId}/profile`);
+      if (response.status === 204 || !response.data) return null;
+      return response.data;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 404) return null;
+      throw error;
+    }
   },
 
   getHistory: async (

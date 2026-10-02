@@ -29,11 +29,16 @@ _SYSTEM_PROMPT = (
     "Write 2 to 3 complete sentences in second person ('you'), plain everyday language, "
     "at most 55 words in total. "
     "Say what they do well and the single most important thing to fix. "
-    "Style to match: \"Your openings are solid, but you give away material once the "
-    "middlegame gets sharp. Slowing down before you commit to a plan is the fastest "
-    "rating gain available to you.\" "
-    "The strongest and weakest phases are given to you — never contradict them, and "
-    "never call a phase both a strength and a weakness. "
+    "Style to match: \"You rarely go wrong in the opening, but once the middlegame gets "
+    "sharp the mistakes cost you dear. Slowing down before you commit to a plan is the "
+    "fastest rating gain available to you.\" "
+    "Scope every claim you make about a phase, so that two claims about the same phase "
+    "can both be true: say how OFTEN something goes wrong there (a rate — 'you rarely go "
+    "wrong there'), or how MUCH it costs when it does go wrong (a magnitude — 'when it "
+    "goes wrong it costs you'), or how it compares with their OTHER phases. Never state "
+    "an unscoped verdict about a phase, and never call a phase strong or weak: your "
+    "student's numbers can show few mistakes in a phase and an expensive one at the "
+    "same time, and both are real. "
     "You may mention how many games were analyzed. Do not quote any other number and "
     "never use engine jargon or metric names (no phase scores, percentages, ratings, "
     "blunder counts, ACPL, thresholds, severity labels, or raw detector wording). "
@@ -61,13 +66,22 @@ def phase_findings(
     phase_performance: Optional[Dict[str, Any]],
 ) -> tuple[Optional[str], Optional[str]]:
     """
-    Strongest and weakest phase from the phase scores.
+    Best and worst phase by the phase scores.
 
     This is the same source the archetype label uses, so the summary's
     strength/weakness claims cannot contradict the archetype. The detector's own
     weakness wording is derived from ACPL thresholds and can name a different
     phase; it stays available to the coach as detail but is not restated as the
     headline finding.
+
+    The reading is *comparative*, and the caller has to keep it that way. Each
+    score is the analyzer's 0-100 mapping of that phase's average loss per move, so
+    it says how the phase ranks against the player's other phases — not whether the
+    phase is good. A phase can be the best of the three and still carry an absolute
+    leak (one real player's opening scored 82/100 and sat above the phase weakness
+    detector's 30.0 bar), so "Strong Opening" and "your openings are where you give
+    ground" were both being printed about one phase. State the comparison; leave the
+    magnitude verdict to the detector that measured it.
     """
     entries = [
         (str(phase), float(score))
@@ -110,9 +124,17 @@ def _facts(
         f"profile archetype label (internal, do not quote verbatim): {archetype or 'unknown'}",
     ]
     if strongest and weakest:
+        # The axis is stated explicitly, because the model cannot see that the two
+        # claims are compatible unless it is told: these are relative magnitudes from
+        # the phase scores, while the detector notes below are an absolute magnitude
+        # and a rate. A prompt that only said "never call a phase both a strength and
+        # a weakness" left the model to resolve that by dropping one of them.
         lines.append(
-            f"strongest phase: {strongest}; weakest phase: {weakest} "
-            "(state these consistently — do not call either one both)"
+            f"least costly phase, compared with their other phases: {strongest}; "
+            f"most costly phase, same comparison: {weakest}. "
+            "(These are comparisons, not grades: a phase can be their least costly "
+            "and still cost them dear in some games. Say it as a comparison and do "
+            "not deny the detector notes below.)"
         )
     lines.append(
         f"move quality totals across those games: "

@@ -15,6 +15,8 @@ no move at all — and it was analysed and stored with ``user_acpl = 0.0`` and
 import io
 
 import chess.pgn
+import pytest
+from loguru import logger
 
 from app.services.analysis.pgn_preflight import (
     NO_MOVES_ERROR,
@@ -158,3 +160,80 @@ class TestOnePlyGamesDependOnThePlayersColor:
         """Colour cannot rescue a record with no movetext at all."""
         assert preflight_error(HEADERS_ONLY_PGN, "black") == NO_MOVES_ERROR
         assert preflight_error(HEADERS_ONLY_PGN, "white") == NO_MOVES_ERROR
+
+
+@pytest.fixture
+def logged():
+    """The loguru records emitted by the test body.
+
+    loguru does not feed ``caplog``, and the skip log is the whole point of this
+    change, so a sink is attached for the duration of the test. The sink is handed a
+    ``Message`` — a ``str`` subclass carrying the record — so the record is what is
+    collected.
+    """
+    records: list = []
+    sink_id = logger.add(lambda message: records.append(message.record), level="DEBUG")
+    try:
+        yield records
+    finally:
+        logger.remove(sink_id)
+
+
+def _only(records) -> dict:
+    assert len(records) == 1, [record["message"] for record in records]
+    return records[0]
+
+
+class TestASkipLeavesATraceInTheLog:
+    """Skipping is correct; it must not look like nothing happened.
+
+    Every one of these games used to be queued and fail with a loud ``ERROR`` per
+    retry, so the log showed a failure that explained nothing. The skip replaced
+    that, but silently: the queues report only a count
+    (``games_skipped_no_moves``), which cannot say which game went or why. One
+    ``info`` line per refusal fixes that, and the level matters — a skip is the
+    system working, not a failure.
+    """
+
+    def test_a_game_with_no_moves_is_logged_with_its_id_and_reason(self, logged):
+        assert preflight_error(HEADERS_ONLY_PGN, "white", game_id=4242) == NO_MOVES_ERROR
+
+        record = _only(logged)
+        assert record["level"].name == "INFO"
+        assert "4242" in record["message"]
+        assert NO_MOVES_ERROR in record["message"]
+
+    def test_a_game_the_player_never_moved_in_is_logged_with_its_id_and_reason(self, logged):
+        assert has_analyzable_moves(ONE_PLY_ABANDONED_PGN, "black", game_id=2750) is False
+
+        record = _only(logged)
+        assert record["level"].name == "INFO"
+        assert "2750" in record["message"]
+        assert NO_USER_MOVES_ERROR in record["message"]
+
+    def test_the_two_reasons_are_told_apart_in_the_log(self, logged):
+        """The reason is the useful half: the two skips are different problems."""
+        preflight_error(HEADERS_ONLY_PGN, "white", game_id=1)
+        preflight_error(ONE_PLY_ABANDONED_PGN, "black", game_id=2)
+
+        messages = [record["message"] for record in logged]
+        assert NO_MOVES_ERROR in messages[0]
+        assert NO_USER_MOVES_ERROR in messages[1]
+
+    def test_an_analyzable_game_is_not_logged(self, logged):
+        assert has_analyzable_moves(PLAYABLE_PGN, "white", game_id=7) is True
+        assert logged == []
+
+    def test_a_pgn_we_cannot_read_is_not_logged_as_a_skip(self, logged):
+        """It stays queued, so it must not leave a skip line behind it."""
+        assert has_analyzable_moves("not a pgn at all !!", "white", game_id=8) is True
+        assert has_analyzable_moves(None, "white", game_id=9) is True
+        assert logged == []
+
+    def test_a_caller_without_the_id_still_records_the_reason(self, logged):
+        """The log line is worth having even when the call site has no id to give."""
+        assert preflight_error(HEADERS_ONLY_PGN) == NO_MOVES_ERROR
+
+        record = _only(logged)
+        assert record["level"].name == "INFO"
+        assert NO_MOVES_ERROR in record["message"]
