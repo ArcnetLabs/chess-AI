@@ -601,8 +601,23 @@ def detect_strengths(decisions: Sequence[Decision]) -> List[DetectedPattern]:
                 affected_games_count=len(games),
                 affected_games_ratio=round(len(games) / max(1, opportunities), 4),
                 pattern_description=(
-                    f"Strength: your {phase} play holds up — only {len(errors)} significant "
-                    f"errors in {opportunities} decisions across {len(games)} games."
+                    # A *rate* claim: how often significant errors happen in this
+                    # phase, out of the decisions the player actually had there. It
+                    # deliberately stops there. The phase weakness detector measures a
+                    # different axis — how much the phase cost when it went wrong —
+                    # and both can be true of one phase at once (errors rare, each one
+                    # expensive). The wording this replaced, "your opening play holds
+                    # up", read as an unscoped verdict and contradicted that detector's
+                    # "your openings are where you give ground" line on the same
+                    # profile.
+                    #
+                    # No "Strength:" prefix: both card surfaces already group these
+                    # under a Strengths heading (which is also why the modal drops the
+                    # severity label here), and the profile summary that quotes this
+                    # sentence supplies its own lead-in.
+                    f"You rarely go badly wrong in the {phase} — "
+                    f"{len(errors)} significant error{'' if len(errors) == 1 else 's'} "
+                    f"in {opportunities} decisions across {len(games)} games."
                 ),
                 example_positions=[],
                 occurrences=[],

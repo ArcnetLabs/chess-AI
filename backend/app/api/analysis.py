@@ -278,6 +278,9 @@ async def analyze_user_games(
         elif has_analyzable_moves(
             game.pgn,
             user_color_from_usernames(game.white_username, user.chesscom_username),
+            # Names the game in the preflight skip log; the count below is what the
+            # response reports.
+            game_id=game.id,
         ):
             game_ids_to_analyze.append(game.id)
         else:

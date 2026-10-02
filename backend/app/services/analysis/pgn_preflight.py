@@ -22,6 +22,16 @@ checks here take an optional ``user_color``.
 The check lives here, next to the analyzer, so the queue and the engine pass
 agree: it counts plies with the same parser
 (:mod:`app.services.analysis.unified_analyzer`) uses.
+
+The refusal is also logged here, at ``info``, because a skip is a *correct*
+decision and the code it replaced was not: every one of these games used to be
+queued, retried three times and fail with a loud ``ERROR`` per attempt, so the
+only thing the log showed was a failure that explained nothing. Skipping is the
+fix, but a silent fix leaves an operator unable to tell "this game was refused"
+from "this game fell through the gap" — the queues only report a count
+(``games_skipped_no_moves``). One line per refusal, from the single place every
+caller routes through, names the game and the reason; the return value is
+unchanged, because the API and the UI read it.
 """
 from __future__ import annotations
 
@@ -29,6 +39,7 @@ import io
 from typing import Optional
 
 import chess.pgn
+from loguru import logger
 
 #: Error text recorded on a game that was queued despite having no moves.
 NO_MOVES_ERROR = "Game has no moves to analyze"
@@ -52,6 +63,8 @@ def count_mainline_plies(pgn: Optional[str]) -> Optional[int]:
 def has_analyzable_moves(
     pgn: Optional[str],
     user_color: Optional[str] = None,
+    *,
+    game_id: Optional[int] = None,
 ) -> bool:
     """False only for a real game record with no move for the player in it.
 
@@ -66,13 +79,18 @@ def has_analyzable_moves(
     in is not analyzable either — there is no move of theirs to score. Omitting
     it keeps the older, colour-blind answer, which is all the parser can say on
     its own.
+
+    ``game_id`` is optional and only names the game in the skip log; it changes no
+    answer.
     """
-    return preflight_error(pgn, user_color) is None
+    return preflight_error(pgn, user_color, game_id=game_id) is None
 
 
 def preflight_error(
     pgn: Optional[str],
     user_color: Optional[str] = None,
+    *,
+    game_id: Optional[int] = None,
 ) -> Optional[str]:
     """Reason to refuse this game, or ``None`` when it can be analyzed.
 
@@ -80,7 +98,23 @@ def preflight_error(
     caller — the sync queue, the manual queue and the per-game task — records
     the same explanation for the same game. "Cannot tell" is always ``None``:
     an unreadable PGN stays queued rather than disappearing from the window.
+
+    A refusal is logged once, at ``info``, with the game id and the reason. A
+    skipped game is the system working, so it does not belong at ``warning`` or
+    ``error``; but it does need to leave a trace, otherwise the only way to tell a
+    correct skip from a game that vanished is the count the queues return.
     """
+    refusal = _refusal_reason(pgn, user_color)
+    if refusal is not None:
+        logger.info(f"Preflight: skipping game {_game_label(game_id)} — {refusal}")
+    return refusal
+
+
+def _refusal_reason(
+    pgn: Optional[str],
+    user_color: Optional[str],
+) -> Optional[str]:
+    """The refusal decision itself, with no logging attached."""
     game = _read_game(pgn)
     if game is None:
         return None
@@ -93,6 +127,11 @@ def preflight_error(
         return NO_MOVES_ERROR if identifies_a_game(game) else None
 
     return None if _color_moved(plies, user_color) else NO_USER_MOVES_ERROR
+
+
+def _game_label(game_id: Optional[int]) -> str:
+    """The game id for the log line, or a placeholder when the caller had none."""
+    return str(game_id) if game_id is not None else "<unknown>"
 
 
 def identifies_a_game(game: chess.pgn.Game) -> bool:

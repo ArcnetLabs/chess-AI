@@ -36,6 +36,12 @@ _PHASE_LABELS = {
     "endgame": "Endgame",
 }
 
+# A phase score is map_acpl_to_accuracy over the phase's average loss per move, so
+# these read as relative standings and are worded as such ("least/costliest of your
+# phases") rather than as verdicts about the phase. See _derive_strengths_weaknesses.
+PHASE_STRENGTH_SCORE = 80
+PHASE_WEAKNESS_SCORE = 65
+
 # The analyzer's own vocabulary for a move that cost something real. Kept as a set
 # so the opening view counts errors the same way the rest of the system does.
 SERIOUS_CLASSIFICATIONS = {"mistake", "blunder"}
@@ -299,6 +305,13 @@ def _compose_profile_summary(
     that is what the archetype label is derived from — the detector's weakness
     wording comes from ACPL thresholds and can name a different phase, which made
     the headline read "Strong Opening / Weak Endgame ... main leak: opening".
+
+    The ranking is then stated as a *comparison* ("you lose the least ground in the
+    opening and the most in the endgame") rather than as a verdict about either
+    phase. The ranking measures average loss per move, so a phase can rank best and
+    still be over the detector's absolute bar; a comparative sentence and the
+    detector's magnitude sentence are both true of that phase, where "Strongest
+    area: your opening play" and "your openings are where you give ground" are not.
     """
     games_label = f"{games_analyzed_count} analyzed game" + (
         "" if games_analyzed_count == 1 else "s"
@@ -312,17 +325,27 @@ def _compose_profile_summary(
 
     strongest_phase, weakest_phase = phase_findings(phase_performance)
     if strongest_phase and weakest_phase:
-        sentences.append(f"Strongest area: your {strongest_phase} play.")
-        sentences.append(f"Main leak: your {weakest_phase} play.")
+        # One comparative sentence, deliberately. The phases are ranked by average
+        # loss per move, so the only claim this data supports is a comparison with
+        # the player's *other* phases. "Strongest area: your opening play" was an
+        # absolute verdict about the opening, and on the same profile the phase
+        # detector called that opening expensive in 26 games — two mutually exclusive
+        # statements about one phase. A comparison cannot contradict a magnitude
+        # claim, so the two surfaces agree by construction. Kept to one sentence:
+        # the insights card renders this whole string as its headline.
+        sentences.append(
+            f"Compared with your other phases, you lose the least ground in the "
+            f"{strongest_phase} and the most in the {weakest_phase}."
+        )
     else:
         if primary_strengths:
-            sentences.append(f"Strongest area: {_first_sentence(primary_strengths[0])}")
+            sentences.append(f"Where you hold up: {_first_sentence(primary_strengths[0])}")
         elif not primary_weaknesses:
             sentences.append(
                 "No dominant strength or weakness has cleared the detection threshold yet."
             )
         if primary_weaknesses:
-            sentences.append(f"Main leak: {_first_sentence(primary_weaknesses[0])}")
+            sentences.append(f"Where it costs you: {_first_sentence(primary_weaknesses[0])}")
 
     themes = tactical_themes or {}
     blunders = themes.get("blunders")
@@ -718,12 +741,44 @@ def _derive_strengths_weaknesses(
         else:
             weaknesses.append(label)
 
-    for phase, score in phase_performance.items():
-        label = _PHASE_LABELS.get(phase, phase.title())
-        if score >= 80:
-            strengths.append(f"Strong {label.lower()} performance ({score}/100)")
-        elif score < 65:
-            weaknesses.append(f"Weak {label.lower()} performance ({score}/100)")
+    # Phase scores are a *relative* reading: ``_build_phase_performance`` maps the
+    # phase's average loss per move onto the analyzer's 0-100 scale, and the number
+    # says how the phase sits against the player's other phases, not against a fixed
+    # bar. So a phase can score well here and still carry a magnitude leak — the
+    # phase weakness detector fires on an absolute average above its own threshold —
+    # and both statements are true at once. The wording has to keep the axes apart,
+    # because the version this replaced did not:
+    #
+    #   * a phase score is a *relative magnitude* claim (compared with the other
+    #     phases),
+    #   * ``phase_weakness_detector`` is an *absolute magnitude* claim, scoped to the
+    #     games the phase went wrong in,
+    #   * ``detect_strengths`` is a *rate* claim (how often errors happen there).
+    #
+    # "Strong opening performance (82/100)" next to the detector's "your openings are
+    # where you give ground" was the shipped contradiction: opening ACPL 46.6 maps to
+    # 82/100 *and* sits above the 30.0 detector bar, so the two labels fired together
+    # and denied each other. Naming the phases relatively fixes it structurally —
+    # "least costly of your phases" cannot contradict "expensive in 26 games".
+    #
+    # Only the best and the worst phase are named, so the comparative wording is never
+    # claimed by two phases at once, and only when there are at least two phases to
+    # compare: with one phase it would be both the least and the most costly.
+    if len(phase_performance) >= 2:
+        best_phase = max(phase_performance, key=phase_performance.get)
+        worst_phase = min(phase_performance, key=phase_performance.get)
+        best_score = phase_performance[best_phase]
+        worst_score = phase_performance[worst_phase]
+        if best_score >= PHASE_STRENGTH_SCORE:
+            label = _PHASE_LABELS.get(best_phase, best_phase.title()).lower()
+            strengths.append(
+                f"Least costly of your phases: your {label} ({best_score}/100)"
+            )
+        if worst_score < PHASE_WEAKNESS_SCORE:
+            label = _PHASE_LABELS.get(worst_phase, worst_phase.title()).lower()
+            weaknesses.append(
+                f"Costliest of your phases: your {label} ({worst_score}/100)"
+            )
 
     return _dedupe_preserve_order(strengths)[:5], _dedupe_preserve_order(weaknesses)[:5]
 
@@ -789,6 +844,16 @@ def _build_rating_trends(user: User, opening_by_game: List[Dict[str, Any]]) -> D
 
 
 def _derive_archetype(phase_performance: Dict[str, int]) -> str:
+    """Label the player's best and worst phase, as a comparison rather than a grade.
+
+    The score behind each phase is ``map_acpl_to_accuracy`` over the phase's average
+    loss per move, so it ranks the phases against each other. "Strong Opening / Weak
+    Endgame" read as an absolute grade and contradicted the phase weakness detector,
+    which fires on the same opening whenever its average loss clears 30.0 — a real
+    player had opening ACPL 46.6, scoring 82/100 *and* flagged as a leak. "Least
+    Costly ... / Costliest ..." says the same thing about the ranking without
+    claiming the phase is good or bad, so the two can be read side by side.
+    """
     if not phase_performance:
         return "Developing Player"
 
@@ -801,7 +866,7 @@ def _derive_archetype(phase_performance: Dict[str, int]) -> str:
 
     best_label = _PHASE_LABELS.get(best_phase, best_phase.title())
     worst_label = _PHASE_LABELS.get(worst_phase, worst_phase.title())
-    return f"Strong {best_label} / Weak {worst_label}"
+    return f"Least Costly {best_label} / Costliest {worst_label}"
 
 
 def _dedupe_preserve_order(items: List[str]) -> List[str]:
