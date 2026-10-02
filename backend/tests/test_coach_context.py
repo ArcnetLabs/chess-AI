@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.models.game import Game, GameAnalysis
 from app.models.pattern import PlayerPattern
 from app.models.profile import PlayerProfile
 from app.models.user import User
@@ -129,6 +130,152 @@ def test_assemble_coach_context_empty_user_has_no_data(db, coach_user):
 
     assert "insufficient analyzed games" in context.lower()
     assert "none persisted yet" in context.lower()
+
+
+def _add_analysed_game(
+    db, user: User, *, index: int, accuracy: float | None
+) -> Game:
+    """One analysed game, optionally with the accuracy the analyzer stored."""
+    game = Game(
+        user_id=user.id,
+        chesscom_game_id=f"coach-context-game-{index}",
+        white_username="coachuser",
+        black_username="opponent",
+        winner="white",
+        is_analyzed=True,
+    )
+    db.add(game)
+    db.flush()
+    db.add(
+        GameAnalysis(
+            game_id=game.id,
+            user_color="white",
+            user_acpl=30.0,
+            accuracy_percentage=accuracy,
+            analysis_depth=15,
+        )
+    )
+    db.commit()
+    return game
+
+
+def _chesscom_stats(**ratings: int) -> dict:
+    """The Chess.com stats payload shape stored on ``users.current_ratings``."""
+    return {
+        f"chess_{time_control}": {"last": {"rating": rating, "date": 1}}
+        for time_control, rating in ratings.items()
+    }
+
+
+class TestTheCoachCanSeeTheNumbersTheProductShows:
+    """A live reply told a player "I don't have your accuracy" and asked for their
+    rating. Both were on record: ``game_analyses.accuracy_percentage`` and
+    ``users.current_ratings`` — the same two values the product renders as the
+    accuracy figure and the four onboarding rating cards."""
+
+    def test_accuracy_evidence_carries_the_sample_size_mean_and_median(self, db, coach_user):
+        # 10% is a disaster: it drags the mean to 60.0 while a typical game is 80.0.
+        for index, accuracy in enumerate((90.0, 80.0, 10.0)):
+            _add_analysed_game(db, coach_user, index=index, accuracy=accuracy)
+
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "## Player Numbers" in context
+        assert "average 60.0%" in context
+        assert "median 80.0%" in context
+        assert "(from 3 analysed games)" in context
+
+    def test_median_is_the_middle_of_an_even_sample(self, db, coach_user):
+        for index, accuracy in enumerate((10.0, 20.0, 30.0, 100.0)):
+            _add_analysed_game(db, coach_user, index=index, accuracy=accuracy)
+
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "average 40.0%" in context
+        assert "median 25.0%" in context
+        assert "(from 4 analysed games)" in context
+
+    def test_ratings_are_labelled_with_their_time_control(self, db, coach_user):
+        coach_user.current_ratings = _chesscom_stats(
+            rapid=1420, blitz=1310, bullet=1200, daily=1500
+        )
+        db.commit()
+
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "- Your current rating by time control: " in context
+        for label, rating in (
+            ("rapid", 1420),
+            ("blitz", 1310),
+            ("bullet", 1200),
+            ("daily", 1500),
+        ):
+            assert f"{label} {rating}" in context
+
+    @pytest.mark.asyncio
+    async def test_the_numbers_reach_the_prompt_the_model_is_sent(self, db, coach_user):
+        """The defect was what the model received, so assert it there too."""
+        _add_analysed_game(db, coach_user, index=0, accuracy=72.0)
+        coach_user.current_ratings = _chesscom_stats(rapid=1420)
+        db.commit()
+        mock_client = MagicMock()
+        mock_client.chat_completion = AsyncMock(
+            return_value={"content": "Your rapid rating is 1420."}
+        )
+        coach = ChessCoach(ai_client=mock_client)
+
+        await coach.process_message(
+            message="What is my accuracy, and how does it compare to my rating?",
+            user_id=coach_user.id,
+            db=db,
+        )
+
+        system_prompt = mock_client.chat_completion.await_args.kwargs["messages"][0][
+            "content"
+        ]
+        assert "median 72.0%" in system_prompt
+        assert "rapid 1420" in system_prompt
+
+    def test_a_missing_time_control_is_omitted_not_reported_as_zero(self, db, coach_user):
+        coach_user.current_ratings = _chesscom_stats(rapid=1420)
+        db.commit()
+
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "rapid 1420" in context
+        assert "blitz" not in context
+        assert "bullet" not in context
+
+
+class TestNothingIsInventedForAPlayerWithNoNumbers:
+    def test_no_accuracy_and_no_rating_means_no_player_numbers_section(self, db, coach_user):
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "## Player Numbers" not in context
+        assert "accuracy" not in context.lower()
+        assert "rating" not in context.lower()
+        assert "0.0%" not in context
+
+    def test_games_without_a_stored_accuracy_do_not_produce_an_accuracy_figure(
+        self, db, coach_user
+    ):
+        """An analysed game whose accuracy is NULL is not an accuracy of zero."""
+        _add_analysed_game(db, coach_user, index=0, accuracy=None)
+
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "## Player Numbers" not in context
+        assert "accuracy" not in context.lower()
+
+    def test_rating_alone_does_not_produce_an_accuracy_figure(self, db, coach_user):
+        coach_user.current_ratings = _chesscom_stats(blitz=1310)
+        db.commit()
+
+        context = assemble_coach_context(db, coach_user.id)
+
+        assert "blitz 1310" in context
+        assert "accuracy" not in context.lower()
+        assert "median" not in context.lower()
 
 
 @pytest.mark.asyncio
