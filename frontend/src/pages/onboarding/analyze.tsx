@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Loader2,
   Search,
@@ -27,6 +27,20 @@ const STAGES = [
   'Detecting patterns',
   'Building your profile',
 ];
+
+// The reveal reads `patterns` and the profile, but the backend produces both
+// *after* the job ends: the final pattern detection is queued 5s behind the last
+// game and the profile snapshot ~60s behind that, and a 200-game detection pass
+// measured 267s on the worker. The job reports `completed` the instant the last
+// game is persisted, so the one-shot reads in `loadResults`/`handleComplete` saw
+// an empty pattern list and no profile — which is why the reveal showed neither
+// "Your Superpower" nor the profile headline while /coach/patterns, visited
+// later, showed both.
+const REVEAL_REFRESH_FIRST_MS = 5_000;
+const REVEAL_REFRESH_MAX_MS = 30_000;
+// Long enough for the whole deferred chain (detection run included); after it
+// the reveal's own fallbacks take over rather than polling forever.
+const REVEAL_REFRESH_BUDGET_MS = 8 * 60_000;
 
 export default function AnalyzeOnboardingPage() {
   return <AnalyzeOnboardingBody />;
