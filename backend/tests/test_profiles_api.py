@@ -106,13 +106,25 @@ def test_get_user_profile_returns_latest(
 
 
 @pytest.mark.api
-def test_get_user_profile_not_found(authenticated_client, profile_user):
+def test_get_user_profile_without_snapshot_is_no_content(
+    authenticated_client, profile_user
+):
+    """No snapshot yet is a normal state, not a missing resource.
+
+    The account exists and the caller owns it; the profile has simply not been
+    built yet (the snapshot lands ~60s behind the analysis job, so onboarding
+    requests this before it exists). Answering 404 made every healthy onboarding
+    page log ``GET /users/{id}/profile 404`` — a red console error and an
+    error-monitoring event for a brand-new account. It answers 204 with no body
+    instead. ``test_get_profile_forbidden_for_other_user`` covers the case that
+    genuinely must fail closed.
+    """
     response = authenticated_client.get(
         f"/api/v1/users/{profile_user.id}/profile"
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert "profile" in response.json()["detail"].lower()
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert not response.content
 
 
 @pytest.mark.api
