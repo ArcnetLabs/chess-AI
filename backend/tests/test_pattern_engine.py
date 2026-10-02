@@ -1,9 +1,12 @@
 """Tests for deterministic pattern recognition (P1-PR-01 / P1-PR-02)."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.models.game import Game, GameAnalysis
+from app.models.pattern import PatternOccurrence, PlayerPattern
+from app.models.user import User
 from app.services.patterns.constants import (
     ENDGAME_ACPL_THRESHOLD,
     MIDDLEGAME_ACPL_THRESHOLD,
@@ -186,3 +189,127 @@ class TestPatternAggregator:
         result = build_pattern_run_result(data)
         blunder = [p for p in result.patterns if p.pattern_type == PATTERN_TYPE_BLUNDER]
         assert len(blunder) >= 1
+
+
+def _seed_analyzed_games(
+    db,
+    user_id: int,
+    count: int,
+    *,
+    opening_acpl: float,
+    middlegame_acpl: float,
+    endgame_acpl: float,
+) -> list[Game]:
+    """Analyzed games for one user, most recent first, with the given phase ACPLs."""
+    games: list[Game] = []
+    now = datetime.now(timezone.utc)
+    for index in range(count):
+        game = Game(
+            user_id=user_id,
+            chesscom_game_id=f"redetect-{user_id}-{index}",
+            is_analyzed=True,
+            end_time=now - timedelta(days=index),
+        )
+        db.add(game)
+        db.flush()
+        db.add(
+            GameAnalysis(
+                game_id=game.id,
+                user_color="white",
+                user_acpl=30.0,
+                accuracy_percentage=80.0,
+                opening_acpl=opening_acpl,
+                middlegame_acpl=middlegame_acpl,
+                endgame_acpl=endgame_acpl,
+                opening_name="Sicilian Defense",
+                opening_eco="B90",
+                blunders=0,
+                mistakes=0,
+            )
+        )
+        games.append(game)
+    db.commit()
+    for game in games:
+        db.refresh(game)
+    return games
+
+
+def _occurrence_rows(db, subtype: str):
+    pattern = (
+        db.query(PlayerPattern).filter(PlayerPattern.pattern_subtype == subtype).one()
+    )
+    rows = (
+        db.query(PatternOccurrence)
+        .filter(PatternOccurrence.pattern_id == pattern.id)
+        .all()
+    )
+    return pattern, rows
+
+
+class TestStaleOccurrenceRemoval:
+    """A re-detection run must leave behind exactly what it detected.
+
+    Measured in production: after the underlying analysis data was corrected, a
+    re-detection run for one user took ``pattern_occurrences`` from 683 to 806 rows
+    with **0 deleted**, so the pre-existing rows kept their original ``detected_at``
+    and the pattern's own ``affected_games_count`` disagreed with its occurrence rows
+    — for ``high_endgame_acpl``, 19 against 33, because 14 games' ``endgame_acpl``
+    had become NULL and the detector skips NULL. Those counts are shown to the player
+    and handed to the coach as evidence, so a wrong one is a wrong claim.
+    """
+
+    def test_redetection_over_corrected_analysis_drops_the_stale_occurrence(self, db):
+        from app.services.patterns.pattern_engine import run_pattern_detection
+
+        user = User(
+            email="redetect@example.com",
+            supabase_user_id="redetect-sub",
+            connection_type="username_only",
+            current_ratings={"rapid": 1500},
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # Middlegame clears its threshold in every game and is never corrected, so it
+        # is the control: its occurrences must survive untouched. Opening stays below
+        # its threshold and fires nothing.
+        games = _seed_analyzed_games(
+            db,
+            user.id,
+            5,
+            opening_acpl=20.0,
+            middlegame_acpl=40.0,
+            endgame_acpl=45.0,
+        )
+
+        run_pattern_detection(db, user.id, persist=True)
+
+        endgame, first_rows = _occurrence_rows(db, "high_endgame_acpl")
+        middlegame, _ = _occurrence_rows(db, "high_middlegame_acpl")
+        assert len(first_rows) == 5
+        assert endgame.affected_games_count == len(first_rows)
+
+        # The correction: one game's endgame was re-analysed and is now unmeasurable.
+        # The detector skips a NULL phase, so it no longer emits that game.
+        corrected = games[-1]
+        db.query(GameAnalysis).filter(
+            GameAnalysis.game_id == corrected.id
+        ).one().endgame_acpl = None
+        db.commit()
+
+        run_pattern_detection(db, user.id, persist=True)
+
+        endgame, rows = _occurrence_rows(db, "high_endgame_acpl")
+        assert corrected.id not in {row.game_id for row in rows}, (
+            "the occurrence for the game that no longer qualifies is still stored"
+        )
+        assert len(rows) == 4
+        assert endgame.affected_games_count == len(rows)
+
+        _, middlegame_rows = _occurrence_rows(db, "high_middlegame_acpl")
+        assert {row.game_id for row in middlegame_rows} == {game.id for game in games}, (
+            "an untouched pattern lost occurrences"
+        )
+        assert middlegame.affected_games_count == len(middlegame_rows)
+

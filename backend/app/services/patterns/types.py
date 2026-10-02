@@ -119,6 +119,12 @@ class PatternRunResult:
     ran_at: datetime = field(default_factory=lambda: datetime.utcnow())
     detector_version: str = "pattern_engine_v1"
     decisions_considered: int = 0
+    # The games this run actually evaluated. Persistence may only remove stored
+    # occurrences inside this set: a run limited by ``game_limit`` considered the
+    # most recent games and nothing else, so occurrences in older games are not
+    # this run's to delete. ``None`` means "scope unknown" and disables removal
+    # entirely, which is the safe direction for a hand-built result.
+    considered_game_ids: Optional[List[int]] = None
 
     @property
     def pattern_count(self) -> int:
