@@ -141,9 +141,14 @@ def analyze_game_task(self, game_id: int, user_id: int, job_id: Optional[str] = 
         # needed to tell that from a normal short game, hence the user lookup
         # above this check.
         user_color = resolve_user_color(game, user)
-        refusal = preflight_error(game.pgn, user_color)
+        # ``game_id`` puts the refusal in the preflight skip log. The refusal is a
+        # correct decision, not a failure — this used to be logged at ``warning``,
+        # which is why a healthy run looked like it was dropping games — so this call
+        # site stays at ``info`` too and only adds the job context the preflight
+        # line does not have.
+        refusal = preflight_error(game.pgn, user_color, game_id=game_id)
         if refusal:
-            logger.warning(f"⏭️ {log_prefix}Game {game_id}: {refusal}; skipping")
+            logger.info(f"⏭️ {log_prefix}Game {game_id}: {refusal}; skipping")
             if job_store.mark_game_failed(job_id, game_id, error=refusal):
                 _force_final_passes(user_id, log_prefix)
             return {"status": "skipped", "game_id": game_id, "reason": "no_moves"}

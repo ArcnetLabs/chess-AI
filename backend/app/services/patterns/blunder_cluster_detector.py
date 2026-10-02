@@ -222,9 +222,14 @@ def _detect_legacy_high_blunder_rate(data: PatternAggregationInput) -> List[Dete
             # into the model's context, and a reply echoed it back at the player — the
             # exact leak the vocabulary rule exists to prevent. Numbers stay in
             # ``evidence``, where they are auditable without being quoted.
+            #
+            # The count is ``affected`` — the games the mistakes landed in, which is
+            # what ``affected_games_count`` reports and what the card's badge shows —
+            # not ``len(stats)``, the games whose counts were available. The two differ
+            # whenever a sampled game had no blunder at all.
             pattern_description=(
-                f"Serious mistakes come in bunches: about {avg_rate:.1f} per game "
-                f"across {len(stats)} analyzed games."
+                f"Serious mistakes come in bunches: about {avg_rate:.1f} per game, and "
+                f"they showed up in {affected} games."
             ),
             occurrences=occurrences,
             recommended_drill_type="calculation_drills",

@@ -123,10 +123,15 @@ def detect_opening_weaknesses(data: PatternAggregationInput) -> List[DetectedPat
                 ),
                 # Coach voice: this text reaches the player and the coach, so it names no
                 # internal measure. The average stays in ``evidence`` for auditing.
+                #
+                # The count is ``affected`` — the games in this opening that actually
+                # went over the bar — not ``len(games)``, the games played in it.
+                # Those differ whenever some of them were fine, and the card paired
+                # this sentence with a badge built from ``affected_games_count``.
                 pattern_description=(
                     f"Your openings keep going wrong in the {opening_name}"
                     f"{f' ({eco})' if eco else ''}: you lose ground early in "
-                    f"{len(games)} of these games."
+                    f"{affected} of these games."
                 ),
                 example_positions=example_positions,
                 occurrences=occurrences,

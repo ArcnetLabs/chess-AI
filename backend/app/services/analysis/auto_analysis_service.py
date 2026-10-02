@@ -91,7 +91,10 @@ def queue_new_games_for_analysis(
     no_move_ids: List[int] = []
     for game_id, pgn, white_username in eligible_rows:
         user_color = user_color_from_usernames(white_username, user.chesscom_username)
-        if has_analyzable_moves(pgn, user_color):
+        # ``game_id`` only names the game in the preflight skip log; the reason it
+        # gives (no moves at all, or none of the player's) is logged per game there,
+        # which is the trace this loop used to leave only as a count.
+        if has_analyzable_moves(pgn, user_color, game_id=game_id):
             eligible_ids.append(game_id)
         else:
             no_move_ids.append(game_id)
