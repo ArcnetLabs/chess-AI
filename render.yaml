@@ -91,7 +91,21 @@ services:
     name: chess-insight-celery
     env: python
     region: oregon
-    plan: starter
+    # Analysis is CPU-bound and every game is its own task, so throughput scales
+    # with worker *processes*, not with threads inside one engine.
+    #
+    # It used to run `--pool=solo --concurrency=1` on Starter (0.5 CPU), which is
+    # the only thing that box can do — one game at a time, ~11s each, so 50 games
+    # took ~10 min and 200 took ~35. That serialism is why the analysis window was
+    # capped at MAX_GAMES_PER_ANALYSIS=50, not the engine itself.
+    #
+    # On Standard (1 CPU) two prefork children each get the 0.5 CPU a single
+    # Starter child had, so per-game time is unchanged while throughput doubles:
+    # 100 games drop from ~20 min to ~10. Pro (2 CPU) + CELERY_CONCURRENCY=4 gets
+    # ~4x. Keep CELERY_CONCURRENCY <= the plan's CPU count, and keep
+    # STOCKFISH_THREADS=1 whenever concurrency > 1 — threads inside one engine
+    # oversubscribe the same cores the sibling processes need.
+    plan: standard
     buildCommand: |
       cd backend
       bash scripts/render_install_stockfish.sh .
@@ -110,13 +124,25 @@ services:
     # Render did not retain the generated binary in one deploy. Re-running the
     # idempotent installer at startup guarantees the worker never starts without it.
     # `-B` embeds Celery beat: the worker also runs the scheduled sync + weekly
-    # digest entries (gated by CELERY_BEAT_ENABLED / WEEKLY_DIGEST_ENABLED).
-    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -B -Q analysis --pool=solo --concurrency=1
+    # digest entries (gated by CELERY_BEAT_ENABLED / WEEKLY_DIGEST_ENABLED). Beat
+    # stays in the parent process under prefork, so it still schedules exactly once.
+    # `--prefetch-multiplier=1` (also set in celery_app.py) keeps a child from
+    # reserving a batch of games it cannot start yet, which would leave the other
+    # children idle while the queue looks busy.
+    startCommand: cd backend && bash scripts/render_install_stockfish.sh . && python scripts/verify_celery_worker_env.py && exec celery -A app.celery_app:celery_app worker --loglevel=info -B -Q analysis --pool=prefork --concurrency=${CELERY_CONCURRENCY:-2} --prefetch-multiplier=1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: ENVIRONMENT
         value: production
+      # How many games are analysed at once. Must not exceed the worker's CPU
+      # count; see the plan note above for the arithmetic.
+      - key: CELERY_CONCURRENCY
+        value: "2"
+      # One thread per engine while games run in parallel: the parallelism lives in
+      # the process pool, so threads would only fight each other for the same cores.
+      - key: STOCKFISH_THREADS
+        value: "1"
       - key: CELERY_BEAT_ENABLED
         value: "true"
       - key: WEEKLY_DIGEST_ENABLED
